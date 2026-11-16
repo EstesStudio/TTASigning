@@ -11,6 +11,7 @@
   <strong>This copy also runs on Cloudflare</strong>, in a container, with documents in R2 and email through Cloudflare.<br><br>
   <a href="https://deploy.workers.cloudflare.com/?url=https://github.com/drake/signudoc-cloudflare"><img src="https://deploy.workers.cloudflare.com/button" alt="Deploy to Cloudflare" height="32"></a><br>
   <sub>or <a href="docs/deploy-to-cloudflare-with-an-agent.md">copy this to your LLM</a> · <a href="cloudflare/README.md">what you need and how it works</a></sub><br>
+  <sub>Cloudflare version by <a href="https://github.com/drake">Jonathan Drake (@drake)</a>, an independent fork of <a href="https://github.com/NYLLON-SOFTWARE/SignuDoc">SignuDoc</a> that is not run by its authors. <a href="https://github.com/drake/signudoc-cloudflare/issues">Report a problem with it here</a>.</sub><br>
   <sub>The button below is the original's, for Vercel.</sub>
 </p>
 

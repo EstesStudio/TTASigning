@@ -2,6 +2,8 @@
 
 This folder runs [SignuDoc](https://github.com/NYLLON-SOFTWARE/SignuDoc) on Cloudflare instead of Vercel. The app is the same Next.js server in a [Cloudflare Container](https://developers.cloudflare.com/containers/). Documents are kept in an [R2](https://developers.cloudflare.com/r2/) bucket, and email goes out through [Cloudflare Email Service](https://developers.cloudflare.com/email-service/). The database is Postgres, from any provider.
 
+The Cloudflare version is by [Jonathan Drake (@drake)](https://github.com/drake). It is an independent fork under the same MIT license, and SignuDoc's authors do not run it. Report problems with it in [this repository's issues](https://github.com/drake/signudoc-cloudflare/issues), not theirs.
+
 | Part           | On Vercel       | Here                                               |
 | -------------- | --------------- | -------------------------------------------------- |
 | The app        | Vercel Function | A container, started by the Worker in `worker.mjs` |
