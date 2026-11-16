@@ -36,16 +36,26 @@ jobs:
       github.event.workflow_run.event == 'push')
     runs-on: ubuntu-latest
     timeout-minutes: 30
+    env:
+      HAS_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN != '' }}
     steps:
-      - uses: actions/checkout@v6
+      # A copy that deploys another way, such as one made with the Deploy to
+      # Cloudflare button (Cloudflare builds those itself), has no token
+      # here. The run then passes without doing anything.
+      - if: env.HAS_TOKEN != 'true'
+        run: echo "::notice::CLOUDFLARE_API_TOKEN is not set, so nothing was deployed from GitHub."
+      - if: env.HAS_TOKEN == 'true'
+        uses: actions/checkout@v6
         with:
           ref: ${{ github.event.workflow_run.head_sha || github.sha }}
-      - uses: actions/setup-node@v6
+      - if: env.HAS_TOKEN == 'true'
+        uses: actions/setup-node@v6
         with:
           node-version-file: .nvmrc
       # The runner's own Docker builds the image. Wrangler pushes it to
       # Cloudflare's registry and rolls the container over to it.
-      - run: npx --yes wrangler@4 deploy
+      - if: env.HAS_TOKEN == 'true'
+        run: npx --yes wrangler@4 deploy
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}

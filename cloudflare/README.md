@@ -38,7 +38,7 @@ The database tables are created, and later updated, each time the container star
 
 ### Deploying from GitHub
 
-`.github/workflows/deploy-cloudflare.yml` deploys every push to `main` that passes CI. It needs two secrets on the GitHub repository: `CLOUDFLARE_API_TOKEN`, a token that may edit Workers and Containers, and `CLOUDFLARE_ACCOUNT_ID`. Until they are set, the workflow fails and nothing is deployed.
+`.github/workflows/deploy-cloudflare.yml` deploys every push to `main` that passes CI. It needs two secrets on the GitHub repository: `CLOUDFLARE_API_TOKEN`, a token that may edit Workers and Containers, and `CLOUDFLARE_ACCOUNT_ID`. Until the token is set, the workflow passes without deploying anything.
 
 ### Settings
 
