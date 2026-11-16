@@ -211,6 +211,27 @@ test("EMAIL_DRIVER=cloudflare selects this driver and names what is missing", ()
   );
 });
 
+test("CLOUDFLARE_EMAIL_API_URL replaces the address messages are posted to", async () => {
+  const urls: string[] = [];
+  const service = createCloudflareEmailService({
+    env: {
+      ...env,
+      CLOUDFLARE_EMAIL_API_URL: "http://email.signudoc.internal/send",
+    },
+    fetch: (async (input: RequestInfo | URL) => {
+      urls.push(String(input));
+
+      return delivered(message.to);
+    }) as typeof fetch,
+    resolveAddresses: async () => addresses,
+    wait: async () => undefined,
+  });
+
+  await service.send(message);
+
+  assert.deepEqual(urls, ["http://email.signudoc.internal/send"]);
+});
+
 function settingsWith(overrides: Partial<ResolvedSettings>): ResolvedSettings {
   return {
     emailReadyAt: null,

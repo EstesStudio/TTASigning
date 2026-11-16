@@ -27,6 +27,10 @@ import { ServiceConfigurationError } from "./service-config.ts";
 // - There is no batch call, so a batch is sent one message at a time.
 // - There is no idempotency key, so the one passed in is not used. A send
 //   that is tried again after a lost answer can arrive twice.
+//
+// CLOUDFLARE_EMAIL_API_URL replaces the address messages are posted to. An
+// install that runs on Cloudflare itself sets it, to send through its
+// Worker's email binding instead of the public API (cloudflare/worker.mjs).
 
 const API_BASE_URL = "https://api.cloudflare.com/client/v4";
 const REQUIRED_VARIABLES = [
@@ -118,9 +122,11 @@ export function createCloudflareEmailService({
     throw new ServiceConfigurationError("email", missing);
   }
 
-  const url = `${API_BASE_URL}/accounts/${encodeURIComponent(
-    env.CLOUDFLARE_ACCOUNT_ID!.trim(),
-  )}/email/sending/send`;
+  const url =
+    env.CLOUDFLARE_EMAIL_API_URL?.trim() ||
+    `${API_BASE_URL}/accounts/${encodeURIComponent(
+      env.CLOUDFLARE_ACCOUNT_ID!.trim(),
+    )}/email/sending/send`;
   const token = env.CLOUDFLARE_EMAIL_API_TOKEN!.trim();
 
   async function sendOne(

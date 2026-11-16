@@ -4,6 +4,9 @@
   "main": "worker.mjs",
   "compatibility_date": "2026-11-01",
   "observability": { "enabled": true },
+  // Served at <name>.<your subdomain>.workers.dev until a domain is added.
+  "workers_dev": true,
+  "preview_urls": false,
 
   // The app, built from the repository into a container image.
   "containers": [
@@ -25,15 +28,18 @@
     "SignuDocApp": { "type": "durable-object", "storage": "sqlite" },
   },
 
+  // Where documents are kept. Private: nothing in it has a public address.
+  "r2_buckets": [
+    { "binding": "DOCUMENTS", "bucket_name": "signudoc-documents" },
+  ],
+
+  // Outgoing email, through Cloudflare Email Service.
+  "send_email": [{ "name": "EMAIL" }],
+
   // The daily cleanup, at the hour vercel.json uses (09:00 UTC).
   "triggers": { "crons": ["0 9 * * *"] },
 
-  // Settings that are not secret. Everything here, and every secret set
-  // with `wrangler secret put`, reaches the app as an environment variable.
-  // The secrets an install needs are listed in README.md in this folder.
-  "vars": {
-    "STORAGE_DRIVER": "s3",
-    "EMAIL_DRIVER": "cloudflare",
-    "S3_BUCKET": "signudoc-documents",
-  },
+  // The one thing an install has to bring is a Postgres database, as the
+  // DATABASE_URL secret. Every other variable or secret set on this Worker
+  // also reaches the app as an environment variable. See README.md here.
 }
