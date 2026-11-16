@@ -719,6 +719,19 @@ function describeEmailStatus(status: EmailStatus): {
         ready: false,
         title: "Finish the domain in Resend",
       };
+    case "cloudflare":
+      return {
+        lines: [
+          status.senderAddress
+            ? `Emails are sent from ${status.senderAddress} through Cloudflare Email Service. Send yourself a test email. If it arrives, email is working.`
+            : 'This site sends through Cloudflare Email Service, which needs an address of your own. Enter one in "Send email from" above and save.',
+          "The address must be at a domain that has Email Sending turned on in your Cloudflare account.",
+        ],
+        ready: false,
+        title: status.senderAddress
+          ? "Send a test email to finish"
+          : "Email needs a sender address",
+      };
     case "ready":
       return {
         lines: [

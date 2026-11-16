@@ -6,6 +6,7 @@ import {
   getAddressDomain,
   isResendTestSender,
 } from "./services/email-addresses.ts";
+import { describeCloudflareEmail } from "./services/email-cloudflare.ts";
 import { resolveEmailDriver } from "./services/email.ts";
 import {
   getSettings,
@@ -63,6 +64,11 @@ export type EmailStatus =
       senderAddress: string;
     }
   | { state: "ready"; domain: string; senderAddress: string }
+  /**
+   * Sending through Cloudflare Email Service, and no test email has got
+   * through yet. No sender address means none is set.
+   */
+  | { state: "cloudflare"; senderAddress: string | null }
   | { state: "error"; message: string; senderAddress: string };
 
 /** The parts of the Resend SDK used here. Replaced by a fake in tests. */
@@ -384,6 +390,15 @@ async function inspectEmail({
       domainId: null,
       markReady: noop,
       status: { state: "capture" },
+    };
+  }
+
+  if (!domainsClient && resolveEmailDriver(env) === "cloudflare") {
+    return {
+      client: null,
+      domainId: null,
+      markReady: noop,
+      status: describeCloudflareEmail(settings ?? (await getSettings(env))),
     };
   }
 

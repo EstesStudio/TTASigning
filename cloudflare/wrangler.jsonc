@@ -33,6 +33,7 @@
   // The secrets an install needs are listed in README.md in this folder.
   "vars": {
     "STORAGE_DRIVER": "s3",
+    "EMAIL_DRIVER": "cloudflare",
     "S3_BUCKET": "signudoc-documents",
   },
 }
