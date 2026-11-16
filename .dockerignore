@@ -1,0 +1,12 @@
+.git
+.github
+.next
+.data
+node_modules
+cloudflare
+docs
+e2e
+test-results
+playwright-report
+.env
+.env.*

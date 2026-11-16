@@ -1,0 +1,38 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "signudoc",
+  "main": "worker.mjs",
+  "compatibility_date": "2026-11-01",
+  "observability": { "enabled": true },
+
+  // The app, built from the repository into a container image.
+  "containers": [
+    {
+      "class_name": "SignuDocApp",
+      "scheduling_policy": "durable_object",
+      "images": {
+        "app": {
+          "dockerfile": "./Dockerfile",
+          "build_context": "..",
+        },
+      },
+    },
+  ],
+  "durable_objects": {
+    "bindings": [{ "name": "APP", "class_name": "SignuDocApp" }],
+  },
+  "exports": {
+    "SignuDocApp": { "type": "durable-object", "storage": "sqlite" },
+  },
+
+  // The daily cleanup, at the hour vercel.json uses (09:00 UTC).
+  "triggers": { "crons": ["0 9 * * *"] },
+
+  // Settings that are not secret. Everything here, and every secret set
+  // with `wrangler secret put`, reaches the app as an environment variable.
+  // The secrets an install needs are listed in README.md in this folder.
+  "vars": {
+    "STORAGE_DRIVER": "s3",
+    "S3_BUCKET": "signudoc-documents",
+  },
+}
