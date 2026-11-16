@@ -46,6 +46,15 @@ Every variable and secret on the Worker reaches the app as an environment variab
 | `SETUP_TOKEN`          | A secret the first-run setup page asks for.                                                                                              |
 | `RETENTION_JOB_SECRET` | Closes the daily cleanup route to everyone but the Worker.                                                                               |
 
+### A domain of your own
+
+The site starts at its `workers.dev` address. To move it to a domain on your Cloudflare account:
+
+1. Run `npx wrangler secret put APP_URL` and enter the new address, such as `https://sign.example.com`.
+2. Deploy with `npx wrangler deploy --domain sign.example.com`.
+
+The app restarts by itself to take the new address, within about a minute of the deployment. Sign in again at the new address afterwards. Links in emails sent before the move still point to the old address.
+
 ## What is different from SignuDoc itself
 
 Nearly everything for Cloudflare is in new files: this folder, `.dockerignore`, `.github/workflows/deploy-cloudflare.yml`, the storage driver in `src/lib/services/storage/s3.ts` and the email driver in `src/lib/services/email-cloudflare.ts`, each with its test.

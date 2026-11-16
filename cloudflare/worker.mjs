@@ -171,9 +171,23 @@ export class EmailGateway extends WorkerEntrypoint {
   }
 }
 
+/** A short stand-in for a set of settings, safe to keep: it reveals none. */
+async function fingerprintOf(settings) {
+  const digest = await crypto.subtle.digest(
+    "SHA-256",
+    new TextEncoder().encode(JSON.stringify(Object.entries(settings).sort())),
+  );
+
+  return Array.from(new Uint8Array(digest), (byte) =>
+    byte.toString(16).padStart(2, "0"),
+  ).join("");
+}
+
 export class SignuDocApp extends DurableObject {
   starting;
   monitoring;
+  /** The settings the running container was last seen answering with. */
+  ready;
 
   constructor(ctx, env) {
     super(ctx, env);
@@ -240,8 +254,56 @@ export class SignuDocApp extends DurableObject {
     return secret;
   }
 
+  /** The environment the app is started with. */
+  async containerEnv() {
+    return {
+      // The address the site was first opened at. Set APP_URL on the
+      // Worker to use another, such as a domain of your own.
+      APP_URL: (await this.ctx.storage.get("appUrl")) ?? "",
+      BETTER_AUTH_SECRET: await this.authSecret(),
+      // Documents and email through the gateways above. The keys are
+      // placeholders: the gateways are only reachable from inside the
+      // container, and do not check them.
+      CLOUDFLARE_ACCOUNT_ID: "internal",
+      CLOUDFLARE_EMAIL_API_TOKEN: "internal",
+      CLOUDFLARE_EMAIL_API_URL: `http://${EMAIL_HOST}/send`,
+      EMAIL_DRIVER: "cloudflare",
+      S3_ACCESS_KEY_ID: "internal",
+      S3_BUCKET: BUCKET_PLACEHOLDER,
+      S3_ENDPOINT: `http://${STORAGE_HOST}`,
+      S3_SECRET_ACCESS_KEY: "internal",
+      STORAGE_DRIVER: "s3",
+      // Every setting and secret of this Worker, which win over the
+      // defaults above. A setting SignuDoc adds later works without a
+      // change here.
+      ...Object.fromEntries(
+        Object.entries(this.env).filter(
+          ([, value]) => typeof value === "string",
+        ),
+      ),
+    };
+  }
+
   async startAndWaitForPort() {
     const container = this.ctx.container;
+    const env = await this.containerEnv();
+    const fingerprint = await fingerprintOf(env);
+
+    // Already checked, with these settings, since this object woke up.
+    if (container.running && this.ready === fingerprint) {
+      return;
+    }
+
+    // A container keeps the settings it was started with. When one has
+    // changed since, such as APP_URL after a move to a new domain, the
+    // container is stopped here and started again below.
+    if (
+      container.running &&
+      (await this.ctx.storage.get("startedWith")) !== fingerprint
+    ) {
+      console.log("A setting changed. Restarting the SignuDoc container.");
+      await container.destroy("A setting changed.");
+    }
 
     if (!container.running) {
       // Intercepts last until the container stops, so they are set at
@@ -255,38 +317,15 @@ export class SignuDocApp extends DurableObject {
         this.ctx.exports.EmailGateway,
       );
 
+      console.log(`Starting the SignuDoc container for ${env.APP_URL}.`);
       container.start({
         // The database is reached over the Internet.
         enableInternet: true,
-        env: {
-          // The address the site was first opened at. Set APP_URL on the
-          // Worker to use another, such as a domain of your own.
-          APP_URL: (await this.ctx.storage.get("appUrl")) ?? "",
-          BETTER_AUTH_SECRET: await this.authSecret(),
-          // Documents and email through the gateways above. The keys are
-          // placeholders: the gateways are only reachable from inside the
-          // container, and do not check them.
-          CLOUDFLARE_ACCOUNT_ID: "internal",
-          CLOUDFLARE_EMAIL_API_TOKEN: "internal",
-          CLOUDFLARE_EMAIL_API_URL: `http://${EMAIL_HOST}/send`,
-          EMAIL_DRIVER: "cloudflare",
-          S3_ACCESS_KEY_ID: "internal",
-          S3_BUCKET: BUCKET_PLACEHOLDER,
-          S3_ENDPOINT: `http://${STORAGE_HOST}`,
-          S3_SECRET_ACCESS_KEY: "internal",
-          STORAGE_DRIVER: "s3",
-          // Every setting and secret of this Worker, which win over the
-          // defaults above. A setting SignuDoc adds later works without a
-          // change here.
-          ...Object.fromEntries(
-            Object.entries(this.env).filter(
-              ([, value]) => typeof value === "string",
-            ),
-          ),
-        },
+        env,
         image: container.images.app,
         instance: "basic",
       });
+      await this.ctx.storage.put("startedWith", fingerprint);
     }
 
     this.observeExit();
@@ -304,6 +343,7 @@ export class SignuDocApp extends DurableObject {
 
         // Any answer at all means the server is up.
         await response.body?.cancel();
+        this.ready = fingerprint;
 
         return;
       } catch {
