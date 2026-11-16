@@ -1,7 +1,10 @@
+// Runs SignuDoc on Cloudflare. See cloudflare/README.md.
+//
+// This file is at the top of the repository because the "Deploy to
+// Cloudflare" button, and Cloudflare's own builds, look for it here.
 {
-  "$schema": "node_modules/wrangler/config-schema.json",
   "name": "signudoc",
-  "main": "worker.mjs",
+  "main": "cloudflare/worker.mjs",
   "compatibility_date": "2026-11-01",
   "observability": { "enabled": true },
   // Served at <name>.<your subdomain>.workers.dev until a domain is added.
@@ -15,8 +18,8 @@
       "scheduling_policy": "durable_object",
       "images": {
         "app": {
-          "dockerfile": "./Dockerfile",
-          "build_context": "..",
+          "dockerfile": "./cloudflare/Dockerfile",
+          "build_context": ".",
         },
       },
     },
@@ -41,5 +44,5 @@
 
   // The one thing an install has to bring is a Postgres database, as the
   // DATABASE_URL secret. Every other variable or secret set on this Worker
-  // also reaches the app as an environment variable. See README.md here.
+  // also reaches the app as an environment variable.
 }

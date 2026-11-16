@@ -24,9 +24,13 @@ No API tokens or access keys are needed. The app asks the Worker for its documen
 
 ## Set it up
 
+The quickest way is the **Deploy to Cloudflare** button in the [README](../README.md). It copies this repository into your GitHub account, creates the Worker, the container and the bucket on your Cloudflare account, and asks for one value, the database connection string from step 1 below. Leave its build command empty. Then carry on from step 4. [Deploying to Cloudflare with an agent](../docs/deploy-to-cloudflare-with-an-agent.md) walks through every screen.
+
+To do it by hand instead:
+
 1. **Create the database.** In Neon, create a project and copy its connection string with connection pooling turned off.
-2. **Store it.** From this folder, run `npx wrangler secret put DATABASE_URL` and paste the connection string.
-3. **Deploy.** Run `npx wrangler r2 bucket create signudoc-documents` once, to make the bucket. Then start Docker (or [Colima](https://github.com/abiosoft/colima)) and run `npx wrangler deploy` here. The first deployment takes a few minutes.
+2. **Store it.** From the top of the repository, run `npx wrangler secret put DATABASE_URL` and paste the connection string.
+3. **Deploy.** Run `npx wrangler r2 bucket create signudoc-documents` once, to make the bucket. Then start Docker (or [Colima](https://github.com/abiosoft/colima)) and run `npx wrangler deploy`. The first deployment takes a few minutes.
 4. **Open the site** at the `workers.dev` address the deployment prints. It takes you to `/setup`, as in [Self-hosting](../docs/self-hosting.md#set-the-site-up). Do this straight away: a new install belongs to whoever sets it up first.
 5. **Turn on email.** Run `npx wrangler email sending enable <your domain>`, or turn on Email Sending for the domain in the Cloudflare dashboard. Then, under Settings, Organization, enter an address at that domain in "Send email from", save, and send yourself a test email there. When it arrives, the page shows email as working.
 
@@ -57,9 +61,9 @@ The app restarts by itself to take the new address, within about a minute of the
 
 ## What is different from SignuDoc itself
 
-Nearly everything for Cloudflare is in new files: this folder, `.dockerignore`, `.github/workflows/deploy-cloudflare.yml`, the storage driver in `src/lib/services/storage/s3.ts` and the email driver in `src/lib/services/email-cloudflare.ts`, each with its test.
+Nearly everything for Cloudflare is in new files: this folder, `wrangler.jsonc` and `.dev.vars.example` at the top of the repository, `.dockerignore`, `.github/workflows/deploy-cloudflare.yml`, the storage driver in `src/lib/services/storage/s3.ts` and the email driver in `src/lib/services/email-cloudflare.ts`, each with its test.
 
-Five of SignuDoc's own files have a few added lines, so that the two drivers can be chosen and Settings can describe Cloudflare email:
+Seven of SignuDoc's own files have a few added lines. `README.md` has the Cloudflare button, and `.gitignore` has two entries for Wrangler. The other five have theirs so that the two drivers can be chosen and Settings can describe Cloudflare email:
 
 - `src/lib/services/storage.ts` and `src/lib/services/storage/driver.ts`, for `STORAGE_DRIVER=s3`
 - `src/lib/services/email.ts`, `src/lib/email-status.ts` and `src/components/settings/organization-settings.tsx`, for `EMAIL_DRIVER=cloudflare`
@@ -81,4 +85,4 @@ Both drivers also work away from Cloudflare. `STORAGE_DRIVER=s3` takes any S3-co
 
 SignuDoc's own update workflow, `.github/workflows/update-signudoc.yml`, works here as it does on any copy: every Monday it merges the latest release into a branch and opens a pull request. Merging it runs CI, and a pass deploys it. Where the pull request says "Vercel builds a preview", there is no preview here: CI is the check.
 
-An update stops and asks for help only when a release changes the same lines this copy changed, which are the few in the five files above.
+An update stops and asks for help only when a release changes the same lines this copy changed, which are the few in the seven files above.

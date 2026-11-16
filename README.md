@@ -8,6 +8,13 @@
 </p>
 
 <p align="center">
+  <strong>This copy also runs on Cloudflare</strong>, in a container, with documents in R2 and email through Cloudflare.<br><br>
+  <a href="https://deploy.workers.cloudflare.com/?url=https://github.com/drake/signudoc-cloudflare"><img src="https://deploy.workers.cloudflare.com/button" alt="Deploy to Cloudflare" height="32"></a><br>
+  <sub>or <a href="docs/deploy-to-cloudflare-with-an-agent.md">copy this to your LLM</a> · <a href="cloudflare/README.md">what you need and how it works</a></sub><br>
+  <sub>The button below is the original's, for Vercel.</sub>
+</p>
+
+<p align="center">
   <a href="https://vercel.com/new/clone?repository-url=https%3A%2F%2Fgithub.com%2FNYLLON-SOFTWARE%2FSignuDoc&project-name=signudoc&repository-name=signudoc&stores=%5B%7B%22type%22%3A%22integration%22%2C%22integrationSlug%22%3A%22resend%22%2C%22productSlug%22%3A%22resend-email%22%2C%22protocol%22%3A%22messaging%22%7D%2C%7B%22type%22%3A%22integration%22%2C%22integrationSlug%22%3A%22neon%22%2C%22productSlug%22%3A%22neon%22%2C%22protocol%22%3A%22storage%22%7D%2C%7B%22type%22%3A%22blob%22%2C%22access%22%3A%22private%22%7D%5D&demo-title=SignuDoc&demo-description=Your%20own%20e-signature%20site.%20Upload%20a%20PDF%2C%20place%20fields%2C%20send%20signing%20links%2C%20and%20keep%20the%20signed%20copy%20with%20its%20audit%20certificate.&demo-url=https%3A%2F%2Fgithub.com%2FNYLLON-SOFTWARE%2FSignuDoc&demo-image=https%3A%2F%2Fraw.githubusercontent.com%2FNYLLON-SOFTWARE%2FSignuDoc%2Fmain%2Fdocs%2Fimages%2Fbanner.png"><img src="docs/images/deploy-to-vercel.svg" alt="Deploy to Vercel" height="32"></a><br>
   <sub>or <a href="docs/deploy-with-an-agent.md">copy this to your LLM</a></sub>
 </p>

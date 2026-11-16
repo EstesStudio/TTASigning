@@ -1,0 +1,4 @@
+# The one secret an install on Cloudflare needs: the connection string of a
+# Postgres database, with connection pooling turned off. The "Deploy to
+# Cloudflare" button asks for it. See cloudflare/README.md.
+DATABASE_URL=

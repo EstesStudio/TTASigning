@@ -16,4 +16,6 @@ EXPOSE 8080
 
 # Apply any new database migrations, then serve. The migration takes a lock
 # in the database, so two containers starting together do not collide.
-CMD ["sh", "-c", "node db/migrate.mjs && exec node_modules/.bin/next start -H 0.0.0.0 -p 8080"]
+# "--optional" lets the app start before a database is connected: it then
+# shows a page that says so, as it does on Vercel.
+CMD ["sh", "-c", "node db/migrate.mjs --optional && exec node_modules/.bin/next start -H 0.0.0.0 -p 8080"]
