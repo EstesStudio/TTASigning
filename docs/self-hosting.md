@@ -139,6 +139,7 @@ A deployment made with the button needs no environment variables. These are ther
 | `RESEND_REGION`                                     | Where Resend sends from when the app adds your domain, for example `eu-west-1`. See [Running in the EU](#running-in-the-eu).                                                                           |
 | `SEAL_P12_BASE64`, `SEAL_P12_PASSWORD`              | Seal finished PDFs with a certificate from a certificate authority instead of the install's own. See [Signed PDFs and the seal](#signed-pdfs-and-the-seal).                                            |
 | `SEAL_TIMESTAMP_URL`                                | An RFC 3161 timestamp server that adds a trusted time to each seal, and long-term validation. See [Long-term validation](#long-term-validation).                                                       |
+| `TURBODOCX_API_KEY`, `TURBODOCX_ORG_ID`             | Send simple-signature envelopes through TurboSign, so the signed PDF carries a certificate PDF readers trust. See [A seal readers trust, through TurboSign](#a-seal-readers-trust-through-turbosign).  |
 | `EIDEASY_CLIENT_ID`, `EIDEASY_SECRET`               | Let senders ask for advanced or qualified signatures in the signers' own names, through eID Easy. See [Signatures in the signers' own names](#signatures-in-the-signers-own-names-eidas-ades-and-qes). |
 | `CSC_API_URL`, `CSC_CLIENT_ID`, `CSC_CLIENT_SECRET` | The same through a trust service provider's remote signing service (CSC API v2). See [Signatures in the signers' own names](#signatures-in-the-signers-own-names-eidas-ades-and-qes).                  |
 | `BACKUP_BLOB_READ_WRITE_TOKEN`, `BACKUP_KEEP_DAYS`  | A daily backup of the database and files to a second Blob store. See [Backup and restore](backup-and-restore.md).                                                                                      |
@@ -240,6 +241,16 @@ A seal is easy to check while its certificates are valid and their certificate a
 Each step only adds to the file, so the seal from step 1 stays intact. With a certificate from a certificate authority but no timestamp server, step 2 still runs, which lets readers check the certificate later, but the seal stays at B-B: a PAdES level above that needs a trusted time. A self-signed seal without a timestamp server is left as it is, since there is no one to ask about it.
 
 The lookups go to the timestamp server and the certificate authorities, outside Vercel. All of a document's lookups, the archive timestamp included, share 15 seconds (the seal's own timestamp has up to 10 seconds before that), and only answers that are current and signed by the certificate authority, or by a responder it authorized, are kept. If one fails the document keeps the seal it has and the function log says what was missing, so signing never waits on them for long. An archive timestamp keeps the evidence checkable until the timestamp server's own certificate expires, usually years later. Adding a new archive timestamp before then is not automatic yet.
+
+### A seal readers trust, through TurboSign
+
+A certificate on a PDF reader's trust list, such as the Adobe Approved Trust List (AATL), has to keep its private key on hardware (FIPS 140-2 Level 2 or higher) and cannot be exported to a file, so `SEAL_P12_BASE64` cannot hold one. As an opt-in alternative, set `TURBODOCX_API_KEY` and `TURBODOCX_ORG_ID` (from a TurboDocx account) and simple-signature envelopes are sent through [TurboSign](https://www.turbodocx.com/products/turbosign): the signed PDF is sealed with an AATL certificate held in an HSM, plus an RFC 3161 timestamp and long-term validation, so readers show it as valid.
+
+- Signers get TurboSign's signing link and emails instead of SignuDoc's, and the document goes to TurboSign to be signed, so it leaves your accounts for that step.
+- The sender's deadline and reminder interval go with the send. The envelope page has **Send reminder** and **Download signed PDF**.
+- The first send sets up a TurboSign webhook at `APP_URL` (it needs `https` and an Administrator API key). When everyone has signed, the signed PDF is kept with the envelope and it is marked completed; a document voided in TurboSign is voided here. A webhook the install did not create is never changed; for one set up by hand, set `TURBODOCX_WEBHOOK_SECRET`.
+- TurboDocx's free plan covers 5 documents a month. After that, or for envelopes with dropdown or radio fields, or with Part 11 mode or advanced signatures, SignuDoc sends the envelope itself as before.
+- With the two variables unset, nothing changes.
 
 ### An advanced electronic seal (eIDAS)
 
