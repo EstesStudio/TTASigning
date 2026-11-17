@@ -1,14 +1,5 @@
 # Security Policy
 
-## This is the Cloudflare version
-
-This repository is an independent fork that runs SignuDoc on Cloudflare. Where a report goes depends on where the problem is:
-
-- **In the Cloudflare parts**, report it privately through [this repository's Report a vulnerability form](https://github.com/drake/signudoc-cloudflare/security/advisories/new). The Cloudflare parts are the Worker and container setup in `cloudflare/` and `wrangler.jsonc`, the storage driver in `src/lib/services/storage/s3.ts` and the email driver in `src/lib/services/email-cloudflare.ts`.
-- **In the SignuDoc application itself**, report it to SignuDoc's maintainers as described below. A fix there reaches this fork with the next release.
-
-If you are not sure which it is, use this repository's form.
-
 ## Reporting a vulnerability
 
 If you find a security vulnerability in SignuDoc, please report it privately. **Do not put the details in a public GitHub issue, discussion or pull request.**

@@ -2,7 +2,7 @@
 
 This folder runs [SignuDoc](https://github.com/NYLLON-SOFTWARE/SignuDoc) on Cloudflare instead of Vercel. The app is the same Next.js server in a [Cloudflare Container](https://developers.cloudflare.com/containers/). Documents are kept in an [R2](https://developers.cloudflare.com/r2/) bucket, and email goes out through [Cloudflare Email Service](https://developers.cloudflare.com/email-service/). The database is Postgres, from any provider.
 
-The Cloudflare version is by [Jonathan Drake (@drake)](https://github.com/drake). It is an independent fork under the same MIT license, and SignuDoc's authors do not run it. Report problems with it in [this repository's issues](https://github.com/drake/signudoc-cloudflare/issues), not theirs.
+Cloudflare support was contributed by [Jonathan Drake (@drake)](https://github.com/drake).
 
 | Part           | On Vercel       | Here                                               |
 | -------------- | --------------- | -------------------------------------------------- |
@@ -61,16 +61,14 @@ The site starts at its `workers.dev` address. To move it to a domain on your Clo
 
 The app restarts by itself to take the new address, within about a minute of the deployment. Sign in again at the new address afterwards. Links in emails sent before the move still point to the old address.
 
-## What is different from SignuDoc itself
+## Which files are for Cloudflare
 
 Nearly everything for Cloudflare is in new files: this folder, `wrangler.jsonc` and `.dev.vars.example` at the top of the repository, `.dockerignore`, `.github/workflows/deploy-cloudflare.yml`, the storage driver in `src/lib/services/storage/s3.ts` and the email driver in `src/lib/services/email-cloudflare.ts`, each with its test.
 
-Eight of SignuDoc's own files have a few added lines. `README.md` has the Cloudflare button, `SECURITY.md` says where to report a problem in the Cloudflare parts, and `.gitignore` has two entries for Wrangler. The other five have theirs so that the two drivers can be chosen and Settings can describe Cloudflare email:
+Seven other files have a few lines for it. `README.md` has the Cloudflare button, and `.gitignore` has two entries for Wrangler. The other five have theirs so that the two drivers can be chosen and Settings can describe Cloudflare email:
 
 - `src/lib/services/storage.ts` and `src/lib/services/storage/driver.ts`, for `STORAGE_DRIVER=s3`
 - `src/lib/services/email.ts`, `src/lib/email-status.ts` and `src/components/settings/organization-settings.tsx`, for `EMAIL_DRIVER=cloudflare`
-
-Nothing else is changed, which is what lets most new SignuDoc releases merge in cleanly.
 
 Both drivers also work away from Cloudflare. `STORAGE_DRIVER=s3` takes any S3-compatible store through `S3_ENDPOINT`, `S3_BUCKET`, `S3_ACCESS_KEY_ID` and `S3_SECRET_ACCESS_KEY`. `EMAIL_DRIVER=cloudflare` sends through Cloudflare's REST API with `CLOUDFLARE_ACCOUNT_ID` and `CLOUDFLARE_EMAIL_API_TOKEN`.
 
@@ -86,5 +84,3 @@ Both drivers also work away from Cloudflare. `STORAGE_DRIVER=s3` takes any S3-co
 ## Updates
 
 SignuDoc's own update workflow, `.github/workflows/update-signudoc.yml`, works here as it does on any copy: every Monday it merges the latest release into a branch and opens a pull request. Merging it runs CI, and a pass deploys it. Where the pull request says "Vercel builds a preview", there is no preview here: CI is the check.
-
-An update stops and asks for help only when a release changes the same lines this copy changed, which are the few in the eight files above.
