@@ -8,6 +8,7 @@ import { getSettings } from "../settings.ts";
 import { type EmailTemplateKind } from "../types/domain.ts";
 import { getEnv, isLocalDeployment, type EnvSource } from "../utils/env.ts";
 import { buildEmailAddresses, type EmailAddresses } from "./email-addresses.ts";
+import { createCloudflareEmailService } from "./email-cloudflare.ts";
 import { assertServiceConfig } from "./service-config.ts";
 
 // The addresses mail is sent from and replied to are not needed here: they
@@ -18,7 +19,7 @@ const EMAIL_ENV_KEYS = ["RESEND_API_KEY"] as const;
 const DEFAULT_CAPTURE_DIR = ".data/outbox";
 const DEFAULT_CAPTURE_SENDER_ADDRESS = "dev@signudoc.localhost";
 
-export type EmailDriver = "capture" | "resend";
+export type EmailDriver = "capture" | "cloudflare" | "resend";
 
 export type EmailAttachment = {
   content: Uint8Array;
@@ -189,12 +190,16 @@ export function resolveEmailDriver(env: EnvSource = process.env): EmailDriver {
     return "resend";
   }
 
-  if (configuredDriver === "capture" || configuredDriver === "resend") {
+  if (
+    configuredDriver === "capture" ||
+    configuredDriver === "cloudflare" ||
+    configuredDriver === "resend"
+  ) {
     return configuredDriver;
   }
 
   throw new Error(
-    `Unknown EMAIL_DRIVER "${configuredDriver}". Use "resend" or "capture".`,
+    `Unknown EMAIL_DRIVER "${configuredDriver}". Use "resend", "cloudflare" or "capture".`,
   );
 }
 
@@ -304,6 +309,10 @@ export function createEmailService({
 }: CreateEmailServiceOptions = {}): EmailService {
   if (!resendClient && resolveEmailDriver(env) === "capture") {
     return createCaptureEmailService(env, resolveAddresses);
+  }
+
+  if (!resendClient && resolveEmailDriver(env) === "cloudflare") {
+    return createCloudflareEmailService({ env, resolveAddresses, wait });
   }
 
   if (!resendClient) {

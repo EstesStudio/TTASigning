@@ -1,0 +1,48 @@
+// Runs SignuDoc on Cloudflare. See cloudflare/README.md.
+//
+// This file is at the top of the repository because the "Deploy to
+// Cloudflare" button, and Cloudflare's own builds, look for it here.
+{
+  "name": "signudoc",
+  "main": "cloudflare/worker.mjs",
+  "compatibility_date": "2026-11-01",
+  "observability": { "enabled": true },
+  // Served at <name>.<your subdomain>.workers.dev until a domain is added.
+  "workers_dev": true,
+  "preview_urls": false,
+
+  // The app, built from the repository into a container image.
+  "containers": [
+    {
+      "class_name": "SignuDocApp",
+      "scheduling_policy": "durable_object",
+      "images": {
+        "app": {
+          "dockerfile": "./cloudflare/Dockerfile",
+          "build_context": ".",
+        },
+      },
+    },
+  ],
+  "durable_objects": {
+    "bindings": [{ "name": "APP", "class_name": "SignuDocApp" }],
+  },
+  "exports": {
+    "SignuDocApp": { "type": "durable-object", "storage": "sqlite" },
+  },
+
+  // Where documents are kept. Private: nothing in it has a public address.
+  "r2_buckets": [
+    { "binding": "DOCUMENTS", "bucket_name": "signudoc-documents" },
+  ],
+
+  // Outgoing email, through Cloudflare Email Service.
+  "send_email": [{ "name": "EMAIL" }],
+
+  // The daily cleanup, at the hour vercel.json uses (09:00 UTC).
+  "triggers": { "crons": ["0 9 * * *"] },
+
+  // The one thing an install has to bring is a Postgres database, as the
+  // DATABASE_URL secret. Every other variable or secret set on this Worker
+  // also reaches the app as an environment variable.
+}
