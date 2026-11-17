@@ -1,6 +1,7 @@
 "use client";
 
 import { StatusPanel } from "@/components/shared/status-panel";
+import { useEnvelopeMessages } from "@/lib/i18n/use-envelope-messages";
 
 export default function AppError({
   reset,
@@ -8,19 +9,21 @@ export default function AppError({
   error: Error & { digest?: string };
   reset: () => void;
 }) {
+  const messages = useEnvelopeMessages().pages;
+
   return (
     <StatusPanel
-      description="Something went wrong while loading this page. Please try again."
+      description={messages.appErrorDescription}
       footer={
         <button
           className="btn-quiet min-h-11 px-5"
           onClick={reset}
           type="button"
         >
-          Try again
+          {messages.tryAgain}
         </button>
       }
-      title="We couldn't load this page."
+      title={messages.appErrorTitle}
       tone="error"
     />
   );

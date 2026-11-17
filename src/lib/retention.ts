@@ -5,6 +5,9 @@ import {
   queryOne,
   withTransaction,
 } from "./db/connection.ts";
+import { readEmailLocale } from "./i18n/email-locale.ts";
+import { emailMessages } from "./i18n/email-messages.ts";
+import { intlLocale, type Locale } from "./i18n/locales.ts";
 import { findRecordKeeper } from "./people.ts";
 import {
   buildEnvelopeThumbnailKey,
@@ -784,8 +787,20 @@ async function listFinishedEnvelopesToHandle(
   );
 }
 
-function formatDay(timestamp: number): string {
-  return new Date(timestamp * 1000).toISOString().slice(0, 10);
+const FRENCH_DAY = new Intl.DateTimeFormat(intlLocale("fr"), {
+  day: "numeric",
+  month: "long",
+  timeZone: "UTC",
+  year: "numeric",
+});
+
+/** "2026-12-12" in English, "12 décembre 2026" in French. */
+function formatDay(timestamp: number, locale: Locale): string {
+  const date = new Date(timestamp * 1000);
+
+  return locale === "fr"
+    ? FRENCH_DAY.format(date)
+    : date.toISOString().slice(0, 10);
 }
 
 async function warnBeforeRetentionDeletion(
@@ -794,20 +809,24 @@ async function warnBeforeRetentionDeletion(
   now: number,
   database: DbExecutor,
   emailService: EmailService,
+  locale: Locale,
 ) {
+  const m = emailMessages(locale);
   const appUrl = resolveAppUrl();
   const link = appUrl ? `${appUrl}/envelopes/${envelope.id}` : null;
+  const day = formatDay(deleteOn, locale);
+  const title = m.quote(envelope.title);
 
   await emailService.send(
     {
-      subject: `"${envelope.title}" will be deleted on ${formatDay(deleteOn)}`,
+      subject: m.retention.subject({ day, title }),
       template: "retention_notice",
       textBody: [
-        `Hello ${envelope.ownerName},`,
+        m.hello(envelope.ownerName),
         "",
-        `Your organization keeps finished documents for a set time. "${envelope.title}" and its audit trail will be deleted on or after ${formatDay(deleteOn)}.`,
+        m.retention.notice({ day, title }),
         "",
-        "Download the signed PDF and the certificate now if you need to keep them.",
+        m.retention.downloadNow,
         ...(link ? ["", link] : []),
       ].join("\n"),
       to: envelope.ownerEmail,
@@ -849,6 +868,9 @@ async function applyRetentionPeriod(
     database,
   );
 
+  // Read once, and only when some sender is about to be warned.
+  let locale: Locale | undefined;
+
   for (const envelope of candidates) {
     const deleteOn = envelope.finishedAt + retentionDays * DAY_IN_SECONDS;
 
@@ -860,6 +882,7 @@ async function applyRetentionPeriod(
           now,
           database,
           emailService(),
+          (locale ??= await readEmailLocale(database)),
         );
         summary.finishedEnvelopeWarningsSent += 1;
         continue;

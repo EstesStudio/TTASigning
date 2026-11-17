@@ -2,6 +2,7 @@ import { DashboardShell } from "@/components/dashboard/dashboard-shell";
 import { getAuthSession } from "@/lib/auth/server";
 import { getDb } from "@/lib/db/connection";
 import { listEnvelopesForUser } from "@/lib/envelopes";
+import { installLocale } from "@/lib/i18n/server-locale";
 
 export default async function DashboardPage() {
   const session = await getAuthSession();
@@ -11,7 +12,12 @@ export default async function DashboardPage() {
 
   try {
     envelopes = session
-      ? await listEnvelopesForUser(session.user.id, {}, database)
+      ? await listEnvelopesForUser(
+          session.user.id,
+          {},
+          database,
+          await installLocale(),
+        )
       : [];
     initialState = envelopes.length === 0 ? "empty" : "default";
   } catch {

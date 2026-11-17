@@ -3,6 +3,7 @@ import { handleUploadPresigned } from "@vercel/blob/client";
 
 import { MAX_UPLOAD_SIZE_BYTES } from "../types/domain.ts";
 import { isPendingUploadKey } from "./storage-keys.ts";
+import { inEnglish, type UserMessage } from "../i18n/server-messages.ts";
 
 // Direct uploads: the browser sends a PDF straight to Vercel Blob instead of
 // through the app, because a request to a Vercel Function is capped at
@@ -22,8 +23,11 @@ const PENDING_UPLOAD_TTL_DAYS = 1;
 const GENERATE_URL_EVENT = "blob.generate-presigned-url";
 
 export class DirectUploadRequestError extends Error {
-  constructor(message: string) {
-    super(message);
+  readonly userMessage: UserMessage;
+
+  constructor(message: UserMessage) {
+    super(inEnglish(message));
+    this.userMessage = message;
     this.name = "DirectUploadRequestError";
   }
 }
@@ -59,7 +63,7 @@ function parseGenerateUrlEvent(body: unknown): GenerateUrlEvent {
     body === null ||
     (body as { type?: unknown }).type !== GENERATE_URL_EVENT
   ) {
-    throw new DirectUploadRequestError("Invalid upload request.");
+    throw new DirectUploadRequestError((m) => m.upload.invalidRequest);
   }
 
   const payload = (body as { payload?: unknown }).payload;
@@ -69,7 +73,7 @@ function parseGenerateUrlEvent(body: unknown): GenerateUrlEvent {
     payload === null ||
     typeof (payload as { pathname?: unknown }).pathname !== "string"
   ) {
-    throw new DirectUploadRequestError("Invalid upload request.");
+    throw new DirectUploadRequestError((m) => m.upload.invalidRequest);
   }
 
   return {
@@ -100,12 +104,12 @@ export async function authorizeDirectUpload({
     getSignedToken: async (pathname, _clientPayload, multipart) => {
       if (multipart) {
         throw new DirectUploadRequestError(
-          "Multipart uploads are not supported.",
+          (m) => m.upload.multipartUnsupported,
         );
       }
 
       if (!isPendingUploadKey(pathname, userId)) {
-        throw new DirectUploadRequestError("Invalid upload destination.");
+        throw new DirectUploadRequestError((m) => m.upload.invalidDestination);
       }
 
       const token = await issueToken({

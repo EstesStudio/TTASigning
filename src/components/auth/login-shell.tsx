@@ -12,10 +12,12 @@ import {
 } from "@/components/auth/sso-button";
 import { FieldShell, ShellButton } from "@/components/shared/form-shell";
 import { authClient } from "@/lib/auth/client";
+import { useAppMessages } from "@/lib/i18n/use-app-messages";
+import { useLocale } from "@/lib/i18n/use-locale";
 import {
   describePasswordRefusal,
+  isPasswordTooLongMessage,
   newPasswordLengthError,
-  PASSWORD_TOO_LONG_MESSAGE,
 } from "@/lib/password-messages";
 import { forgotPasswordSchema, loginSchema } from "@/lib/schemas/auth";
 import {
@@ -25,9 +27,6 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-
-const verificationRequiredMessage =
-  "Verify your email before logging in. Check your inbox for a fresh link.";
 
 type AuthErrorLike = {
   code?: string;
@@ -130,15 +129,17 @@ function LiveLoginShell({
 }: LoginShellProps) {
   const router = useRouter();
   const { signupAvailable } = useBranding();
+  const m = useAppMessages();
+  const locale = useLocale();
   const [values, setValues] = useState<LoginFormValues>(
     createLoginFormValues(),
   );
   const [errors, setErrors] = useState<LoginFormErrors>({});
   const [bannerMessage, setBannerMessage] = useState<string | null>(
     resetError === "INVALID_TOKEN"
-      ? "This reset link is invalid or has expired."
+      ? m.login.invalidResetLink
       : ssoError
-        ? describeSsoError(ssoError)
+        ? describeSsoError(ssoError, m)
         : null,
   );
   // With password sign-in off, the form is only shown on request, for the
@@ -222,11 +223,11 @@ function LiveLoginShell({
         const field = issue.path[0];
 
         if (field === "email") {
-          nextErrors.email = "Enter a valid email address";
+          nextErrors.email = m.common.enterValidEmail;
         }
 
         if (field === "password") {
-          nextErrors.password = "Enter your password";
+          nextErrors.password = m.login.enterPassword;
         }
       }
 
@@ -256,24 +257,21 @@ function LiveLoginShell({
         errorCode === "SIGN_IN_LOCKED" ||
         errorCode === "PASSWORD_SIGN_IN_OFF"
       ) {
-        setBannerMessage(
-          result.error.message ??
-            "Too many wrong passwords. Try again in 15 minutes.",
-        );
+        setBannerMessage(result.error.message ?? m.login.locked);
       } else if (normalizedErrorMessage.includes("email not verified")) {
-        setBannerMessage(verificationRequiredMessage);
+        setBannerMessage(m.login.verificationRequired);
         setShowResendVerification(true);
       } else if (
-        describePasswordRefusal(result.error) === PASSWORD_TOO_LONG_MESSAGE
+        isPasswordTooLongMessage(describePasswordRefusal(result.error, locale))
       ) {
         // No account has a password this long, so it cannot be right. Say
         // why instead of "Something went wrong" (issue #57).
-        setErrors({ password: PASSWORD_TOO_LONG_MESSAGE });
+        setErrors({ password: describePasswordRefusal(result.error, locale)! });
       } else {
         setBannerMessage(
           normalizedErrorMessage.includes("invalid email or password")
-            ? "Invalid email or password. Please try again."
-            : "Something went wrong. Please try again.",
+            ? m.login.invalidCredentials
+            : m.common.somethingWentWrong,
         );
       }
       setIsSubmitting(false);
@@ -313,7 +311,7 @@ function LiveLoginShell({
         ...currentForgotPassword,
         bannerMessage: null,
         errors: {
-          email: "Enter a valid email address",
+          email: m.common.enterValidEmail,
         },
         successMessage: null,
         values: trimmedValues,
@@ -337,14 +335,10 @@ function LiveLoginShell({
 
     setForgotPassword((currentForgotPassword) => ({
       ...currentForgotPassword,
-      bannerMessage: result.error
-        ? "We couldn't send the reset link. Please try again."
-        : null,
+      bannerMessage: result.error ? m.login.resetLinkFailed : null,
       errors: {},
       isSubmitting: false,
-      successMessage: result.error
-        ? null
-        : "Check your email for a reset link.",
+      successMessage: result.error ? null : m.login.resetLinkSent,
     }));
   }
 
@@ -370,13 +364,13 @@ function LiveLoginShell({
       });
 
       if (!response.ok) {
-        setBannerMessage("We couldn't resend the verification email.");
+        setBannerMessage(m.common.resendVerificationFailed);
         return;
       }
 
-      setBannerMessage("Verification email sent. Check your inbox.");
+      setBannerMessage(m.common.verificationSent);
     } catch {
-      setBannerMessage("We couldn't resend the verification email.");
+      setBannerMessage(m.common.resendVerificationFailed);
     } finally {
       setIsResendingVerification(false);
     }
@@ -407,9 +401,9 @@ function LiveLoginShell({
       <section className="panel w-full max-w-[460px] p-8 sm:p-10">
         <div className="space-y-7">
           <div className="space-y-2">
-            <p className="section-eyebrow">Log in</p>
+            <p className="section-eyebrow">{m.login.eyebrow}</p>
             <h1 className="text-[clamp(1.875rem,4.5vw,2.375rem)] font-extrabold leading-[1.08] tracking-[-0.035em] text-(--fg)">
-              Welcome back
+              {m.login.title}
             </h1>
           </div>
 
@@ -429,7 +423,7 @@ function LiveLoginShell({
 
           {sso && showPasswordForm ? (
             <p className="text-center text-xs font-semibold uppercase tracking-[0.12em] text-(--secondary)">
-              or
+              {m.common.or}
             </p>
           ) : null}
 
@@ -440,10 +434,10 @@ function LiveLoginShell({
                   autoComplete="email"
                   disabled={formLocked}
                   error={errors.email}
-                  label="Email"
+                  label={m.common.email}
                   name="login-email"
                   onChange={handleChange("email")}
-                  placeholder="jane@acmecorp.com"
+                  placeholder={m.common.emailPlaceholder}
                   readOnly={formLocked}
                   type="email"
                   value={values.email}
@@ -452,7 +446,7 @@ function LiveLoginShell({
                   autoComplete="current-password"
                   disabled={formLocked}
                   error={errors.password}
-                  label="Password"
+                  label={m.common.password}
                   name="login-password"
                   onChange={handleChange("password")}
                   readOnly={formLocked}
@@ -465,7 +459,7 @@ function LiveLoginShell({
                   loading={isSubmitting}
                   type="submit"
                 >
-                  {isSubmitting ? "Logging in..." : "Log in"}
+                  {isSubmitting ? m.login.submitting : m.common.logIn}
                 </ShellButton>
                 {showResendVerification ? (
                   <ShellButton
@@ -477,8 +471,8 @@ function LiveLoginShell({
                     variant="secondary"
                   >
                     {isResendingVerification
-                      ? "Sending..."
-                      : "Resend verification email"}
+                      ? m.common.sending
+                      : m.common.resendVerification}
                   </ShellButton>
                 ) : null}
               </form>
@@ -489,7 +483,7 @@ function LiveLoginShell({
               onClick={() => setShowPasswordForm(true)}
               type="button"
             >
-              Sign in with a password instead
+              {m.login.passwordInstead}
             </button>
           ) : null}
 
@@ -500,17 +494,17 @@ function LiveLoginShell({
                 onClick={openForgotPasswordModal}
                 type="button"
               >
-                Forgot your password?
+                {m.login.forgotPassword}
               </button>
             ) : null}
             {signupAvailable ? (
               <p>
-                Don&apos;t have an account?{" "}
+                {m.login.noAccount}{" "}
                 <Link
                   className="font-bold text-(--accent-ink) underline-offset-4 hover:underline"
                   href="/signup"
                 >
-                  Sign up
+                  {m.common.signUp}
                 </Link>
               </p>
             ) : null}
@@ -556,6 +550,8 @@ function ForgotPasswordDialog({
   onSubmit,
   successMessage,
 }: ForgotPasswordDialogProps) {
+  const m = useAppMessages();
+
   return (
     <Dialog
       open={isOpen}
@@ -568,10 +564,9 @@ function ForgotPasswordDialog({
       <DialogContent className="max-w-[560px] sm:p-8" showCloseButton={false}>
         <div className="space-y-6">
           <DialogHeader className="space-y-3">
-            <DialogTitle>Reset your password</DialogTitle>
+            <DialogTitle>{m.forgotPassword.title}</DialogTitle>
             <DialogDescription className="max-w-[40ch]">
-              Enter the email address associated with your account and
-              we&apos;ll send you a reset link.
+              {m.forgotPassword.description}
             </DialogDescription>
           </DialogHeader>
 
@@ -592,10 +587,10 @@ function ForgotPasswordDialog({
               autoComplete="email"
               disabled={isSubmitting}
               error={emailError}
-              label="Email"
+              label={m.common.email}
               name="forgot-password-email"
               onChange={onEmailChange}
-              placeholder="jane@acmecorp.com"
+              placeholder={m.common.emailPlaceholder}
               readOnly={isSubmitting}
               type="email"
               value={email}
@@ -608,14 +603,14 @@ function ForgotPasswordDialog({
                 type="button"
                 variant="secondary"
               >
-                Cancel
+                {m.common.cancel}
               </ShellButton>
               <ShellButton
                 disabled={isSubmitting}
                 loading={isSubmitting}
                 type="submit"
               >
-                {isSubmitting ? "Sending..." : "Send reset link"}
+                {isSubmitting ? m.common.sending : m.forgotPassword.submit}
               </ShellButton>
             </div>
           </form>
@@ -626,6 +621,8 @@ function ForgotPasswordDialog({
 }
 
 function ResetPasswordCard({ resetToken }: { resetToken: string }) {
+  const m = useAppMessages();
+  const locale = useLocale();
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
@@ -643,7 +640,7 @@ function ResetPasswordCard({ resetToken }: { resetToken: string }) {
       formData.get("reset-password") ?? password,
     ).trim();
 
-    const lengthError = newPasswordLengthError(trimmedPassword);
+    const lengthError = newPasswordLengthError(trimmedPassword, locale);
 
     if (lengthError) {
       setError(lengthError);
@@ -666,17 +663,15 @@ function ResetPasswordCard({ resetToken }: { resetToken: string }) {
 
       setError(
         normalizedErrorMessage.includes("invalid token")
-          ? "This reset link is invalid or has expired."
-          : (describePasswordRefusal(result.error) ??
-              "Something went wrong. Please try again."),
+          ? m.login.invalidResetLink
+          : (describePasswordRefusal(result.error, locale) ??
+              m.common.somethingWentWrong),
       );
       setIsSubmitting(false);
       return;
     }
 
-    setSuccessMessage(
-      "Your password has been reset. Log in with your new password.",
-    );
+    setSuccessMessage(m.resetPassword.success);
     setIsSubmitting(false);
   }
 
@@ -686,9 +681,9 @@ function ResetPasswordCard({ resetToken }: { resetToken: string }) {
     <section className="panel w-full max-w-[440px] p-8 sm:p-10">
       <div className="space-y-8">
         <div className="space-y-2">
-          <p className="section-eyebrow">Reset password</p>
+          <p className="section-eyebrow">{m.resetPassword.eyebrow}</p>
           <h1 className="text-[clamp(1.875rem,4.5vw,2.375rem)] font-extrabold leading-[1.08] tracking-[-0.035em] text-(--fg)">
-            Create a new password
+            {m.resetPassword.title}
           </h1>
         </div>
 
@@ -709,8 +704,8 @@ function ResetPasswordCard({ resetToken }: { resetToken: string }) {
             autoComplete="new-password"
             disabled={formLocked}
             error={error ?? undefined}
-            helper="Must be at least 15 characters"
-            label="New password"
+            helper={m.common.passwordMinLengthHelper}
+            label={m.resetPassword.newPassword}
             name="reset-password"
             onChange={(event) => {
               setPassword(event.target.value);
@@ -727,7 +722,7 @@ function ResetPasswordCard({ resetToken }: { resetToken: string }) {
             loading={isSubmitting}
             type="submit"
           >
-            {isSubmitting ? "Updating password..." : "Update password"}
+            {isSubmitting ? m.resetPassword.submitting : m.resetPassword.submit}
           </ShellButton>
         </form>
       </div>
@@ -742,6 +737,7 @@ type SecondStepCardProps = {
 };
 
 function SecondStepCard({ onRestart, onSignedIn }: SecondStepCardProps) {
+  const m = useAppMessages();
   const [code, setCode] = useState("");
   const [useBackupCode, setUseBackupCode] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -757,12 +753,12 @@ function SecondStepCard({ onRestart, onSignedIn }: SecondStepCardProps) {
     const trimmed = code.replace(/\s+/g, "");
 
     if (!useBackupCode && !/^\d{6}$/.test(trimmed)) {
-      setError("Enter the 6-digit code your authenticator app shows.");
+      setError(m.secondStep.enterSixDigits);
       return;
     }
 
     if (useBackupCode && trimmed.length === 0) {
-      setError("Enter one of your backup codes.");
+      setError(m.secondStep.enterBackupCode);
       return;
     }
 
@@ -793,29 +789,25 @@ function SecondStepCard({ onRestart, onSignedIn }: SecondStepCardProps) {
 
       switch (payload?.code) {
         case "INVALID_CODE":
-          setError(
-            "That code is not right. Check the time on your phone and try the newest code.",
-          );
+          setError(m.secondStep.invalidCode);
           break;
         case "INVALID_BACKUP_CODE":
-          setError("That backup code is not right, or it was used before.");
+          setError(m.secondStep.invalidBackupCode);
           break;
         case "ACCOUNT_TEMPORARILY_LOCKED":
-          setError(
-            "Too many wrong codes. Two-step sign-in is locked for 15 minutes.",
-          );
+          setError(m.secondStep.locked);
           break;
         case "TOO_MANY_ATTEMPTS_REQUEST_NEW_CODE":
-          onRestart("Too many wrong codes. Log in again to get a new try.");
+          onRestart(m.secondStep.tooManyAttempts);
           return;
         case "INVALID_TWO_FACTOR_COOKIE":
-          onRestart("That took too long. Log in again.");
+          onRestart(m.secondStep.tooSlow);
           return;
         default:
-          setError("Something went wrong. Please try again.");
+          setError(m.common.somethingWentWrong);
       }
     } catch {
-      setError("Something went wrong. Please try again.");
+      setError(m.common.somethingWentWrong);
     } finally {
       setIsSubmitting(false);
     }
@@ -825,14 +817,14 @@ function SecondStepCard({ onRestart, onSignedIn }: SecondStepCardProps) {
     <section className="panel w-full max-w-[460px] p-8 sm:p-10">
       <div className="space-y-7">
         <div className="space-y-2">
-          <p className="section-eyebrow">Two-step sign-in</p>
+          <p className="section-eyebrow">{m.secondStep.eyebrow}</p>
           <h1 className="text-[clamp(1.875rem,4.5vw,2.375rem)] font-extrabold leading-[1.08] tracking-[-0.035em] text-(--fg)">
-            {useBackupCode ? "Enter a backup code" : "Enter your code"}
+            {useBackupCode ? m.secondStep.titleBackup : m.secondStep.titleCode}
           </h1>
           <p className="text-sm leading-6 text-(--secondary)">
             {useBackupCode
-              ? "Each backup code works once."
-              : "Open your authenticator app and enter the 6-digit code it shows."}
+              ? m.secondStep.descriptionBackup
+              : m.secondStep.descriptionCode}
           </p>
         </div>
 
@@ -846,7 +838,9 @@ function SecondStepCard({ onRestart, onSignedIn }: SecondStepCardProps) {
           <FieldShell
             autoComplete="one-time-code"
             disabled={isSubmitting}
-            label={useBackupCode ? "Backup code" : "6-digit code"}
+            label={
+              useBackupCode ? m.secondStep.labelBackup : m.secondStep.labelCode
+            }
             name="second-step-code"
             onChange={(event) => {
               setCode(event.target.value);
@@ -861,7 +855,7 @@ function SecondStepCard({ onRestart, onSignedIn }: SecondStepCardProps) {
             loading={isSubmitting}
             type="submit"
           >
-            {isSubmitting ? "Checking..." : "Continue"}
+            {isSubmitting ? m.secondStep.submitting : m.common.continue}
           </ShellButton>
         </form>
 
@@ -875,9 +869,7 @@ function SecondStepCard({ onRestart, onSignedIn }: SecondStepCardProps) {
             }}
             type="button"
           >
-            {useBackupCode
-              ? "Use a code from your app instead"
-              : "Lost your phone? Use a backup code"}
+            {useBackupCode ? m.secondStep.useApp : m.secondStep.useBackup}
           </button>
         </div>
       </div>

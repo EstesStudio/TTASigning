@@ -13,6 +13,7 @@ import {
   getRequestUserAgent,
 } from "@/lib/security/request";
 import { resetTwoFactor, SignInSecurityError } from "@/lib/sign-in-security";
+import { localize } from "@/lib/i18n/server-locale";
 
 type PersonRouteContext = {
   params: Promise<{
@@ -58,8 +59,7 @@ export async function DELETE(request: Request, context: PersonRouteContext) {
   if (id === session.user.id) {
     return NextResponse.json(
       {
-        error:
-          "Turn off your own two-step sign-in under Settings, Two-step sign-in.",
+        error: await localize((m) => m.admin.security.turnOffOwnTwoFactor),
       },
       { headers: noStore, status: 409 },
     );
@@ -75,7 +75,7 @@ export async function DELETE(request: Request, context: PersonRouteContext) {
   } catch (error) {
     if (error instanceof SignInSecurityError) {
       return NextResponse.json(
-        { error: error.message },
+        { error: await localize(error) },
         { headers: noStore, status: error.statusCode },
       );
     }
@@ -89,7 +89,7 @@ export async function DELETE(request: Request, context: PersonRouteContext) {
     });
 
     return NextResponse.json(
-      { error: "That change could not be saved." },
+      { error: await localize((m) => m.admin.changeNotSaved) },
       { headers: noStore, status: 500 },
     );
   }

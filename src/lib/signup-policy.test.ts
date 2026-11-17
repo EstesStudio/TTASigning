@@ -121,3 +121,25 @@ test("the rule is described in one sentence", () => {
     "New accounts are not being accepted.",
   );
 });
+
+test("describes the sign-up rule in French on a French install", () => {
+  assert.equal(
+    describeSignupPolicy(
+      { allowedEmailDomains: ["acme.com", "acme.fr"], signupMode: "domains" },
+      "fr",
+    ),
+    "Les comptes peuvent être créés avec une adresse e-mail en @acme.com ou @acme.fr.",
+  );
+  assert.deepEqual(
+    evaluateSignup(
+      "jane@acme.com",
+      { allowedEmailDomains: [], signupMode: "closed" },
+      "fr",
+    ),
+    {
+      allowed: false,
+      code: "signup_closed",
+      message: "La création de comptes est fermée.",
+    },
+  );
+});

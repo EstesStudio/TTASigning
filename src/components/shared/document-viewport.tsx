@@ -2,6 +2,8 @@
 
 import { type PointerEvent as ReactPointerEvent } from "react";
 
+import { useAppMessages } from "@/lib/i18n/use-app-messages";
+
 export type DocumentPanGesture = {
   hasMoved: boolean;
   pointerId: number;
@@ -147,23 +149,34 @@ export function endDocumentPanGesture(input: {
   return true;
 }
 
+/** The zoom buttons' words, for a page that speaks the install's language. */
+export type DocumentZoomLabels = {
+  fit: string;
+  zoomIn: string;
+  zoomOut: string;
+};
+
 export function DocumentZoomControls({
+  labels: labelsOverride,
   onDecrease,
   onIncrease,
   onReset,
   zoomLevel,
 }: {
+  labels?: DocumentZoomLabels;
   onDecrease: () => void;
   onIncrease: () => void;
   onReset: () => void;
   zoomLevel: number;
 }) {
+  const appLabels = useAppMessages().zoom;
+  const labels = labelsOverride ?? appLabels;
   const zoomPercentage = Math.round(zoomLevel * 100);
 
   return (
     <div className="inline-flex min-h-11 items-center gap-0.5 rounded-xl bg-(--surface) p-1">
       <button
-        aria-label="Zoom out"
+        aria-label={labels.zoomOut}
         className="inline-flex size-9 items-center justify-center rounded-[0.5625rem] text-lg leading-none text-(--fg) transition hover:bg-white disabled:text-(--placeholder) disabled:hover:bg-transparent"
         disabled={zoomLevel <= MIN_DOCUMENT_ZOOM_LEVEL}
         onClick={onDecrease}
@@ -175,7 +188,7 @@ export function DocumentZoomControls({
         {zoomPercentage}%
       </div>
       <button
-        aria-label="Zoom in"
+        aria-label={labels.zoomIn}
         className="inline-flex size-9 items-center justify-center rounded-[0.5625rem] text-lg leading-none text-(--fg) transition hover:bg-white disabled:text-(--placeholder) disabled:hover:bg-transparent"
         disabled={zoomLevel >= MAX_DOCUMENT_ZOOM_LEVEL}
         onClick={onIncrease}
@@ -188,7 +201,7 @@ export function DocumentZoomControls({
         onClick={onReset}
         type="button"
       >
-        Fit
+        {labels.fit}
       </button>
     </div>
   );

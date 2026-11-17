@@ -13,6 +13,7 @@ import {
   verifySystemAuditChain,
 } from "./services/system-audit.ts";
 import { sanitizeFileNameSegment } from "./downloads.ts";
+import { inEnglish, type UserMessage } from "./i18n/server-messages.ts";
 
 // Audit trails as CSV, for an inspector or a records review (21 CFR
 // 11.10(b): accurate and complete copies in a form people can read and a
@@ -56,9 +57,11 @@ export type AuditCsvExport = { body: string; fileName: string };
 
 export class AuditExportError extends Error {
   readonly statusCode: number;
+  readonly userMessage: UserMessage;
 
-  constructor(message: string, statusCode: number) {
-    super(message);
+  constructor(message: UserMessage, statusCode: number) {
+    super(inEnglish(message));
+    this.userMessage = message;
     this.name = "AuditExportError";
     this.statusCode = statusCode;
   }
@@ -77,7 +80,7 @@ export async function exportEnvelopeAuditCsv(
   );
 
   if (!envelope) {
-    throw new AuditExportError("Envelope not found.", 404);
+    throw new AuditExportError((m) => m.envelope.notFound, 404);
   }
 
   const rows = await queryMany<{

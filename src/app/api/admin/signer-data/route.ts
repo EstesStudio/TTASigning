@@ -11,6 +11,7 @@ import {
   eraseSignerData,
   exportSignerData,
 } from "@/lib/signer-data";
+import { localize } from "@/lib/i18n/server-locale";
 
 // Signer data requests (access, portability, erasure). Administrators only.
 
@@ -35,10 +36,10 @@ async function guard(request: Request, action: "erase" | "export") {
     : { response: null };
 }
 
-function errorResponse(error: unknown, request: Request) {
+async function errorResponse(error: unknown, request: Request) {
   if (error instanceof SignerDataError) {
     return NextResponse.json(
-      { error: error.message },
+      { error: await localize(error) },
       { status: error.statusCode },
     );
   }
@@ -50,7 +51,7 @@ function errorResponse(error: unknown, request: Request) {
   });
 
   return NextResponse.json(
-    { error: "That request could not be completed." },
+    { error: await localize((m) => m.admin.signerData.notCompleted) },
     { status: 500 },
   );
 }

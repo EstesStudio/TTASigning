@@ -1,23 +1,35 @@
 import type { Metadata } from "next";
+import { connection } from "next/server";
 
 import { ContactForm } from "@/components/contact/contact-form";
-import { PublicDocumentShell } from "@/components/layout/public-document-shell";
+import {
+  loadBranding,
+  PublicDocumentShell,
+} from "@/components/layout/public-document-shell";
 import { requireHostedMode } from "@/lib/hosted-pages";
+import { appMessages } from "@/lib/i18n/app-messages";
 
-export const metadata: Metadata = {
-  description:
-    "Get in touch with SignuDoc for support, privacy questions, accessibility requests, or legal inquiries.",
-  title: "Contact | SignuDoc",
-};
+export async function generateMetadata(): Promise<Metadata> {
+  await connection();
+
+  const m = appMessages((await loadBranding()).locale);
+
+  return {
+    description: m.contact.metaDescription,
+    title: m.contact.metaTitle,
+  };
+}
 
 export default async function ContactPage() {
   await requireHostedMode();
 
+  const m = appMessages((await loadBranding()).locale);
+
   return (
     <PublicDocumentShell
-      description="Use the form below for product support, privacy requests, accessibility accommodations, legal notices, or questions about a document sent through SignuDoc."
-      lastUpdated="March 23, 2026"
-      title="Contact"
+      description={m.contact.description}
+      lastUpdated={m.contact.lastUpdated}
+      title={m.contact.title}
     >
       <div className="mx-auto w-full max-w-[52rem]">
         <ContactForm />

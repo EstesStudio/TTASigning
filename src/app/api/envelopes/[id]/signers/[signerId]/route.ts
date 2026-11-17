@@ -17,6 +17,7 @@ import {
   getRequestPathname,
   getRequestUserAgent,
 } from "@/lib/security/request";
+import { localize } from "@/lib/i18n/server-locale";
 
 type EnvelopeSignerCorrectionRouteContext = {
   params: Promise<{
@@ -82,14 +83,18 @@ export async function PATCH(
       const issue = error.issues[0];
 
       return NextResponse.json(
-        { error: issue?.message ?? "Invalid signer correction." },
+        {
+          error: await localize(
+            issue?.message ?? ((m) => m.envelope.api.invalidSignerCorrection),
+          ),
+        },
         { headers: noStore, status: 400 },
       );
     }
 
     if (error instanceof EnvelopeMutationError) {
       return NextResponse.json(
-        { error: error.message },
+        { error: await localize(error) },
         { headers: noStore, status: error.statusCode },
       );
     }
@@ -103,7 +108,7 @@ export async function PATCH(
     });
 
     return NextResponse.json(
-      { error: "Unable to correct this signer." },
+      { error: await localize((m) => m.envelope.api.unableToCorrectSigner) },
       { headers: noStore, status: 500 },
     );
   }

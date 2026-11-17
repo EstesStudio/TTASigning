@@ -3,6 +3,8 @@
 import { useState } from "react";
 
 import { ShellButton } from "@/components/shared/form-shell";
+import type { AppMessages } from "@/lib/i18n/app-messages";
+import { useAppMessages } from "@/lib/i18n/use-app-messages";
 
 // "Continue with <provider>": hands the visitor to the organization's
 // identity provider (lib/auth/sso.ts). Better Auth sends them back to
@@ -12,22 +14,22 @@ import { ShellButton } from "@/components/shared/form-shell";
 export type SsoOption = { name: string };
 
 /** What the sign-in page says for an ?error= the provider callback sent. */
-export function describeSsoError(code: string): string {
+export function describeSsoError(code: string, m: AppMessages): string {
   switch (code) {
     case "signup_closed":
     case "signup_domain_not_allowed":
-      return "That address does not have an account here, and this site's sign-up rule does not let it make one. Ask an administrator.";
+      return m.sso.signupNotAllowed;
     case "access_denied":
-      return "Sign-in was cancelled.";
+      return m.sso.cancelled;
     case "email_not_found":
-      return "Your identity provider did not share an email address, so you could not be signed in. Ask your IT team to include the email claim.";
+      return m.sso.emailNotFound;
     case "unable_to_link_account":
     case "email_not_verified":
-      return "An account with this address already exists and its address is not confirmed yet. Sign in with your password once, or ask an administrator.";
+      return m.sso.emailNotVerified;
     case "account_already_linked_to_different_user":
-      return "This sign-in is already tied to a different account here. Ask an administrator.";
+      return m.sso.linkedToOtherUser;
     default:
-      return "Single sign-on did not finish. Please try again.";
+      return m.sso.failed;
   }
 }
 
@@ -42,6 +44,7 @@ export function SsoButton({
   sso: SsoOption;
   variant?: "primary" | "secondary";
 }) {
+  const m = useAppMessages();
   const [isBusy, setIsBusy] = useState(false);
 
   async function start() {
@@ -68,14 +71,14 @@ export function SsoButton({
       } | null;
 
       if (!response.ok || !payload?.url) {
-        onError(describeSsoError(""));
+        onError(describeSsoError("", m));
         setIsBusy(false);
         return;
       }
 
       window.location.assign(payload.url);
     } catch {
-      onError(describeSsoError(""));
+      onError(describeSsoError("", m));
       setIsBusy(false);
     }
   }
@@ -88,7 +91,7 @@ export function SsoButton({
       type="button"
       variant={variant}
     >
-      {label ?? `Continue with ${sso.name}`}
+      {label ?? m.sso.continueWith(sso.name)}
     </ShellButton>
   );
 }

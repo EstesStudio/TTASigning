@@ -1,8 +1,11 @@
+"use client";
+
 import Link from "next/link";
 import type { ReactNode } from "react";
 
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
+import { useAppMessages } from "@/lib/i18n/use-app-messages";
 
 type StatusPanelProps = {
   action?: {
@@ -30,15 +33,17 @@ export function StatusPanel({
   title,
   tone = "neutral",
 }: StatusPanelProps) {
+  const m = useAppMessages();
+
   return (
     <section className="panel space-y-4 p-6 sm:p-8">
       <span className={`pill ${badgeStyles[tone]}`}>
         {eyebrow ??
           (tone === "error"
-            ? "Error"
+            ? m.statusPanel.error
             : tone === "loading"
-              ? "Loading"
-              : "Ready")}
+              ? m.statusPanel.loading
+              : m.statusPanel.ready)}
       </span>
       <div className="space-y-2">
         <h2 className="text-xl font-extrabold tracking-[-0.02em] text-(--fg)">

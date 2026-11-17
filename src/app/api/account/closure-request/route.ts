@@ -3,12 +3,17 @@ import { NextResponse } from "next/server";
 import { getAuthSessionFromHeaders } from "@/lib/auth/server";
 import { AccountMutationError, requestAccountClosure } from "@/lib/account";
 import { getDb } from "@/lib/db/connection";
+import { localizeFieldErrors } from "@/lib/i18n/field-errors";
+import { localize } from "@/lib/i18n/server-locale";
 
 export async function POST(request: Request) {
   const session = await getAuthSessionFromHeaders(request.headers);
 
   if (!session) {
-    return NextResponse.json({ error: "Unauthorized." }, { status: 401 });
+    return NextResponse.json(
+      { error: await localize((m) => m.account.unauthorized) },
+      { status: 401 },
+    );
   }
 
   const payload = (await request.json().catch(() => null)) as Record<
@@ -32,8 +37,8 @@ export async function POST(request: Request) {
     if (error instanceof AccountMutationError) {
       return NextResponse.json(
         {
-          error: error.message,
-          fieldErrors: error.fieldErrors,
+          error: await localize(error),
+          fieldErrors: await localizeFieldErrors(error.userFieldErrors),
         },
         { status: error.statusCode },
       );
@@ -41,7 +46,7 @@ export async function POST(request: Request) {
 
     return NextResponse.json(
       {
-        error: "Unable to submit the closure request.",
+        error: await localize((m) => m.account.unableToSubmitClosure),
       },
       { status: 500 },
     );

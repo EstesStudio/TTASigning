@@ -16,6 +16,8 @@ import {
   type TransactionalEmailMessage,
 } from "../services/email.ts";
 import { withUserEmailLegalFooter } from "../services/email-legal-footer.ts";
+import { emailMessages } from "../i18n/email-messages.ts";
+import { installMessages, installLocale } from "../i18n/server-locale.ts";
 import { consumeRateLimit } from "../security/rate-limit.ts";
 import { getClientIpHeaderNames } from "../security/request.ts";
 import {
@@ -99,20 +101,21 @@ function buildEmailVerificationMessage(input: {
   name: string;
   url: string;
 }) {
-  const { productName } = input.branding;
+  const { locale, productName } = input.branding;
+  const m = emailMessages(locale);
   const textBody = [
-    `Hi ${input.name},`,
+    m.hi(input.name),
     "",
-    `Verify your email address to finish setting up your ${productName} sender account:`,
+    m.colon(m.auth.verifyIntro(productName)),
     input.url,
     "",
-    "If you didn't request this, you can ignore this email.",
+    m.auth.ignoreIfNotYou,
   ].join("\n");
   const htmlBody = [
-    `<p>Hi ${escapeHtml(input.name)},</p>`,
-    `<p>Verify your email address to finish setting up your ${escapeHtml(productName)} sender account.</p>`,
-    `<p><a href="${escapeHtml(input.url)}">Verify your email</a></p>`,
-    "<p>If you didn't request this, you can ignore this email.</p>",
+    `<p>${m.hi(escapeHtml(input.name))}</p>`,
+    `<p>${m.auth.verifyIntro(escapeHtml(productName))}.</p>`,
+    `<p><a href="${escapeHtml(input.url)}">${m.auth.verifyLink}</a></p>`,
+    `<p>${m.auth.ignoreIfNotYou}</p>`,
   ].join("");
   const legalFooter = withUserEmailLegalFooter(
     {
@@ -124,7 +127,7 @@ function buildEmailVerificationMessage(input: {
 
   return {
     htmlBody: legalFooter.htmlBody,
-    subject: `Verify your ${productName} email`,
+    subject: m.auth.verifySubject(productName),
     template: "email_verification" as const,
     textBody: legalFooter.textBody,
   };
@@ -136,20 +139,29 @@ function buildChangeEmailConfirmationMessage(input: {
   newEmail: string;
   url: string;
 }) {
-  const { productName } = input.branding;
+  const { locale, productName } = input.branding;
+  const m = emailMessages(locale);
   const textBody = [
-    `Hi ${input.name},`,
+    m.hi(input.name),
     "",
-    `Confirm that you want to change your ${productName} sender email to ${input.newEmail}:`,
+    m.colon(
+      m.auth.changeEmailIntro({
+        newEmail: input.newEmail,
+        product: productName,
+      }),
+    ),
     input.url,
     "",
-    "If you didn't request this, you can ignore this email.",
+    m.auth.ignoreIfNotYou,
   ].join("\n");
   const htmlBody = [
-    `<p>Hi ${escapeHtml(input.name)},</p>`,
-    `<p>Confirm that you want to change your ${escapeHtml(productName)} sender email to ${escapeHtml(input.newEmail)}.</p>`,
-    `<p><a href="${escapeHtml(input.url)}">Confirm this email change</a></p>`,
-    "<p>If you didn't request this, you can ignore this email.</p>",
+    `<p>${m.hi(escapeHtml(input.name))}</p>`,
+    `<p>${m.auth.changeEmailIntro({
+      newEmail: escapeHtml(input.newEmail),
+      product: escapeHtml(productName),
+    })}.</p>`,
+    `<p><a href="${escapeHtml(input.url)}">${m.auth.changeEmailLink}</a></p>`,
+    `<p>${m.auth.ignoreIfNotYou}</p>`,
   ].join("");
   const legalFooter = withUserEmailLegalFooter(
     {
@@ -161,7 +173,7 @@ function buildChangeEmailConfirmationMessage(input: {
 
   return {
     htmlBody: legalFooter.htmlBody,
-    subject: `Confirm your ${productName} email change`,
+    subject: m.auth.changeEmailSubject(productName),
     template: "change_email_confirmation" as const,
     textBody: legalFooter.textBody,
   };
@@ -172,20 +184,21 @@ function buildPasswordResetMessage(input: {
   name: string;
   url: string;
 }) {
-  const { productName } = input.branding;
+  const { locale, productName } = input.branding;
+  const m = emailMessages(locale);
   const textBody = [
-    `Hi ${input.name},`,
+    m.hi(input.name),
     "",
-    `Use the link below to reset your ${productName} password:`,
+    m.colon(m.auth.resetIntro(productName)),
     input.url,
     "",
-    "If you didn't request this reset, you can ignore this email.",
+    m.auth.resetIgnoreIfNotYou,
   ].join("\n");
   const htmlBody = [
-    `<p>Hi ${escapeHtml(input.name)},</p>`,
-    `<p>Use the link below to reset your ${escapeHtml(productName)} password.</p>`,
-    `<p><a href="${escapeHtml(input.url)}">Reset your password</a></p>`,
-    "<p>If you didn't request this reset, you can ignore this email.</p>",
+    `<p>${m.hi(escapeHtml(input.name))}</p>`,
+    `<p>${m.auth.resetIntro(escapeHtml(productName))}.</p>`,
+    `<p><a href="${escapeHtml(input.url)}">${m.auth.resetLink}</a></p>`,
+    `<p>${m.auth.resetIgnoreIfNotYou}</p>`,
   ].join("");
   const legalFooter = withUserEmailLegalFooter(
     {
@@ -197,7 +210,7 @@ function buildPasswordResetMessage(input: {
 
   return {
     htmlBody: legalFooter.htmlBody,
-    subject: `Reset your ${productName} password`,
+    subject: m.auth.resetSubject(productName),
     template: "password_reset" as const,
     textBody: legalFooter.textBody,
   };
@@ -469,7 +482,7 @@ export function createAppAuth({
         ) {
           throw new APIError("FORBIDDEN", {
             code: "PASSWORD_SIGN_IN_OFF",
-            message: `Password sign-in is turned off here. Continue with ${sso.name} instead.`,
+            message: (await installMessages()).auth.passwordSignInOff(sso.name),
           });
         }
 
@@ -477,7 +490,12 @@ export function createAppAuth({
           return;
         }
 
-        const decision = await evaluateSignupRequest(email, env);
+        const decision = await evaluateSignupRequest(
+          email,
+          env,
+          undefined,
+          await installLocale(),
+        );
 
         if (!decision.allowed) {
           throw new APIError("FORBIDDEN", {
@@ -546,6 +564,8 @@ export function createAppAuth({
         const decision = await evaluateSignupRequest(
           typeof user.email === "string" ? user.email : "",
           env,
+          undefined,
+          await installLocale(),
         );
 
         if (!decision.allowed) {

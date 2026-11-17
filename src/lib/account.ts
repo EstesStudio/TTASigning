@@ -1,5 +1,5 @@
 import {
-  accountClosureConfirmationPhrase,
+  accountClosureConfirmationPhrases,
   accountClosureRequestSchema,
   senderProfileSchema,
   updateProfileSchema,
@@ -22,6 +22,11 @@ import { createEmailService } from "./services/email.ts";
 import { recordSystemAuditEvent } from "./services/system-audit.ts";
 import { getBranding } from "./settings.ts";
 import { type EnvSource } from "./utils/env.ts";
+import {
+  fieldErrorsInEnglish,
+  type UserFieldErrors,
+} from "./i18n/field-errors.ts";
+import { inEnglish, type UserMessage } from "./i18n/server-messages.ts";
 
 type SenderAccountRow = {
   email: string;
@@ -49,15 +54,19 @@ type AccountClosureRequestResult = {
 export class AccountMutationError extends Error {
   readonly fieldErrors: Partial<Record<string, string>>;
   readonly statusCode: number;
+  readonly userFieldErrors: UserFieldErrors<string>;
+  readonly userMessage: UserMessage;
 
   constructor(
-    message: string,
+    message: UserMessage,
     statusCode: number,
-    fieldErrors: Partial<Record<string, string>> = {},
+    fieldErrors: UserFieldErrors<string> = {},
   ) {
-    super(message);
+    super(inEnglish(message));
     this.name = "AccountMutationError";
-    this.fieldErrors = fieldErrors;
+    this.fieldErrors = fieldErrorsInEnglish(fieldErrors);
+    this.userFieldErrors = fieldErrors;
+    this.userMessage = message;
     this.statusCode = statusCode;
   }
 }
@@ -103,21 +112,25 @@ function buildProfileValidationErrors(input: unknown) {
     return parsedInput.data;
   }
 
-  const fieldErrors: Partial<Record<keyof UpdateProfileInput, string>> = {};
+  const fieldErrors: UserFieldErrors<keyof UpdateProfileInput> = {};
 
   for (const issue of parsedInput.error.issues) {
     const field = issue.path[0];
 
     if (field === "email") {
-      fieldErrors.email = "Enter a valid email address";
+      fieldErrors.email = (m) => m.account.enterValidEmail;
     }
 
     if (field === "fullName") {
-      fieldErrors.fullName = "Enter your full name";
+      fieldErrors.fullName = (m) => m.account.enterFullName;
     }
   }
 
-  throw new AccountMutationError("Invalid profile input.", 400, fieldErrors);
+  throw new AccountMutationError(
+    (m) => m.account.invalidProfileInput,
+    400,
+    fieldErrors,
+  );
 }
 
 function normalizeEmail(email: string) {
@@ -133,17 +146,17 @@ export async function updateSenderProfile(
   const account = await getSenderAccountRow(userId, database);
 
   if (!account) {
-    throw new AccountMutationError("Account not found.", 404);
+    throw new AccountMutationError((m) => m.account.accountNotFound, 404);
   }
 
   const normalizedEmail = normalizeEmail(normalizedInput.email);
 
   if (normalizeEmail(account.email) !== normalizedEmail) {
     throw new AccountMutationError(
-      "Use the verified email change flow to update your sender email.",
+      (m) => m.account.useVerifiedEmailChange,
       400,
       {
-        email: "Use the secure email change flow.",
+        email: (m) => m.account.useSecureEmailChange,
       },
     );
   }
@@ -164,7 +177,7 @@ export async function updateSenderProfile(
       throw new Error("Profile update affected an unexpected number of rows.");
     }
   } catch {
-    throw new AccountMutationError("Unable to update your profile.", 500);
+    throw new AccountMutationError((m) => m.account.unableToUpdateProfile, 500);
   }
 
   return mapSenderProfile({
@@ -183,13 +196,10 @@ function buildClosureValidationError(
     return parsedInput.data;
   }
 
-  throw new AccountMutationError(
-    "Type the confirmation phrase to continue.",
-    400,
-    {
-      confirmation: `Type "${accountClosureConfirmationPhrase}" to confirm.`,
-    },
-  );
+  throw new AccountMutationError((m) => m.account.typeConfirmationPhrase, 400, {
+    confirmation: (m, locale) =>
+      m.account.typePhraseToConfirm(accountClosureConfirmationPhrases[locale]),
+  });
 }
 
 async function formatEnvelopeCounts(
@@ -217,7 +227,6 @@ async function formatEnvelopeCounts(
   );
 }
 
-
 function formatRetentionDeadline(timestamp: number): string {
   return new Date(timestamp * 1000).toISOString().replace(".000Z", " UTC");
 }
@@ -232,7 +241,7 @@ export async function requestAccountClosure(
   const account = await getSenderAccountRow(userId, database);
 
   if (!account) {
-    throw new AccountMutationError("Account not found.", 404);
+    throw new AccountMutationError((m) => m.account.accountNotFound, 404);
   }
 
   const closureSchedule = await scheduleAccountClosure(userId, database);

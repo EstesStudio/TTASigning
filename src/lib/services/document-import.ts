@@ -4,19 +4,14 @@ import { PDFDocument } from "pdf-lib";
 
 import type { EnvelopePageRecord } from "../schemas/envelope.ts";
 import { MAX_UPLOAD_SIZE_BYTES } from "../types/domain.ts";
+import {
+  inEnglish,
+  serverMessages,
+  type ServerMessages,
+  type UserMessage,
+} from "../i18n/server-messages.ts";
 
 const PDF_MAGIC_HEADER = "%PDF-";
-
-const PDF_IMPORT_ERROR_MESSAGES = {
-  encrypted_pdf:
-    "This PDF is password-protected or encrypted. Please upload an unlocked PDF.",
-  invalid_type: "Only PDF files are supported. Please upload a valid PDF.",
-  too_large: "This file exceeds the 20 MB limit.",
-  unreadable_pdf: "We couldn't read this PDF. Please upload a valid file.",
-  unsupported_variant:
-    "This PDF uses an unsupported format. Please export it as a standard PDF.",
-  upload_failed: "Upload failed. Please try again.",
-} as const;
 
 export const pdfImportFailureCodes = [
   "encrypted_pdf",
@@ -58,12 +53,14 @@ type ImportPdfDocumentInput = {
 
 export class DocumentImportError extends Error {
   code: PdfImportFailureCode;
+  readonly userMessage: UserMessage;
 
   constructor(
     code: PdfImportFailureCode,
-    message = getPdfImportErrorMessage(code),
+    message: UserMessage = (m) => getPdfImportErrorMessage(code, m),
   ) {
-    super(message);
+    super(inEnglish(message));
+    this.userMessage = message;
     this.code = code;
     this.name = "DocumentImportError";
   }
@@ -73,8 +70,11 @@ export const DEFAULT_DOCUMENT_IMPORT_LIMITS = {
   maxSizeBytes: MAX_UPLOAD_SIZE_BYTES,
 };
 
-export function getPdfImportErrorMessage(code: PdfImportFailureCode): string {
-  return PDF_IMPORT_ERROR_MESSAGES[code];
+export function getPdfImportErrorMessage(
+  code: PdfImportFailureCode,
+  messages: ServerMessages = serverMessages("en"),
+): string {
+  return messages.upload.pdf[code];
 }
 
 function assertImportRequest(input: {

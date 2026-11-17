@@ -11,6 +11,7 @@ import {
   peekRateLimit,
 } from "./security/rate-limit.ts";
 import { recordSystemAuditEvent } from "./services/system-audit.ts";
+import { inEnglish, type UserMessage } from "./i18n/server-messages.ts";
 
 // Sign-in security for the people who use the app (senders and
 // administrators, not signers, who open their envelopes from an emailed
@@ -31,15 +32,14 @@ import { recordSystemAuditEvent } from "./services/system-audit.ts";
 export const MAX_FAILED_SIGN_INS = 10;
 export const SIGN_IN_LOCKOUT_MS = 15 * 60 * 1000;
 
-export const SIGN_IN_LOCKED_MESSAGE =
-  "Too many wrong passwords for this email address. Try again in 15 minutes, or reset your password.";
-
 export class SignInSecurityError extends Error {
   readonly statusCode: number;
+  readonly userMessage: UserMessage;
 
-  constructor(message: string, statusCode: number) {
-    super(message);
+  constructor(message: UserMessage, statusCode: number) {
+    super(inEnglish(message));
     this.name = "SignInSecurityError";
+    this.userMessage = message;
     this.statusCode = statusCode;
   }
 }
@@ -161,7 +161,7 @@ async function lockActor(actor: Actor, tx: DbExecutor) {
   );
 
   if (row?.role !== "admin") {
-    throw new SignInSecurityError("Only an administrator can do this.", 403);
+    throw new SignInSecurityError((m) => m.admin.onlyAdministrator, 403);
   }
 
   return row;
@@ -203,7 +203,7 @@ export async function setTwoFactorRequirement(
       ))
     ) {
       throw new SignInSecurityError(
-        "Set up two-step sign-in for your own account first, under Settings, Two-step sign-in.",
+        (m) => m.admin.security.setUpOwnTwoFactorFirst,
         409,
       );
     }
@@ -253,14 +253,11 @@ export async function resetTwoFactor(
     );
 
     if (!target) {
-      throw new SignInSecurityError("That account no longer exists.", 404);
+      throw new SignInSecurityError((m) => m.admin.accountNoLongerExists, 404);
     }
 
     if (!target.twoFactorEnabled) {
-      throw new SignInSecurityError(
-        "This person does not use two-step sign-in.",
-        409,
-      );
+      throw new SignInSecurityError((m) => m.admin.security.noTwoFactor, 409);
     }
 
     await tx.query(`DELETE FROM "twoFactor" WHERE "userId" = $1`, [

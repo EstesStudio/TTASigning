@@ -1,7 +1,12 @@
 "use client";
 
-import { useRef, type KeyboardEvent, type PointerEvent as ReactPointerEvent } from "react";
+import {
+  useRef,
+  type KeyboardEvent,
+  type PointerEvent as ReactPointerEvent,
+} from "react";
 
+import { useEnvelopeMessages } from "@/lib/i18n/use-envelope-messages";
 import { type FieldResizeHandle } from "@/lib/utils/pdf-coords";
 
 const dragThresholdPx = 4;
@@ -81,6 +86,7 @@ export function InteractivePlacedField({
   onSelect,
   signer,
 }: InteractivePlacedFieldProps) {
+  const messages = useEnvelopeMessages().prepare;
   const gestureRef = useRef<PointerGesture | null>(null);
   const percentMultiplier = 100 / coordinateScale;
   const isRadio = field.type === "radio";
@@ -159,7 +165,8 @@ export function InteractivePlacedField({
       onInteractionChange?.(true);
     }
 
-    const scaledDeltaX = (deltaClientX / gesture.viewportWidth) * coordinateScale;
+    const scaledDeltaX =
+      (deltaClientX / gesture.viewportWidth) * coordinateScale;
     const scaledDeltaY =
       (deltaClientY / gesture.viewportHeight) * coordinateScale;
 
@@ -238,11 +245,13 @@ export function InteractivePlacedField({
       {isSelected
         ? resizeHandles.map((handle) => (
             <button
-              aria-label={`Resize ${label} field from ${handle.corner}`}
+              aria-label={messages.resizeLabel(label, handle.corner)}
               className={`absolute ${handle.positionClassName} ${handle.cursorClassName} z-1 size-4 rounded-full bg-white shadow-[0_4px_10px_rgba(28,29,43,0.18)]`}
               key={handle.corner}
               onPointerCancel={endGesture}
-              onPointerDown={(event) => beginGesture(event, "resize", handle.corner)}
+              onPointerDown={(event) =>
+                beginGesture(event, "resize", handle.corner)
+              }
               onPointerMove={handlePointerMove}
               onPointerUp={endGesture}
               style={{

@@ -14,6 +14,7 @@ import {
   getRequestPathname,
   getRequestUserAgent,
 } from "@/lib/security/request";
+import { localize } from "@/lib/i18n/server-locale";
 
 type EnvelopeDeadlineRouteContext = {
   params: Promise<{
@@ -58,7 +59,7 @@ export async function POST(
 
   if (!parsed.success) {
     return NextResponse.json(
-      { error: "Choose a deadline between 1 and 365 days from now." },
+      { error: await localize((m) => m.envelope.api.invalidDeadline) },
       { headers: noStore, status: 400 },
     );
   }
@@ -80,7 +81,7 @@ export async function POST(
   } catch (error) {
     if (error instanceof EnvelopeMutationError) {
       return NextResponse.json(
-        { error: error.message },
+        { error: await localize(error) },
         { headers: noStore, status: error.statusCode },
       );
     }
@@ -94,7 +95,7 @@ export async function POST(
     });
 
     return NextResponse.json(
-      { error: "Unable to change the deadline." },
+      { error: await localize((m) => m.envelope.api.unableToChangeDeadline) },
       { headers: noStore, status: 500 },
     );
   }

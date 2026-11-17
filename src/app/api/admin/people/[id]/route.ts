@@ -13,6 +13,7 @@ import {
   buildRateLimitKey,
 } from "@/lib/security/route-controls";
 import { getClientIpAddress, getRequestPathname } from "@/lib/security/request";
+import { localize } from "@/lib/i18n/server-locale";
 
 type PersonRouteContext = {
   params: Promise<{
@@ -57,7 +58,7 @@ export async function PATCH(request: Request, context: PersonRouteContext) {
 
   if (!role) {
     return NextResponse.json(
-      { error: "Choose administrator or member." },
+      { error: await localize((m) => m.admin.people.chooseRole) },
       { headers: noStore, status: 400 },
     );
   }
@@ -81,7 +82,7 @@ export async function PATCH(request: Request, context: PersonRouteContext) {
   } catch (error) {
     if (error instanceof PeopleError) {
       return NextResponse.json(
-        { error: error.message },
+        { error: await localize(error) },
         { headers: noStore, status: error.statusCode },
       );
     }
@@ -95,7 +96,7 @@ export async function PATCH(request: Request, context: PersonRouteContext) {
     });
 
     return NextResponse.json(
-      { error: "That change could not be saved." },
+      { error: await localize((m) => m.admin.changeNotSaved) },
       { headers: noStore, status: 500 },
     );
   }

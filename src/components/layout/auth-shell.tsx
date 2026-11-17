@@ -8,6 +8,8 @@ import { Brand } from "@/components/layout/brand";
 import { useBranding } from "@/components/layout/branding-provider";
 import { PublicLegalFooter } from "@/components/layout/public-legal-links";
 import { PublicSessionMenu } from "@/components/layout/public-session-menu";
+import type { AppMessages } from "@/lib/i18n/app-messages";
+import { useAppMessages } from "@/lib/i18n/use-app-messages";
 
 type AuthShellProps = {
   children: ReactNode;
@@ -18,24 +20,25 @@ type AuthNavAction = {
   label: string;
 };
 
-function getAuthNavAction(pathname: string): AuthNavAction {
+function getAuthNavAction(pathname: string, m: AppMessages): AuthNavAction {
   if (pathname === "/signup") {
     return {
       href: "/login",
-      label: "Log in",
+      label: m.common.logIn,
     };
   }
 
   return {
     href: "/signup",
-    label: "Sign up",
+    label: m.common.signUp,
   };
 }
 
 export function AuthShell({ children }: AuthShellProps) {
   const pathname = usePathname() ?? "/login";
   const { signupAvailable } = useBranding();
-  const navAction = getAuthNavAction(pathname);
+  const m = useAppMessages();
+  const navAction = getAuthNavAction(pathname, m);
   // No "Sign up" link to a page that would only say sign-up is closed.
   const showNavAction = navAction.href !== "/signup" || signupAvailable;
 
@@ -45,7 +48,7 @@ export function AuthShell({ children }: AuthShellProps) {
         <div className="page-width flex items-center justify-between gap-4 py-4">
           <Brand href="/" />
           <nav
-            aria-label="Public navigation"
+            aria-label={m.authShell.navLabel}
             className="flex items-center gap-3"
           >
             <PublicSessionMenu>

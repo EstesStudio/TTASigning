@@ -19,6 +19,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { authClient } from "@/lib/auth/client";
 import { cn } from "@/lib/cn";
+import { useAppMessages } from "@/lib/i18n/use-app-messages";
 
 type AppShellProps = {
   children: ReactNode;
@@ -40,6 +41,7 @@ export function AppShell({
 }: AppShellProps) {
   const pathname = usePathname() ?? "/dashboard";
   const router = useRouter();
+  const m = useAppMessages();
   const [isSigningOut, setIsSigningOut] = useState(false);
   const currentSection = resolveSection(pathname);
   const initials = getInitials(user.name);
@@ -71,7 +73,7 @@ export function AppShell({
           <div className="flex min-w-0 items-center gap-7">
             <Brand href="/" />
             <nav
-              aria-label="Workspace"
+              aria-label={m.appShell.navLabel}
               className="hidden items-center gap-1 md:flex"
             >
               {primaryNavItems.map((item) => (
@@ -87,7 +89,7 @@ export function AppShell({
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <button
-                aria-label={`Account menu for ${user.name}`}
+                aria-label={m.appShell.accountMenu(user.name)}
                 className="inline-flex size-10 shrink-0 items-center justify-center rounded-full bg-[#ffd9c2] text-[0.8125rem] font-bold text-[#7a3412] transition hover:ring-4 hover:ring-[rgba(28,29,43,0.06)]"
                 type="button"
               >
@@ -105,7 +107,7 @@ export function AppShell({
               </DropdownMenuLabel>
               <DropdownMenuSeparator />
               <DropdownMenuItem asChild>
-                <Link href="/settings">Settings</Link>
+                <Link href="/settings">{m.appShell.settings}</Link>
               </DropdownMenuItem>
               <DropdownMenuItem
                 disabled={isSigningOut}
@@ -121,13 +123,13 @@ export function AppShell({
                 }}
                 variant="destructive"
               >
-                {isSigningOut ? "Signing out..." : "Sign out"}
+                {isSigningOut ? m.common.signingOut : m.common.signOut}
               </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
 
           <nav
-            aria-label="Workspace"
+            aria-label={m.appShell.navLabel}
             className="-mx-1 flex w-full items-center gap-1 overflow-x-auto px-1 pb-1 md:hidden"
           >
             {primaryNavItems.map((item) => (
@@ -149,15 +151,14 @@ export function AppShell({
               role="status"
             >
               <p className="text-sm leading-6 text-(--fg)">
-                <span className="font-bold">Email is not set up yet.</span>{" "}
-                Until it is, signers and new users will not receive messages
-                from this site.
+                <span className="font-bold">{m.appShell.emailNoticeTitle}</span>{" "}
+                {m.appShell.emailNoticeBody}
               </p>
               <Link
                 className="shrink-0 text-sm font-bold text-(--warning) underline underline-offset-4"
                 href="/settings#organization"
               >
-                Finish email setup
+                {m.appShell.finishEmailSetup}
               </Link>
             </div>
           ) : null}
@@ -175,6 +176,7 @@ function AppNavLink({
   currentSection: ShellSection;
   item: ShellNavItem;
 }) {
+  const m = useAppMessages();
   const isActive = currentSection === resolveSection(item.href);
 
   return (
@@ -188,7 +190,7 @@ function AppNavLink({
       )}
       href={item.href}
     >
-      {item.label}
+      {m.appShell.nav[item.id]}
     </Link>
   );
 }

@@ -14,6 +14,7 @@ import {
   getRequestPathname,
   getRequestUserAgent,
 } from "@/lib/security/request";
+import { localize } from "@/lib/i18n/server-locale";
 
 type EnvelopeSendRouteContext = {
   params: Promise<{
@@ -62,8 +63,7 @@ export async function POST(
   if (body?.permittedUseConfirmed !== true) {
     return NextResponse.json(
       {
-        error:
-          "Confirm that this envelope is an ordinary business agreement before sending.",
+        error: await localize((m) => m.envelope.api.confirmOrdinaryAgreement),
       },
       { status: 400 },
     );
@@ -78,8 +78,7 @@ export async function POST(
   if (!options.success) {
     return NextResponse.json(
       {
-        error:
-          "Choose a deadline between 1 and 365 days from now, reminders between 1 and 30 days apart, and a signature type this install offers.",
+        error: await localize((m) => m.envelope.api.invalidSendOptions),
       },
       { status: 400 },
     );
@@ -110,7 +109,7 @@ export async function POST(
   } catch (error) {
     if (error instanceof EnvelopeMutationError) {
       return NextResponse.json(
-        { error: error.message },
+        { error: await localize(error) },
         { status: error.statusCode },
       );
     }
@@ -124,7 +123,7 @@ export async function POST(
     });
 
     return NextResponse.json(
-      { error: "Unable to send this envelope." },
+      { error: await localize((m) => m.envelope.api.unableToSend) },
       { status: 500 },
     );
   }

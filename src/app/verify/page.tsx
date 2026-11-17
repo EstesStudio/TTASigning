@@ -1,35 +1,49 @@
 import type { Metadata } from "next";
+import { connection } from "next/server";
 
 import { PublicDocumentShell } from "@/components/layout/public-document-shell";
 import { VerifyForm } from "@/components/verify/verify-form";
+import { envelopeMessages } from "@/lib/i18n/envelope-messages";
+import { DEFAULT_LOCALE, type Locale } from "@/lib/i18n/locales";
+import { getBranding } from "@/lib/settings";
 
-export const metadata: Metadata = {
-  description:
-    "Check that a signed PDF or audit certificate is exactly the file this site produced.",
-  title: "Verify a document",
-};
+// The page is public and on every install, so a database that cannot be
+// reached leaves it in English rather than failing it.
+async function loadLocale(): Promise<Locale> {
+  try {
+    return (await getBranding()).locale;
+  } catch {
+    return DEFAULT_LOCALE;
+  }
+}
 
-export default function VerifyPage() {
+export async function generateMetadata(): Promise<Metadata> {
+  const messages = envelopeMessages(await loadLocale()).verify;
+
+  return {
+    description: messages.metaDescription,
+    title: messages.title,
+  };
+}
+
+export default async function VerifyPage() {
+  // Read when the page is requested, so one build serves any install.
+  await connection();
+
+  const messages = envelopeMessages(await loadLocale()).verify;
+
   return (
     <PublicDocumentShell
-      description="Check that a signed PDF or audit certificate is exactly the file this site produced when signing finished. Any change to the file, however small, gives a different fingerprint."
-      title="Verify a document"
+      description={messages.description}
+      title={messages.title}
     >
       <div className="mx-auto w-full max-w-[52rem] space-y-8">
         <VerifyForm />
         <section className="space-y-3">
           <h2 className="text-xl font-extrabold tracking-[-0.02em] text-(--fg)">
-            Checking the seal in a PDF reader
+            {messages.sealHeading}
           </h2>
-          <p>
-            Finished documents and certificates also carry a digital seal. Open
-            the file in Adobe Acrobat Reader or another PDF reader and look at
-            its signature panel. The reader says whether the document has been
-            changed since it was sealed. Unless the organization has installed a
-            certificate from a certificate authority, the reader will also say
-            the signer&apos;s identity is unknown; that is expected and does not
-            affect the check for changes.
-          </p>
+          <p>{messages.sealBody}</p>
         </section>
       </div>
     </PublicDocumentShell>

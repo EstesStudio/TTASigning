@@ -1,8 +1,11 @@
+"use client";
+
 import Link from "next/link";
 import type { ReactNode } from "react";
 
 import { ChevronLeftIcon } from "@/components/layout/nav-items";
 import { Button } from "@/components/ui/button";
+import { useAppMessages } from "@/lib/i18n/use-app-messages";
 
 type CanvasShellProps = {
   backHref: string;
@@ -29,7 +32,10 @@ export function CanvasShell({
   stepLabel,
   title,
 }: CanvasShellProps) {
-  const nextButtonLabel = nextLoading ? "Loading..." : (nextLabel ?? "Next");
+  const m = useAppMessages();
+  const nextButtonLabel = nextLoading
+    ? m.canvas.loading
+    : (nextLabel ?? m.canvas.next);
 
   return (
     <div className="min-h-screen bg-(--page)">

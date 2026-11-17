@@ -1,3 +1,5 @@
+import { inEnglish, type UserMessage } from "../i18n/server-messages.ts";
+
 // A small picture of a document's first page, shown on the dashboard.
 //
 // The server never renders PDFs, so the sender's browser draws the first
@@ -44,8 +46,11 @@ export function matchesEtag(
 }
 
 export class ThumbnailValidationError extends Error {
-  constructor(message: string) {
-    super(message);
+  readonly userMessage: UserMessage;
+
+  constructor(message: UserMessage) {
+    super(inEnglish(message));
+    this.userMessage = message;
     this.name = "ThumbnailValidationError";
   }
 }
@@ -129,11 +134,11 @@ export function readJpegDimensions(bytes: Uint8Array): JpegDimensions | null {
 /** Throws unless the bytes are a JPEG small enough to keep as a thumbnail. */
 export function assertThumbnailImage(bytes: Uint8Array): JpegDimensions {
   if (bytes.length === 0) {
-    throw new ThumbnailValidationError("The thumbnail is empty.");
+    throw new ThumbnailValidationError((m) => m.upload.thumbnail.empty);
   }
 
   if (bytes.length > THUMBNAIL_MAX_BYTES) {
-    throw new ThumbnailValidationError("The thumbnail is too large.");
+    throw new ThumbnailValidationError((m) => m.upload.thumbnail.tooLarge);
   }
 
   const dimensions = readJpegDimensions(bytes);
@@ -144,7 +149,7 @@ export function assertThumbnailImage(bytes: Uint8Array): JpegDimensions {
     bytes[bytes.length - 2] === 0xff && bytes[bytes.length - 1] === 0xd9;
 
   if (!dimensions || !isWhole) {
-    throw new ThumbnailValidationError("The thumbnail must be a JPEG image.");
+    throw new ThumbnailValidationError((m) => m.upload.thumbnail.notJpeg);
   }
 
   if (
@@ -153,7 +158,7 @@ export function assertThumbnailImage(bytes: Uint8Array): JpegDimensions {
     dimensions.width > THUMBNAIL_MAX_DIMENSION ||
     dimensions.height > THUMBNAIL_MAX_DIMENSION
   ) {
-    throw new ThumbnailValidationError("The thumbnail is not a usable size.");
+    throw new ThumbnailValidationError((m) => m.upload.thumbnail.unusableSize);
   }
 
   return dimensions;

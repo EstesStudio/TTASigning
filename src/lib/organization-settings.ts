@@ -3,6 +3,7 @@ import { z } from "zod";
 import { normalizeBrandColor } from "./brand-color.ts";
 import { buildBrandLogoPath } from "./branding.ts";
 import { getDb, type DbExecutor } from "./db/connection.ts";
+import { DEFAULT_LOCALE, LOCALES, type Locale } from "./i18n/locales.ts";
 import { emailSchema } from "./schemas/common.ts";
 import {
   saveSettings,
@@ -10,12 +11,18 @@ import {
   type ResolvedSettings,
 } from "./settings.ts";
 import { parseEmailDomainList, SIGNUP_MODES } from "./signup-policy.ts";
+import {
+  fieldErrorsInEnglish,
+  type UserFieldErrors,
+} from "./i18n/field-errors.ts";
+import { inEnglish, type UserMessage } from "./i18n/server-messages.ts";
 
 // What an administrator can change on the Organization tab in Settings.
 
 export type OrganizationSettingsField =
   | "allowedEmailDomains"
   | "brandColor"
+  | "locale"
   | "organizationName"
   | "privacyUrl"
   | "retentionDays"
@@ -26,11 +33,14 @@ export type OrganizationSettingsField =
 
 export class OrganizationSettingsError extends Error {
   readonly fieldErrors: Partial<Record<OrganizationSettingsField, string>>;
+  readonly userFieldErrors: UserFieldErrors<OrganizationSettingsField>;
+  readonly userMessage: UserMessage = (m) => m.orgSettings.checkFields;
 
-  constructor(fieldErrors: Partial<Record<OrganizationSettingsField, string>>) {
-    super("Check the highlighted fields.");
+  constructor(fieldErrors: UserFieldErrors<OrganizationSettingsField>) {
+    super(inEnglish((m) => m.orgSettings.checkFields));
     this.name = "OrganizationSettingsError";
-    this.fieldErrors = fieldErrors;
+    this.fieldErrors = fieldErrorsInEnglish(fieldErrors);
+    this.userFieldErrors = fieldErrors;
   }
 }
 
@@ -39,6 +49,7 @@ export type OrganizationSettingsView = {
   allowedEmailDomains: string;
   /** "#rrggbb", or empty for the default color. */
   brandColor: string;
+  locale: Locale;
   hosted: boolean;
   /** Part 11 mode is on: the retention period cannot be set. */
   part11Mode: boolean;
@@ -68,6 +79,7 @@ export function toOrganizationSettingsView(
   return {
     allowedEmailDomains: settings.allowedEmailDomains.join(", "),
     brandColor: settings.brandColor ?? "",
+    locale: settings.locale,
     hosted: settings.hosted,
     logoUrl:
       settings.logoVersion === null
@@ -136,6 +148,7 @@ const optionalBrandColor = z.preprocess(
 const organizationSettingsSchema = z.object({
   allowedEmailDomains: z.string().max(4000).default(""),
   brandColor: optionalBrandColor.default(null),
+  locale: z.enum(LOCALES).default(DEFAULT_LOCALE),
   organizationName: z.string().trim().min(1).max(120),
   privacyUrl: optionalWebUrl.default(null),
   retentionDays: z
@@ -151,16 +164,17 @@ const organizationSettingsSchema = z.object({
   termsUrl: optionalWebUrl.default(null),
 });
 
-const FIELD_MESSAGES: Record<OrganizationSettingsField, string> = {
-  allowedEmailDomains: "Enter one or more domains, such as yourcompany.com",
-  brandColor: "Enter a color as six letters and digits, such as #1a73e8",
-  organizationName: "Enter the name of your organization",
-  privacyUrl: "Enter a full web address starting with https://",
-  retentionDays: "Enter a number of days, 30 or more, or leave this empty",
-  senderAddress: "Enter a valid email address, or leave this empty",
-  signupMode: "Choose who can create an account",
-  supportAddress: "Enter an email address people can write to for help",
-  termsUrl: "Enter a full web address starting with https://",
+const FIELD_MESSAGES: Record<OrganizationSettingsField, UserMessage> = {
+  allowedEmailDomains: (m) => m.orgSettings.fields.allowedEmailDomains,
+  brandColor: (m) => m.orgSettings.fields.brandColor,
+  locale: (m) => m.orgSettings.fields.locale,
+  organizationName: (m) => m.orgSettings.fields.organizationName,
+  privacyUrl: (m) => m.orgSettings.fields.privacyUrl,
+  retentionDays: (m) => m.orgSettings.fields.retentionDays,
+  senderAddress: (m) => m.orgSettings.fields.senderAddress,
+  signupMode: (m) => m.orgSettings.fields.signupMode,
+  supportAddress: (m) => m.orgSettings.fields.supportAddress,
+  termsUrl: (m) => m.orgSettings.fields.termsUrl,
 };
 
 /**
@@ -209,7 +223,7 @@ export async function updateOrganizationSettings(
   const parsed = organizationSettingsSchema.safeParse(
     withoutLockedFields(rawInput, current),
   );
-  const fieldErrors: Partial<Record<OrganizationSettingsField, string>> = {};
+  const fieldErrors: UserFieldErrors<OrganizationSettingsField> = {};
 
   if (!parsed.success) {
     for (const issue of parsed.error.issues) {
@@ -234,7 +248,8 @@ export async function updateOrganizationSettings(
   );
 
   if (invalid.length > 0) {
-    fieldErrors.allowedEmailDomains = `Not a domain: ${invalid.slice(0, 3).join(", ")}`;
+    fieldErrors.allowedEmailDomains = (m) =>
+      m.orgSettings.notADomain(invalid.slice(0, 3).join(", "));
   } else if (domainRule && domains.length === 0) {
     fieldErrors.allowedEmailDomains = FIELD_MESSAGES.allowedEmailDomains;
   }
@@ -248,8 +263,7 @@ export async function updateOrganizationSettings(
 
   // Part 11 records are never deleted on a timer.
   if (current.part11Mode && input.retentionDays !== null) {
-    fieldErrors.retentionDays =
-      "Part 11 mode is on, so finished envelopes are kept until you delete them. Leave this empty.";
+    fieldErrors.retentionDays = (m) => m.orgSettings.part11KeepsRecords;
   }
 
   if (Object.keys(fieldErrors).length > 0) {
@@ -266,6 +280,7 @@ export async function updateOrganizationSettings(
         ? {}
         : {
             brandColor: input.brandColor,
+            locale: input.locale,
             privacyUrl: input.privacyUrl,
             termsUrl: input.termsUrl,
           }),
@@ -283,6 +298,7 @@ export async function updateOrganizationSettings(
 const AUDITED_SETTINGS = [
   "allowedEmailDomains",
   "brandColor",
+  "locale",
   "organizationName",
   "privacyUrl",
   "retentionDays",

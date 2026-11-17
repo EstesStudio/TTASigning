@@ -17,6 +17,7 @@ import {
   getRequestPathname,
   getRequestUserAgent,
 } from "@/lib/security/request";
+import { localize } from "@/lib/i18n/server-locale";
 
 type PersonRouteContext = {
   params: Promise<{
@@ -79,7 +80,7 @@ export async function POST(request: Request, context: PersonRouteContext) {
         break;
       default:
         return NextResponse.json(
-          { error: "Choose verify, revoke or unlock." },
+          { error: await localize((m) => m.admin.part11.chooseAction) },
           { headers: noStore, status: 400 },
         );
     }
@@ -91,7 +92,7 @@ export async function POST(request: Request, context: PersonRouteContext) {
   } catch (error) {
     if (error instanceof Part11Error) {
       return NextResponse.json(
-        { error: error.message },
+        { error: await localize(error) },
         { headers: noStore, status: error.statusCode },
       );
     }
@@ -105,7 +106,7 @@ export async function POST(request: Request, context: PersonRouteContext) {
     });
 
     return NextResponse.json(
-      { error: "That change could not be saved." },
+      { error: await localize((m) => m.admin.changeNotSaved) },
       { headers: noStore, status: 500 },
     );
   }

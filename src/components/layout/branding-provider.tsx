@@ -1,6 +1,6 @@
 "use client";
 
-import { createContext, useContext, type ReactNode } from "react";
+import { createContext, useContext, useEffect, type ReactNode } from "react";
 
 import { buildBrandColorCss } from "@/lib/brand-color";
 import { HOSTED_BRANDING, type Branding } from "@/lib/branding";
@@ -24,6 +24,13 @@ export function BrandingProvider({
   // this point. The rule is built from numbers, never from the stored text
   // as it stands, so nothing but colors can end up in it.
   const brandColorCss = buildBrandColorCss(branding.brandColor);
+
+  // The root layout is shared and static, so it says lang="en". Pages that
+  // know the install's language correct it once they are in the browser,
+  // for screen readers and spell checkers.
+  useEffect(() => {
+    document.documentElement.lang = branding.locale;
+  }, [branding.locale]);
 
   return (
     <BrandingContext.Provider value={branding}>

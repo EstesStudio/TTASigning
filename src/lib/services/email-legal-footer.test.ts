@@ -11,6 +11,7 @@ const neutral: Branding = {
   brandColor: null,
   contactUrl: null,
   hosted: false,
+  locale: "en",
   logoUrl: null,
   organizationName: "Acme Corp",
   privacyUrl: null,

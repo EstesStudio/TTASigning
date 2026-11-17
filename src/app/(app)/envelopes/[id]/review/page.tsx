@@ -4,6 +4,7 @@ import { ReviewShell } from "@/components/envelopes/review-shell";
 import { getAuthSession } from "@/lib/auth/server";
 import { getDb } from "@/lib/db/connection";
 import { getReviewEnvelopeDataForUser } from "@/lib/envelopes";
+import { installLocale } from "@/lib/i18n/server-locale";
 
 type ReviewPageProps = {
   params: Promise<{
@@ -22,7 +23,12 @@ export default async function ReviewPage({ params }: ReviewPageProps) {
     const database = getDb();
 
     reviewRecord = session
-      ? await getReviewEnvelopeDataForUser(session.user.id, id, database)
+      ? await getReviewEnvelopeDataForUser(
+          session.user.id,
+          id,
+          database,
+          await installLocale(),
+        )
       : null;
   } catch {
     initialState = "error";

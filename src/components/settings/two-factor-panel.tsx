@@ -5,12 +5,12 @@ import { encode } from "uqr";
 
 import { useBranding } from "@/components/layout/branding-provider";
 import { FieldShell, ShellButton } from "@/components/shared/form-shell";
+import type { SettingsMessages } from "@/lib/i18n/settings-messages";
+import { useSettingsMessages } from "@/lib/i18n/use-settings-messages";
 
 // Two-step sign-in for the signed-in person: set it up with an
 // authenticator app, make new backup codes, or turn it off. The work is
 // done by Better Auth's two-factor endpoints under /api/auth/two-factor.
-
-const GENERIC_ERROR_MESSAGE = "Something went wrong. Please try again.";
 
 type Step =
   | { kind: "idle" }
@@ -38,16 +38,16 @@ async function postAuth(path: string, body: unknown) {
   return { ok: response.ok, payload };
 }
 
-function describeAuthError(payload: ApiPayload): string {
+function describeAuthError(payload: ApiPayload, t: SettingsMessages): string {
   switch (payload?.code) {
     case "INVALID_PASSWORD":
-      return "That password is not right.";
+      return t.twoFactor.errors.wrongPassword;
     case "INVALID_CODE":
-      return "That code is not right. Check the time on your phone and try the newest code.";
+      return t.twoFactor.errors.wrongCode;
     case "TWO_FACTOR_REQUIRED_BY_ADMINISTRATOR":
-      return payload.message ?? GENERIC_ERROR_MESSAGE;
+      return payload.message ?? t.common.genericError;
     default:
-      return payload?.message ?? GENERIC_ERROR_MESSAGE;
+      return payload?.message ?? t.common.genericError;
   }
 }
 
@@ -65,6 +65,7 @@ function groupSecret(secret: string): string {
 }
 
 function QrCode({ value }: { value: string }) {
+  const t = useSettingsMessages();
   const path = useMemo(() => {
     const { data, size } = encode(value, { border: 2, ecc: "M" });
     const parts: string[] = [];
@@ -82,7 +83,7 @@ function QrCode({ value }: { value: string }) {
 
   return (
     <svg
-      aria-label="QR code for your authenticator app"
+      aria-label={t.twoFactor.qrLabel}
       className="h-48 w-48 rounded-lg bg-white p-1"
       role="img"
       shapeRendering="crispEdges"
@@ -101,36 +102,39 @@ function BackupCodes({
   codes: string[];
   productName: string;
 }) {
+  const t = useSettingsMessages();
   const download = useMemo(() => {
     const text = [
-      `${productName} backup codes`,
+      t.twoFactor.backupCodesFileTitle(productName),
       "",
-      "Each code works once, in place of a code from your authenticator app.",
+      t.twoFactor.backupCodesFileHint,
       "",
       ...codes,
       "",
     ].join("\n");
 
     return `data:text/plain;charset=utf-8,${encodeURIComponent(text)}`;
-  }, [codes, productName]);
+  }, [codes, productName, t]);
 
   return (
     <div className="space-y-3">
       <p className="text-sm leading-6 text-(--secondary)">
-        Keep these backup codes somewhere safe, such as your password manager.
-        Each one works once, in place of a code from your app, if you lose your
-        phone. You will not see them again.
+        {t.twoFactor.backupCodesIntro}
       </p>
       <ul
-        aria-label="Backup codes"
+        aria-label={t.twoFactor.backupCodesLabel}
         className="well grid grid-cols-2 gap-2 p-4 font-mono text-sm sm:grid-cols-5"
       >
         {codes.map((code) => (
           <li key={code}>{code}</li>
         ))}
       </ul>
-      <a className="btn-quiet" download="backup-codes.txt" href={download}>
-        Download codes
+      <a
+        className="btn-quiet"
+        download={t.twoFactor.backupCodesFileName}
+        href={download}
+      >
+        {t.twoFactor.downloadCodes}
       </a>
     </div>
   );
@@ -144,6 +148,7 @@ export function TwoFactorPanel({
   required: boolean;
 }) {
   const { productName } = useBranding();
+  const t = useSettingsMessages();
   const [step, setStep] = useState<Step>({ kind: "idle" });
   const [password, setPassword] = useState("");
   const [code, setCode] = useState("");
@@ -171,7 +176,7 @@ export function TwoFactorPanel({
     }
 
     if (!password) {
-      setFeedback({ message: "Enter your password.", tone: "error" });
+      setFeedback({ message: t.twoFactor.errors.enterPassword, tone: "error" });
       return;
     }
 
@@ -186,7 +191,10 @@ export function TwoFactorPanel({
         });
 
         if (!ok || !payload?.totpURI || !payload.backupCodes) {
-          setFeedback({ message: describeAuthError(payload), tone: "error" });
+          setFeedback({
+            message: describeAuthError(payload, t),
+            tone: "error",
+          });
           return;
         }
 
@@ -207,7 +215,10 @@ export function TwoFactorPanel({
         );
 
         if (!ok || !payload?.backupCodes) {
-          setFeedback({ message: describeAuthError(payload), tone: "error" });
+          setFeedback({
+            message: describeAuthError(payload, t),
+            tone: "error",
+          });
           return;
         }
 
@@ -221,14 +232,14 @@ export function TwoFactorPanel({
       });
 
       if (!ok) {
-        setFeedback({ message: describeAuthError(payload), tone: "error" });
+        setFeedback({ message: describeAuthError(payload, t), tone: "error" });
         return;
       }
 
       // The session was replaced; reload so every part of the page agrees.
       window.location.reload();
     } catch {
-      setFeedback({ message: GENERIC_ERROR_MESSAGE, tone: "error" });
+      setFeedback({ message: t.common.genericError, tone: "error" });
     } finally {
       setIsBusy(false);
     }
@@ -245,7 +256,7 @@ export function TwoFactorPanel({
 
     if (!/^\d{6}$/.test(trimmed)) {
       setFeedback({
-        message: "Enter the 6-digit code your app shows.",
+        message: t.twoFactor.errors.enterCode,
         tone: "error",
       });
       return;
@@ -260,13 +271,13 @@ export function TwoFactorPanel({
       });
 
       if (!ok) {
-        setFeedback({ message: describeAuthError(payload), tone: "error" });
+        setFeedback({ message: describeAuthError(payload, t), tone: "error" });
         return;
       }
 
       window.location.reload();
     } catch {
-      setFeedback({ message: GENERIC_ERROR_MESSAGE, tone: "error" });
+      setFeedback({ message: t.common.genericError, tone: "error" });
     } finally {
       setIsBusy(false);
     }
@@ -277,18 +288,15 @@ export function TwoFactorPanel({
       <div className="space-y-5">
         <div className="flex flex-wrap items-center gap-3">
           <h2 className="text-xl font-extrabold tracking-[-0.02em] text-(--fg)">
-            Two-step sign-in
+            {t.twoFactor.heading}
           </h2>
           <span className={`pill ${enabled ? "pill-success" : "pill-neutral"}`}>
-            {enabled ? "On" : "Off"}
+            {enabled ? t.common.on : t.common.off}
           </span>
         </div>
         <p className="max-w-2xl text-sm leading-6 text-(--secondary)">
-          After your password, {productName} asks for a 6-digit code from an
-          authenticator app on your phone, such as 1Password, Google
-          Authenticator or Microsoft Authenticator. Someone who learns your
-          password still cannot sign in.
-          {required ? " Your organization requires it." : ""}
+          {t.twoFactor.description(productName)}
+          {required ? t.twoFactor.requiredSuffix : ""}
         </p>
 
         {feedback ? (
@@ -305,20 +313,20 @@ export function TwoFactorPanel({
             {enabled ? (
               <>
                 <ShellButton onClick={() => start("codes")} variant="secondary">
-                  Make new backup codes
+                  {t.twoFactor.makeNewBackupCodes}
                 </ShellButton>
                 {required ? null : (
                   <ShellButton
                     onClick={() => start("disable")}
                     variant="secondary"
                   >
-                    Turn off two-step sign-in
+                    {t.twoFactor.turnOffTwoStep}
                   </ShellButton>
                 )}
               </>
             ) : (
               <ShellButton className="w-fit" onClick={() => start("enable")}>
-                Set up two-step sign-in
+                {t.twoFactor.setUp}
               </ShellButton>
             )}
           </div>
@@ -330,7 +338,7 @@ export function TwoFactorPanel({
               <FieldShell
                 autoComplete="current-password"
                 disabled={isBusy}
-                label="Your password"
+                label={t.twoFactor.passwordLabel}
                 name="two-factor-password"
                 onChange={(event) => {
                   setPassword(event.target.value);
@@ -344,17 +352,17 @@ export function TwoFactorPanel({
             <div className="flex flex-col gap-3 sm:flex-row">
               <ShellButton loading={isBusy} type="submit">
                 {step.purpose === "enable"
-                  ? "Continue"
+                  ? t.twoFactor.continue
                   : step.purpose === "codes"
-                    ? "Make new codes"
-                    : "Turn off"}
+                    ? t.twoFactor.makeNewCodes
+                    : t.twoFactor.turnOff}
               </ShellButton>
               <ShellButton
                 disabled={isBusy}
                 onClick={cancel}
                 variant="secondary"
               >
-                Cancel
+                {t.common.cancel}
               </ShellButton>
             </div>
           </form>
@@ -366,10 +374,10 @@ export function TwoFactorPanel({
               <QrCode value={step.totpURI} />
               <div className="space-y-2 text-sm leading-6 text-(--secondary)">
                 <p>
-                  <span className="font-semibold text-(--fg)">1.</span> Scan
-                  this code with your authenticator app.
+                  <span className="font-semibold text-(--fg)">1.</span>{" "}
+                  {t.twoFactor.scanStep}
                 </p>
-                <p>Or type in this key:</p>
+                <p>{t.twoFactor.typeKey}</p>
                 <p className="font-mono text-(--fg)" data-testid="totp-secret">
                   {groupSecret(readSecret(step.totpURI))}
                 </p>
@@ -378,20 +386,20 @@ export function TwoFactorPanel({
 
             <div className="space-y-2">
               <p className="text-sm font-semibold text-(--fg)">
-                2. Save your backup codes
+                {t.twoFactor.saveBackupCodesStep}
               </p>
               <BackupCodes codes={step.backupCodes} productName={productName} />
             </div>
 
             <form className="space-y-4" noValidate onSubmit={handleCode}>
               <p className="text-sm font-semibold text-(--fg)">
-                3. Enter the code your app shows
+                {t.twoFactor.enterCodeStep}
               </p>
               <div className="max-w-xs">
                 <FieldShell
                   autoComplete="one-time-code"
                   disabled={isBusy}
-                  label="6-digit code"
+                  label={t.twoFactor.codeLabel}
                   name="two-factor-setup-code"
                   onChange={(event) => {
                     setCode(event.target.value);
@@ -403,14 +411,14 @@ export function TwoFactorPanel({
               </div>
               <div className="flex flex-col gap-3 sm:flex-row">
                 <ShellButton loading={isBusy} type="submit">
-                  Turn on two-step sign-in
+                  {t.twoFactor.turnOn}
                 </ShellButton>
                 <ShellButton
                   disabled={isBusy}
                   onClick={cancel}
                   variant="secondary"
                 >
-                  Cancel
+                  {t.common.cancel}
                 </ShellButton>
               </div>
             </form>
@@ -420,11 +428,11 @@ export function TwoFactorPanel({
         {step.kind === "new-codes" ? (
           <div className="space-y-4">
             <p className="notice notice-success" role="status">
-              New backup codes made. The old ones no longer work.
+              {t.twoFactor.newCodesMade}
             </p>
             <BackupCodes codes={step.backupCodes} productName={productName} />
             <ShellButton className="w-fit" onClick={cancel} variant="secondary">
-              Done
+              {t.twoFactor.done}
             </ShellButton>
           </div>
         ) : null}

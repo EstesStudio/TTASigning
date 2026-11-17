@@ -9,6 +9,7 @@ import {
 import { logRouteError } from "@/lib/security/logging";
 import { getClientIpAddress, getRequestPathname } from "@/lib/security/request";
 import { buildContentDisposition } from "@/lib/services/storage";
+import { localize } from "@/lib/i18n/server-locale";
 
 type EnvelopeDocumentRouteContext = {
   params: Promise<{
@@ -30,9 +31,13 @@ export async function GET(
   const { id } = await context.params;
 
   try {
-    const document = await getDraftEnvelopeDocumentForUser(session.user.id, id, {
-      database: getDb(),
-    });
+    const document = await getDraftEnvelopeDocumentForUser(
+      session.user.id,
+      id,
+      {
+        database: getDb(),
+      },
+    );
     const responseBody = document.body.slice().buffer as ArrayBuffer;
 
     return new Response(responseBody, {
@@ -50,7 +55,7 @@ export async function GET(
   } catch (error) {
     if (error instanceof EnvelopeDocumentAccessError) {
       return NextResponse.json(
-        { error: error.message },
+        { error: await localize(error) },
         {
           headers: {
             "cache-control": "private, no-store",
@@ -69,7 +74,9 @@ export async function GET(
     });
 
     return NextResponse.json(
-      { error: "Unable to load this draft document." },
+      {
+        error: await localize((m) => m.envelope.api.unableToLoadDraftDocument),
+      },
       {
         headers: {
           "cache-control": "private, no-store",

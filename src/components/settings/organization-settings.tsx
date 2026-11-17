@@ -4,6 +4,10 @@ import { useRouter } from "next/navigation";
 import { useEffect, useState, type ChangeEvent, type FormEvent } from "react";
 
 import { FieldShell, ShellButton } from "@/components/shared/form-shell";
+import { LOCALE_NAMES, LOCALES, normalizeLocale } from "@/lib/i18n/locales";
+import type { SettingsMessages } from "@/lib/i18n/settings-messages";
+import { useSettingsMessages } from "@/lib/i18n/use-settings-messages";
+import { LocaleFlag } from "@/components/settings/locale-flag";
 import { BrandingPanel } from "@/components/settings/branding-panel";
 import { Part11Panel } from "@/components/settings/part11-panel";
 import { PeoplePanel } from "@/components/settings/people-panel";
@@ -19,7 +23,6 @@ import type { SignupMode } from "@/lib/signup-policy";
 // The administrator's part of Settings: what the install is called, who can
 // sign up, where email comes from, and whether email works yet.
 
-const GENERIC_ERROR_MESSAGE = "Something went wrong. Please try again.";
 const RESEND_DOMAINS_URL = "https://resend.com/domains";
 const RESEND_MARKETPLACE_URL = "https://vercel.com/marketplace/resend";
 
@@ -48,32 +51,13 @@ type EmailResponse = {
 
 type EmailAction = "add_domain" | "recheck" | "send_test";
 
-const signupModeOptions: Array<{
-  description: string;
-  label: string;
-  value: SignupMode;
-}> = [
-  {
-    description:
-      "Only people whose email address is at one of your domains can create an account.",
-    label: "People at my organization",
-    value: "domains",
-  },
-  {
-    description: "Nobody new can create an account.",
-    label: "Nobody",
-    value: "closed",
-  },
-  {
-    description: "Anyone who finds this site can create an account.",
-    label: "Anyone",
-    value: "open",
-  },
-];
+const signupModeOptions: SignupMode[] = ["domains", "closed", "open"];
 
 export function OrganizationSettings({
   initialSettings,
 }: OrganizationSettingsProps) {
+  const t = useSettingsMessages();
+  const GENERIC_ERROR_MESSAGE = t.common.genericError;
   const router = useRouter();
   const [values, setValues] = useState(initialSettings);
   const [errors, setErrors] = useState<FormErrors>({});
@@ -125,6 +109,7 @@ export function OrganizationSettings({
         body: JSON.stringify({
           allowedEmailDomains: values.allowedEmailDomains,
           brandColor: values.brandColor,
+          locale: values.locale,
           organizationName: values.organizationName,
           privacyUrl: values.privacyUrl,
           retentionDays: values.retentionDays,
@@ -151,7 +136,7 @@ export function OrganizationSettings({
 
       setValues(payload.settings);
       setEmailRevision((revision) => revision + 1);
-      setFeedback({ message: "Organization settings saved.", tone: "success" });
+      setFeedback({ message: t.organization.saved, tone: "success" });
       // The header and the accent color come from the layout around this
       // page, which only looks them up again when asked to.
       router.refresh();
@@ -171,13 +156,12 @@ export function OrganizationSettings({
     >
       <div className="space-y-8">
         <div className="space-y-2">
-          <p className="section-eyebrow">Administrator</p>
+          <p className="section-eyebrow">{t.common.administrator}</p>
           <h2 className="text-2xl font-extrabold tracking-[-0.03em] text-(--fg)">
-            Organization
+            {t.organization.heading}
           </h2>
           <p className="max-w-2xl text-sm leading-6 text-(--secondary)">
-            These settings apply to everyone who uses this site. Only you, the
-            administrator, can see and change them.
+            {t.organization.description}
           </p>
         </div>
 
@@ -197,8 +181,8 @@ export function OrganizationSettings({
             <FieldShell
               disabled={isSaving}
               error={errors.organizationName}
-              helper="Shown in the header and in every email this site sends."
-              label="Organization name"
+              helper={t.organization.nameHelper}
+              label={t.organization.nameLabel}
               name="organization-name"
               onChange={handleChange("organizationName")}
               readOnly={false}
@@ -206,7 +190,53 @@ export function OrganizationSettings({
             />
           </div>
 
-          {/* The hosted service runs under its own name, mark and color. */}
+          {/* The hosted service runs under its own name, mark, color and language. */}
+          {!values.hosted ? (
+            // Radio buttons rather than a <select>, so each language can show
+            // its flag: an option cannot hold an image, and Windows draws flag
+            // emoji as two letters.
+            <fieldset
+              aria-describedby="organization-locale-description"
+              className="grid max-w-sm gap-2 text-sm"
+              disabled={isSaving}
+            >
+              <legend className="mb-2 text-[0.8125rem] font-semibold text-(--secondary)">
+                {t.organization.languageLabel}
+              </legend>
+              <div className="flex flex-wrap gap-2">
+                {LOCALES.map((locale) => (
+                  <label
+                    className="inline-flex min-h-11 cursor-pointer items-center gap-2.5 rounded-xl bg-(--surface) px-3.5 py-2 font-semibold text-(--fg) ring-2 ring-transparent transition has-[:checked]:bg-(--accent-softer) has-[:checked]:ring-(--accent) has-[:disabled]:cursor-not-allowed has-[:disabled]:opacity-60 has-[:focus-visible]:outline-2 has-[:focus-visible]:outline-offset-2 has-[:focus-visible]:outline-(--accent)"
+                    key={locale}
+                    lang={locale}
+                  >
+                    <input
+                      checked={values.locale === locale}
+                      className="sr-only"
+                      name="organization-locale"
+                      onChange={(event) =>
+                        setValues((currentValues) => ({
+                          ...currentValues,
+                          locale: normalizeLocale(event.target.value),
+                        }))
+                      }
+                      type="radio"
+                      value={locale}
+                    />
+                    <LocaleFlag locale={locale} />
+                    {LOCALE_NAMES[locale]}
+                  </label>
+                ))}
+              </div>
+              <span
+                className="text-xs leading-5 text-(--secondary)"
+                id="organization-locale-description"
+              >
+                {t.organization.languageHelper}
+              </span>
+            </fieldset>
+          ) : null}
+
           {!values.hosted ? (
             <BrandingPanel
               brandColor={values.brandColor}
@@ -222,48 +252,52 @@ export function OrganizationSettings({
 
           <fieldset className="space-y-4 border-t border-(--border) pt-8">
             <legend className="float-left mb-4 w-full text-lg font-extrabold tracking-[-0.02em] text-(--fg)">
-              Who can create an account
+              {t.organization.signupHeading}
             </legend>
             <p className="clear-both max-w-2xl text-sm leading-6 text-(--secondary)">
-              This is about people who send documents. People who are sent a
-              document to sign never need an account.
+              {t.organization.signupDescription}
             </p>
             <div className="space-y-3">
-              {signupModeOptions.map((option) => (
-                <label
-                  className="flex cursor-pointer items-start gap-3 rounded-2xl bg-(--surface) px-4 py-3.5 ring-2 ring-transparent transition has-[:checked]:bg-(--accent-softer) has-[:checked]:ring-(--accent)"
-                  key={option.value}
-                >
-                  <input
-                    checked={values.signupMode === option.value}
-                    className="mt-1 size-4 accent-(--accent)"
-                    disabled={isSaving}
-                    name="signup-mode"
-                    onChange={() => handleSignupModeChange(option.value)}
-                    type="radio"
-                    value={option.value}
-                  />
-                  <span className="space-y-1">
-                    <span className="block text-sm font-bold text-(--fg)">
-                      {option.label}
+              {signupModeOptions
+                .map((value) => ({
+                  value,
+                  ...t.organization.signupModes[value],
+                }))
+                .map((option) => (
+                  <label
+                    className="flex cursor-pointer items-start gap-3 rounded-2xl bg-(--surface) px-4 py-3.5 ring-2 ring-transparent transition has-[:checked]:bg-(--accent-softer) has-[:checked]:ring-(--accent)"
+                    key={option.value}
+                  >
+                    <input
+                      checked={values.signupMode === option.value}
+                      className="mt-1 size-4 accent-(--accent)"
+                      disabled={isSaving}
+                      name="signup-mode"
+                      onChange={() => handleSignupModeChange(option.value)}
+                      type="radio"
+                      value={option.value}
+                    />
+                    <span className="space-y-1">
+                      <span className="block text-sm font-bold text-(--fg)">
+                        {option.label}
+                      </span>
+                      <span className="block text-sm leading-6 text-(--secondary)">
+                        {option.description}
+                      </span>
                     </span>
-                    <span className="block text-sm leading-6 text-(--secondary)">
-                      {option.description}
-                    </span>
-                  </span>
-                </label>
-              ))}
+                  </label>
+                ))}
             </div>
             {values.signupMode === "domains" || errors.allowedEmailDomains ? (
               <div className="max-w-xl">
                 <FieldShell
                   disabled={isSaving}
                   error={errors.allowedEmailDomains}
-                  helper="Separate several domains with commas."
-                  label="Email domains"
+                  helper={t.organization.domainsHelper}
+                  label={t.organization.domainsLabel}
                   name="allowed-email-domains"
                   onChange={handleChange("allowedEmailDomains")}
-                  placeholder="yourcompany.com"
+                  placeholder={t.organization.domainsPlaceholder}
                   readOnly={false}
                   value={values.allowedEmailDomains}
                 />
@@ -273,7 +307,7 @@ export function OrganizationSettings({
 
           <div className="space-y-5 border-t border-(--border) pt-8">
             <h3 className="text-lg font-extrabold tracking-[-0.02em] text-(--fg)">
-              Email addresses
+              {t.organization.addressesHeading}
             </h3>
             <div className="grid gap-4 sm:grid-cols-2">
               <FieldShell
@@ -281,13 +315,13 @@ export function OrganizationSettings({
                 error={errors.senderAddress}
                 helper={
                   values.senderAddressFromEnv
-                    ? "Set by the RESEND_FROM_EMAIL environment variable."
-                    : "The address emails come from, at a domain you own. A subdomain such as notifications@sign.yourcompany.com keeps this site's mail apart from your everyday email."
+                    ? t.organization.senderFromEnv
+                    : t.organization.senderHelper
                 }
-                label="Send email from"
+                label={t.organization.senderLabel}
                 name="sender-address"
                 onChange={handleChange("senderAddress")}
-                placeholder="sign@yourcompany.com"
+                placeholder={t.organization.senderPlaceholder}
                 readOnly={values.senderAddressFromEnv}
                 type="email"
                 value={values.senderAddress}
@@ -297,13 +331,13 @@ export function OrganizationSettings({
                 error={errors.supportAddress}
                 helper={
                   values.supportAddressFromEnv
-                    ? "Set by the SUPPORT_EMAIL environment variable."
-                    : "Where replies and questions from signers go."
+                    ? t.organization.supportFromEnv
+                    : t.organization.supportHelper
                 }
-                label="Support address"
+                label={t.organization.supportLabel}
                 name="support-address"
                 onChange={handleChange("supportAddress")}
-                placeholder="help@yourcompany.com"
+                placeholder={t.organization.supportPlaceholder}
                 readOnly={values.supportAddressFromEnv}
                 type="email"
                 value={values.supportAddress}
@@ -315,45 +349,44 @@ export function OrganizationSettings({
             <div className="space-y-5 border-t border-(--border) pt-8">
               <div className="space-y-2">
                 <h3 className="text-lg font-extrabold tracking-[-0.02em] text-(--fg)">
-                  Your terms and privacy policy
+                  {t.organization.legalHeading}
                 </h3>
                 <p className="max-w-2xl text-sm leading-6 text-(--secondary)">
-                  Optional. Links to pages on your own website, shown in the
-                  footer of this site and of its emails.
+                  {t.organization.legalDescription}
                 </p>
               </div>
               <div className="grid gap-4 sm:grid-cols-2">
                 <FieldShell
                   disabled={isSaving}
                   error={errors.termsUrl}
-                  label="Terms link"
+                  label={t.organization.termsLabel}
                   name="terms-url"
                   onChange={handleChange("termsUrl")}
-                  placeholder="https://yourcompany.com/terms"
+                  placeholder={t.organization.termsPlaceholder}
                   readOnly={false}
                   value={values.termsUrl}
                 />
                 <FieldShell
                   disabled={isSaving}
                   error={errors.privacyUrl}
-                  label="Privacy policy link"
+                  label={t.organization.privacyLabel}
                   name="privacy-url"
                   onChange={handleChange("privacyUrl")}
-                  placeholder="https://yourcompany.com/privacy"
+                  placeholder={t.organization.privacyPlaceholder}
                   readOnly={false}
                   value={values.privacyUrl}
                 />
               </div>
               <p className="max-w-2xl text-sm leading-6 text-(--secondary)">
-                Without a privacy policy link, signers see{" "}
+                {t.organization.privacyNoticeBefore}{" "}
                 <a
                   className="font-semibold text-(--accent-ink) underline decoration-[rgb(var(--accent-rgb)/0.35)] underline-offset-4"
                   href="/signer-privacy"
                   target="_blank"
                 >
-                  a notice built from these settings
+                  {t.organization.privacyNoticeLink}
                 </a>
-                . Check that it is right for your organization.
+                {t.organization.privacyNoticeAfter}
               </p>
             </div>
           ) : null}
@@ -361,14 +394,10 @@ export function OrganizationSettings({
           <div className="space-y-5 border-t border-(--border) pt-8">
             <div className="space-y-2">
               <h3 className="text-lg font-extrabold tracking-[-0.02em] text-(--fg)">
-                How long to keep finished documents
+                {t.organization.retentionHeading}
               </h3>
               <p className="max-w-2xl text-sm leading-6 text-(--secondary)">
-                Optional. After this many days a completed, declined or voided
-                envelope is deleted with its audit trail. Its sender is emailed
-                30 days before. Leave empty to keep them until someone deletes
-                them. Many records must be kept for years, so check what applies
-                to you before setting this.
+                {t.organization.retentionDescription}
               </p>
             </div>
             <div className="max-w-xs">
@@ -376,14 +405,12 @@ export function OrganizationSettings({
                 disabled={isSaving || values.part11Mode}
                 error={errors.retentionDays}
                 helper={
-                  values.part11Mode
-                    ? "Off while Part 11 mode is on: those records are deleted by hand only."
-                    : undefined
+                  values.part11Mode ? t.organization.retentionPart11 : undefined
                 }
-                label="Days to keep"
+                label={t.organization.retentionLabel}
                 name="retention-days"
                 onChange={handleChange("retentionDays")}
-                placeholder="Keep until deleted"
+                placeholder={t.organization.retentionPlaceholder}
                 readOnly={false}
                 value={values.retentionDays}
               />
@@ -391,7 +418,7 @@ export function OrganizationSettings({
           </div>
 
           <ShellButton className="w-fit" loading={isSaving} type="submit">
-            {isSaving ? "Saving..." : "Save organization settings"}
+            {isSaving ? t.common.saving : t.organization.submit}
           </ShellButton>
         </form>
 
@@ -421,6 +448,7 @@ export function OrganizationSettings({
 
 async function fetchEmailStatus(
   signal: AbortSignal,
+  GENERIC_ERROR_MESSAGE: string,
 ): Promise<{ error: string; status: null } | { status: EmailStatus }> {
   const response = await fetch("/api/admin/email", { signal });
   const payload = (await response.json().catch(() => null)) as EmailResponse;
@@ -433,6 +461,8 @@ async function fetchEmailStatus(
 }
 
 function EmailSetupPanel() {
+  const t = useSettingsMessages();
+  const GENERIC_ERROR_MESSAGE = t.common.genericError;
   const [status, setStatus] = useState<EmailStatus | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [pendingAction, setPendingAction] = useState<EmailAction | null>(null);
@@ -441,7 +471,7 @@ function EmailSetupPanel() {
   useEffect(() => {
     const controller = new AbortController();
 
-    fetchEmailStatus(controller.signal)
+    fetchEmailStatus(controller.signal, GENERIC_ERROR_MESSAGE)
       .then((result) => {
         if (result.status) {
           setLoadError(null);
@@ -458,7 +488,7 @@ function EmailSetupPanel() {
       });
 
     return () => controller.abort();
-  }, []);
+  }, [GENERIC_ERROR_MESSAGE]);
 
   async function runAction(action: EmailAction) {
     if (pendingAction) {
@@ -487,7 +517,7 @@ function EmailSetupPanel() {
         setTestResult(
           payload.test.sent
             ? {
-                message: `Test email sent to ${payload.test.to}. Check that inbox.`,
+                message: t.email.testSent(payload.test.to),
                 tone: "success",
               }
             : { message: payload.test.message, tone: "error" },
@@ -502,7 +532,7 @@ function EmailSetupPanel() {
     }
   }
 
-  const summary = status ? describeEmailStatus(status) : null;
+  const summary = status ? describeEmailStatus(status, t) : null;
   const canSendTest =
     status !== null &&
     status.state !== "missing_key" &&
@@ -511,7 +541,7 @@ function EmailSetupPanel() {
   return (
     <div className="space-y-5 border-t border-(--border) pt-8" id="email-setup">
       <h3 className="text-lg font-extrabold tracking-[-0.02em] text-(--fg)">
-        Email setup
+        {t.email.heading}
       </h3>
 
       {loadError ? (
@@ -522,7 +552,7 @@ function EmailSetupPanel() {
 
       {!summary ? (
         loadError ? null : (
-          <p className="text-sm text-(--secondary)">Checking email…</p>
+          <p className="text-sm text-(--secondary)">{t.email.checking}</p>
         )
       ) : (
         <div
@@ -574,8 +604,8 @@ function EmailSetupPanel() {
             onClick={() => void runAction("add_domain")}
           >
             {pendingAction === "add_domain"
-              ? "Adding..."
-              : `Set up ${status.domain}`}
+              ? t.email.adding
+              : t.email.setUpDomain(status.domain)}
           </ShellButton>
         ) : null}
         {status?.state === "domain_pending" ? (
@@ -584,7 +614,7 @@ function EmailSetupPanel() {
             loading={pendingAction === "recheck"}
             onClick={() => void runAction("recheck")}
           >
-            {pendingAction === "recheck" ? "Checking..." : "Check DNS records"}
+            {pendingAction === "recheck" ? t.common.checking : t.email.checkDns}
           </ShellButton>
         ) : null}
         {canSendTest ? (
@@ -595,15 +625,15 @@ function EmailSetupPanel() {
             variant="secondary"
           >
             {pendingAction === "send_test"
-              ? "Sending..."
-              : "Send me a test email"}
+              ? t.common.sending
+              : t.email.sendTest}
           </ShellButton>
         ) : null}
         {status?.state === "restricted_key" ||
         status?.state === "error" ||
         status?.state === "test_sender" ? (
           <ShellButton href={RESEND_DOMAINS_URL} variant="ghost">
-            Open Resend
+            {t.email.openResend}
           </ShellButton>
         ) : null}
       </div>
@@ -627,122 +657,97 @@ type EmailStep = {
   text: string;
 };
 
-function describeEmailStatus(status: EmailStatus): {
+function describeEmailStatus(
+  status: EmailStatus,
+  t: SettingsMessages,
+): {
   lines: string[];
   ready: boolean;
   steps?: EmailStep[];
   title: string;
 } {
+  const m = t.email.status;
+
   switch (status.state) {
     case "capture":
       return {
-        lines: [
-          "This is a development setup. Emails are saved to a folder on this machine instead of being sent.",
-        ],
+        lines: [m.captureLine],
         ready: true,
-        title: "Emails are being captured, not sent",
+        title: m.captureTitle,
       };
     case "missing_key":
       return status.onVercel
         ? {
-            lines: [
-              "This site has no Resend API key, so it cannot send anything: no sign-up confirmations and no signing invitations.",
-            ],
+            lines: [t.email.noKeyLine],
             ready: false,
             steps: [
               {
                 link: {
                   href: RESEND_MARKETPLACE_URL,
-                  label: "Resend on the Vercel Marketplace",
+                  label: m.vercelMarketplaceLink,
                 },
-                text: "Open Resend on the Vercel Marketplace. Choose Install (or Connect Project if your team already has Resend) and connect it to this project.",
+                text: m.vercelStepInstall,
               },
-              {
-                text: "In this project on Vercel, open Settings, then Environment Variables, and check that RESEND_API_KEY is listed for Production.",
-              },
-              {
-                text: "Open Deployments, open the ••• menu on the latest Production deployment and choose Redeploy. Environment variables only reach deployments made after they were added, so a site deployed before Resend was connected still has no key until it is redeployed.",
-              },
-              {
-                text: "When the new deployment is ready, reload this page.",
-              },
+              { text: m.vercelStepCheckVariable },
+              { text: m.vercelStepRedeploy },
+              { text: m.vercelStepReload },
             ],
-            title: "Email is not connected",
+            title: t.email.notConnectedTitle,
           }
         : {
-            lines: [
-              "This site has no Resend API key, so it cannot send anything: no sign-up confirmations and no signing invitations.",
-            ],
+            lines: [t.email.noKeyLine],
             ready: false,
             steps: [
               {
                 link: {
                   href: "https://resend.com/api-keys",
-                  label: "Resend API keys",
+                  label: m.apiKeysLink,
                 },
-                text: "Create an API key in Resend with full access, so this page can add your domain and check its DNS records.",
+                text: m.selfStepCreateKey,
               },
-              {
-                text: "Set it as the RESEND_API_KEY environment variable where this site runs.",
-              },
-              { text: "Restart the app, then reload this page." },
+              { text: m.selfStepSetVariable },
+              { text: m.selfStepRestart },
             ],
-            title: "Email is not connected",
+            title: t.email.notConnectedTitle,
           };
     case "test_sender":
       return {
-        lines: [
-          `Emails are going out from Resend's shared test address (${status.senderAddress}). Resend only delivers those to the owner of the Resend account, so signers and new users will not receive anything yet.`,
-          'Enter an address at your own domain in "Send email from" above and save. The DNS records to add will appear here.',
-        ],
+        lines: [m.testSenderLine(status.senderAddress), m.testSenderHint],
         ready: false,
-        title: "Email only reaches you so far",
+        title: m.testSenderTitle,
       };
     case "domain_missing":
       return {
-        lines: [
-          `${status.domain} has not been added to your Resend account yet. Set it up here to get the DNS records that prove you own it.`,
-        ],
+        lines: [m.domainMissingLine(status.domain)],
         ready: false,
-        title: `${status.domain} needs to be set up`,
+        title: m.domainMissingTitle(status.domain),
       };
     case "domain_pending":
       return {
         lines: [
-          `Add these records where ${status.domain}'s DNS is managed, then check them. DNS changes can take a few minutes to be seen, and sometimes longer.`,
-          ...(status.mayAlreadySend
-            ? [
-                "Resend has verified part of this domain, so sending may already work. Send yourself a test email to find out. If it arrives, email is working.",
-              ]
-            : []),
+          m.domainPendingLine(status.domain),
+          ...(status.mayAlreadySend ? [m.domainPendingMaySend] : []),
         ],
         ready: false,
-        title: `Waiting for ${status.domain}'s DNS records`,
+        title: m.domainPendingTitle(status.domain),
       };
     case "restricted_key":
       return {
-        lines: [
-          `This site's Resend key is only allowed to send email, so it cannot check ${status.domain} from here. Open Resend to add the domain and see its DNS records.`,
-          "When that is done, send yourself a test email. If it arrives, email is working.",
-        ],
+        lines: [m.restrictedKeyLine(status.domain), m.restrictedKeyHint],
         ready: false,
-        title: "Finish the domain in Resend",
+        title: m.restrictedKeyTitle,
       };
     case "ready":
       return {
-        lines: [
-          `Emails are sent from ${status.senderAddress}, and ${status.domain} is verified.`,
-        ],
+        lines: [m.readyLine(status.senderAddress, status.domain)],
         ready: true,
-        title: "Email is working",
+        title: m.readyTitle,
       };
     case "error":
       return {
-        lines: [
-          `Resend could not be asked about this site's email: ${status.message}`,
-        ],
+        lines: [m.errorLine(status.message)],
         ready: false,
-        title: "Email could not be checked",
+        title: m.errorTitle,
       };
   }
 }
@@ -754,10 +759,12 @@ function DnsRecordsTable({
   domain: string;
   records: readonly EmailDnsRecord[];
 }) {
+  const t = useSettingsMessages();
+
   if (records.length === 0) {
     return (
       <p className="text-sm leading-6 text-(--secondary)">
-        Resend did not list any records for {domain}. Open Resend to see them.
+        {t.email.dns.noRecords(domain)}
       </p>
     );
   }
@@ -765,20 +772,20 @@ function DnsRecordsTable({
   return (
     <div className="overflow-x-auto rounded-2xl border border-(--border)">
       <table className="w-full min-w-[640px] border-collapse text-left text-sm">
-        <caption className="sr-only">DNS records to add for {domain}</caption>
+        <caption className="sr-only">{t.email.dns.caption(domain)}</caption>
         <thead>
           <tr className="border-b border-(--border) bg-(--surface) text-xs text-(--tertiary)">
             <th className="px-4 py-3 font-semibold" scope="col">
-              Type
+              {t.email.dns.type}
             </th>
             <th className="px-4 py-3 font-semibold" scope="col">
-              Name
+              {t.email.dns.name}
             </th>
             <th className="px-4 py-3 font-semibold" scope="col">
-              Value
+              {t.email.dns.value}
             </th>
             <th className="px-4 py-3 font-semibold" scope="col">
-              Status
+              {t.email.dns.status}
             </th>
           </tr>
         </thead>
@@ -792,7 +799,7 @@ function DnsRecordsTable({
                 {record.type}
                 {record.priority !== null ? (
                   <span className="block text-xs font-normal text-(--tertiary)">
-                    Priority {record.priority}
+                    {t.email.dns.priority(record.priority)}
                   </span>
                 ) : null}
               </td>
@@ -803,7 +810,9 @@ function DnsRecordsTable({
                 {record.value}
               </td>
               <td className="px-4 py-3 text-(--secondary)">
-                {record.status === "verified" ? "Found" : "Not found yet"}
+                {record.status === "verified"
+                  ? t.email.dns.found
+                  : t.email.dns.notFound}
               </td>
             </tr>
           ))}

@@ -1,5 +1,7 @@
 import { NextResponse } from "next/server";
 
+import { localize } from "../i18n/server-locale.ts";
+import { type UserMessage } from "../i18n/server-messages.ts";
 import { logSecurityEvent } from "./logging.ts";
 import { consumeRateLimit } from "./rate-limit.ts";
 import { getClientIpAddress, getRequestPathname } from "./request.ts";
@@ -8,7 +10,7 @@ type RateLimitInput = {
   category: string;
   key: string;
   limit: number;
-  message?: string;
+  message?: UserMessage;
   request: Request;
   userId?: string | null;
   windowMs: number;
@@ -41,7 +43,7 @@ export async function applyRateLimit(
 
   return NextResponse.json(
     {
-      error: input.message ?? "Too many requests. Please try again soon.",
+      error: await localize(input.message ?? ((m) => m.api.tooManyRequests)),
     },
     {
       headers: { "retry-after": String(decision.retryAfterSeconds) },

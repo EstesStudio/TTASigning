@@ -28,7 +28,7 @@ import type {
   EnvelopeDetailData,
   EnvelopeDetailTimelineItem,
 } from "@/lib/envelopes";
-import { formatReminderInterval } from "@/lib/services/reminders";
+import { useEnvelopeMessages } from "@/lib/i18n/use-envelope-messages";
 import {
   DEFAULT_ENVELOPE_DEADLINE_DAYS,
   ENVELOPE_DEADLINE_DAY_OPTIONS,
@@ -87,26 +87,11 @@ const statusPillClasses: Record<EnvelopeStatus, string> = {
   voided: "pill-neutral",
 };
 
-const statusLabelMap: Record<EnvelopeStatus, string> = {
-  completed: "Completed",
-  declined: "Declined",
-  draft: "Draft",
-  sent: "Sent",
-  voided: "Voided",
-};
-
 const signerStatusPillClasses: Record<SignerStatus, string> = {
   declined: "pill-danger",
   pending: "pill-neutral",
   signed: "pill-success",
   waiting: "pill-accent",
-};
-
-const signerStatusLabelMap: Record<SignerStatus, string> = {
-  declined: "Declined",
-  pending: "Pending",
-  signed: "Signed",
-  waiting: "Waiting",
 };
 
 const signerStatusIcons: Record<SignerStatus, LucideIcon> = {
@@ -128,6 +113,8 @@ export function EnvelopeDetailShell({
   initialState,
   record,
 }: EnvelopeDetailShellProps) {
+  const messages = useEnvelopeMessages();
+  const m = messages.detail;
   const [activeModal, setActiveModal] = useState<ModalState>(null);
   const [actionError, setActionError] = useState<string | null>(null);
   const [isChangingDeadline, setIsChangingDeadline] = useState(false);
@@ -151,13 +138,13 @@ export function EnvelopeDetailShell({
   if (initialState === "error") {
     return (
       <StatusPanel
-        description="Couldn't load this envelope. Please try again."
+        description={m.loadErrorDescription}
         footer={
           <ShellButton onClick={handleRetry} variant="secondary">
-            Retry
+            {messages.common.retry}
           </ShellButton>
         }
-        title="Couldn't load this envelope"
+        title={m.loadErrorTitle}
         tone="error"
       />
     );
@@ -166,10 +153,10 @@ export function EnvelopeDetailShell({
   if (initialState === "not-found") {
     return (
       <StatusPanel
-        action={{ href: "/dashboard", label: "Back to documents" }}
-        description="We couldn't find this envelope, or you no longer have access to it."
-        eyebrow="Unavailable"
-        title="This envelope is unavailable"
+        action={{ href: "/dashboard", label: m.backToDocuments }}
+        description={m.notFoundDescription}
+        eyebrow={m.notFoundEyebrow}
+        title={m.notFoundTitle}
         tone="error"
       />
     );
@@ -178,13 +165,13 @@ export function EnvelopeDetailShell({
   if (!record) {
     return (
       <StatusPanel
-        description="Couldn't load this envelope. Please try again."
+        description={m.loadErrorDescription}
         footer={
           <ShellButton onClick={handleRetry} variant="secondary">
-            Retry
+            {messages.common.retry}
           </ShellButton>
         }
-        title="Couldn't load this envelope"
+        title={m.loadErrorTitle}
         tone="error"
       />
     );
@@ -206,20 +193,20 @@ export function EnvelopeDetailShell({
     !manualReminderState.canSend;
   const reminderHelperText =
     activeRecord.status === "sent" && manualReminderState?.nextAvailableAtLabel
-      ? `You can send another reminder after ${manualReminderState.nextAvailableAtLabel}.`
+      ? m.reminderHelper(manualReminderState.nextAvailableAtLabel)
       : null;
   const deadlineText = !deadline
     ? null
     : isExpired
-      ? `Expired ${deadline.expiresAtLabel}. Nobody can sign until you set a new deadline.`
+      ? m.deadlineExpired(deadline.expiresAtLabel)
       : deadline.expiresAtLabel
-        ? `Expires ${deadline.expiresAtLabel}.`
-        : "No deadline. Each signing link lasts seven days.";
+        ? m.deadlineExpires(deadline.expiresAtLabel)
+        : m.noDeadline;
   const reminderIntervalDays = record.reminderIntervalDays ?? null;
   const remindersText =
     reminderIntervalDays === null
-      ? "Automatic reminders are off."
-      : `Automatic reminders: ${formatReminderInterval(reminderIntervalDays).toLowerCase()}.`;
+      ? m.remindersOff
+      : m.remindersOn(reminderIntervalDays);
   const activeSigner =
     activeRecord.status === "sent"
       ? activeRecord.signers.find((signer) => signer.status === "waiting")
@@ -259,7 +246,7 @@ export function EnvelopeDetailShell({
         return;
       }
 
-      setActionError(payload?.error ?? "Unable to send a reminder right now.");
+      setActionError(payload?.error ?? m.reminderError);
     } finally {
       setIsSendingReminder(false);
     }
@@ -284,9 +271,9 @@ export function EnvelopeDetailShell({
         return;
       }
 
-      setActionError(payload?.error ?? "Unable to change the deadline.");
+      setActionError(payload?.error ?? m.deadlineError);
     } catch {
-      setActionError("Unable to change the deadline.");
+      setActionError(m.deadlineError);
     } finally {
       setIsChangingDeadline(false);
     }
@@ -321,9 +308,9 @@ export function EnvelopeDetailShell({
         return;
       }
 
-      setActionError(payload?.error ?? "Unable to correct this signer.");
+      setActionError(payload?.error ?? m.correctError);
     } catch {
-      setActionError("Unable to correct this signer.");
+      setActionError(m.correctError);
     } finally {
       setIsCorrectingSigner(false);
     }
@@ -348,9 +335,9 @@ export function EnvelopeDetailShell({
         return;
       }
 
-      setActionError(payload?.error ?? "Unable to change the reminders.");
+      setActionError(payload?.error ?? m.remindersError);
     } catch {
-      setActionError("Unable to change the reminders.");
+      setActionError(m.remindersError);
     } finally {
       setIsChangingReminders(false);
     }
@@ -381,9 +368,9 @@ export function EnvelopeDetailShell({
         return;
       }
 
-      setActionError(payload?.error ?? "Unable to copy this envelope.");
+      setActionError(payload?.error ?? m.copyError);
     } catch {
-      setActionError("Unable to copy this envelope.");
+      setActionError(m.copyError);
     } finally {
       setIsCopyingDraft(false);
     }
@@ -403,7 +390,7 @@ export function EnvelopeDetailShell({
       } | null;
 
       if (!response.ok) {
-        setActionError(payload?.error ?? "Unable to delete this draft.");
+        setActionError(payload?.error ?? m.deleteError);
         return;
       }
 
@@ -441,7 +428,7 @@ export function EnvelopeDetailShell({
         return;
       }
 
-      setActionError(payload?.error ?? "Unable to void this envelope.");
+      setActionError(payload?.error ?? m.voidError);
     } finally {
       setIsVoidingEnvelope(false);
     }
@@ -454,7 +441,7 @@ export function EnvelopeDetailShell({
           className="inline-flex items-center text-sm font-semibold text-(--secondary) transition hover:text-(--accent-ink)"
           href="/dashboard"
         >
-          ← Documents
+          {m.documentsLink}
         </Link>
 
         <div className="mt-5 flex flex-col gap-6 lg:flex-row lg:items-center lg:justify-between">
@@ -483,10 +470,10 @@ export function EnvelopeDetailShell({
                       : statusPillClasses[activeRecord.status]
                   }`}
                 >
-                  {isExpired ? "Expired" : statusLabelMap[activeRecord.status]}
+                  {isExpired ? m.expired : m.statusLabels[activeRecord.status]}
                 </span>
                 <p className="text-sm text-(--secondary)">
-                  Created {activeRecord.createdAtLabel}
+                  {m.created(activeRecord.createdAtLabel)}
                 </p>
                 {record.signatureTypeLabel ? (
                   <span className="pill pill-neutral">
@@ -504,10 +491,10 @@ export function EnvelopeDetailShell({
                   onClick={() => setActiveModal("delete-draft")}
                   variant="secondary"
                 >
-                  Delete draft
+                  {m.deleteDraft}
                 </ShellButton>
                 <ShellButton href={`/envelopes/${envelopeId}/prepare`}>
-                  Continue editing
+                  {m.continueEditing}
                 </ShellButton>
               </>
             ) : null}
@@ -518,14 +505,14 @@ export function EnvelopeDetailShell({
                   onClick={() => setActiveModal("void-envelope")}
                   variant="secondary"
                 >
-                  Void envelope
+                  {m.voidEnvelope}
                 </ShellButton>
                 <ShellButton
                   disabled={!activeSigner || reminderLimited}
                   loading={isSendingReminder}
                   onClick={handleSendReminder}
                 >
-                  Send reminder
+                  {m.sendReminder}
                 </ShellButton>
               </>
             ) : null}
@@ -536,7 +523,7 @@ export function EnvelopeDetailShell({
                   onClick={() => handleDownload("evidence")}
                   variant="secondary"
                 >
-                  Download certificate
+                  {m.downloadCertificate}
                 </ShellButton>
                 <ShellButton onClick={() => handleDownload("signed")}>
                   <DownloadIcon
@@ -544,7 +531,7 @@ export function EnvelopeDetailShell({
                     className="size-[1.125rem]"
                     strokeWidth={2.2}
                   />
-                  Download signed PDF
+                  {m.downloadSigned}
                 </ShellButton>
               </>
             ) : null}
@@ -555,7 +542,7 @@ export function EnvelopeDetailShell({
                 onClick={() => handleDownload("evidence")}
                 variant="secondary"
               >
-                Download certificate
+                {m.downloadCertificate}
               </ShellButton>
             ) : null}
 
@@ -568,7 +555,7 @@ export function EnvelopeDetailShell({
                   }}
                   variant="secondary"
                 >
-                  Copy to new draft
+                  {m.copyToDraft}
                 </ShellButton>
                 <ShellButton
                   onClick={() =>
@@ -580,7 +567,7 @@ export function EnvelopeDetailShell({
                   }
                   variant="secondary"
                 >
-                  Export audit trail
+                  {m.exportAudit}
                 </ShellButton>
               </>
             ) : null}
@@ -614,7 +601,7 @@ export function EnvelopeDetailShell({
               }}
               type="button"
             >
-              {isExpired ? "Set a new deadline" : "Change deadline"}
+              {isExpired ? m.setNewDeadline : m.changeDeadline}
             </button>
           </div>
         ) : null}
@@ -632,7 +619,7 @@ export function EnvelopeDetailShell({
               }}
               type="button"
             >
-              Change reminders
+              {m.changeReminders}
             </button>
           </div>
         ) : null}
@@ -644,12 +631,12 @@ export function EnvelopeDetailShell({
             }`}
             role="status"
           >
-            <p>Saved as the template &ldquo;{savedTemplateName}&rdquo;.</p>
+            <p>{m.savedAsTemplate(savedTemplateName)}</p>
             <Link
               className="shrink-0 underline underline-offset-4"
               href="/templates"
             >
-              View templates
+              {m.viewTemplates}
             </Link>
           </div>
         ) : activeRecord.signers.length > 0 ? (
@@ -659,8 +646,7 @@ export function EnvelopeDetailShell({
             }`}
           >
             <p className="text-sm leading-6 text-(--secondary)">
-              Send this kind of document often? Keep its fields and signing
-              order as a template.
+              {m.templatePrompt}
             </p>
             <button
               className="btn-quiet shrink-0"
@@ -670,7 +656,7 @@ export function EnvelopeDetailShell({
               }}
               type="button"
             >
-              Save as template
+              {m.saveAsTemplate}
             </button>
           </div>
         ) : null}
@@ -689,9 +675,9 @@ export function EnvelopeDetailShell({
       >
         <article className="panel p-5 sm:p-7">
           <div className="flex items-center justify-between gap-3">
-            <h2 className="text-lg font-extrabold text-(--fg)">Signers</h2>
+            <h2 className="text-lg font-extrabold text-(--fg)">{m.signers}</h2>
             <span className="pill pill-neutral">
-              {activeRecord.signers.length} total
+              {m.total(activeRecord.signers.length)}
             </span>
           </div>
 
@@ -737,7 +723,7 @@ export function EnvelopeDetailShell({
                               className="size-3.5"
                               strokeWidth={2.6}
                             />
-                            {signerStatusLabelMap[signer.status]}
+                            {m.signerStatusLabels[signer.status]}
                           </span>
                           {signer.statusDateLabel ? (
                             <p className="text-xs text-(--tertiary)">
@@ -762,7 +748,7 @@ export function EnvelopeDetailShell({
                                 className="size-3.5"
                                 strokeWidth={2.4}
                               />
-                              Change
+                              {m.change}
                             </button>
                           ) : null}
                         </div>
@@ -781,12 +767,12 @@ export function EnvelopeDetailShell({
           {record.copyRecipients && record.copyRecipients.length > 0 ? (
             <div className="mt-6">
               <h3 className="text-[0.9375rem] font-extrabold text-(--fg)">
-                Receives a copy
+                {m.receivesCopy}
               </h3>
               <p className="mt-1 text-sm leading-6 text-(--secondary)">
                 {activeRecord.status === "completed"
-                  ? "Sent the finished document and its certificate."
-                  : "Gets the finished document once everyone has signed."}
+                  ? m.copySent
+                  : m.copyPending}
               </p>
               <ul className="mt-3 space-y-2">
                 {record.copyRecipients.map((recipient) => (
@@ -806,9 +792,9 @@ export function EnvelopeDetailShell({
 
         <article className="panel p-5 sm:p-7">
           <div className="flex items-center justify-between gap-3">
-            <h2 className="text-lg font-extrabold text-(--fg)">Timeline</h2>
+            <h2 className="text-lg font-extrabold text-(--fg)">{m.timeline}</h2>
             <span className="pill pill-neutral">
-              {activeRecord.timeline.length} events
+              {m.events(activeRecord.timeline.length)}
             </span>
           </div>
 
@@ -897,37 +883,32 @@ export function EnvelopeDetailShell({
 
       {activeModal === "delete-draft" ? (
         <ConfirmationDialog
-          confirmLabel="Delete draft"
-          description={[
-            "This draft has not been sent yet.",
-            "Deleting it will permanently remove the draft and its placed fields.",
-          ]}
+          confirmLabel={m.deleteDraft}
+          description={m.deleteDialog.lines}
           errorMessage={actionError}
           onCancel={() => setActiveModal(null)}
           onConfirm={handleConfirmDeleteDraft}
           processing={isDeletingDraft}
-          title="Delete this draft?"
+          title={m.deleteDialog.title}
         />
       ) : null}
 
       {activeModal === "void-envelope" ? (
         <ConfirmationDialog
-          confirmLabel="Void envelope"
-          description={[
-            "This will cancel the signing process.",
-            "Notified signers will be informed that the envelope has been voided.",
-            "This action cannot be undone.",
-          ]}
+          confirmLabel={m.voidEnvelope}
+          description={m.voidDialog.lines}
           confirmDisabled={record.part11 && voidReason.trim().length === 0}
           errorMessage={actionError}
           onCancel={() => setActiveModal(null)}
           onConfirm={handleConfirmVoidEnvelope}
           processing={isVoidingEnvelope}
-          title="Void this envelope?"
+          title={m.voidDialog.title}
         >
           <label className="grid gap-2 text-sm">
             <span className="text-[0.8125rem] font-semibold text-(--secondary)">
-              {record.part11 ? "Reason (required)" : "Reason (optional)"}
+              {record.part11
+                ? m.voidDialog.reasonRequired
+                : m.voidDialog.reasonOptional}
             </span>
             <Textarea
               disabled={isVoidingEnvelope}
@@ -937,7 +918,7 @@ export function EnvelopeDetailShell({
               value={voidReason}
             />
             <span className="text-xs leading-5 text-(--tertiary)">
-              Kept in the envelope&apos;s audit trail.
+              {m.voidDialog.reasonHelp}
             </span>
           </label>
         </ConfirmationDialog>
@@ -959,6 +940,9 @@ function CopyDraftDialog({
   onConfirm,
   processing = false,
 }: CopyDraftDialogProps) {
+  const messages = useEnvelopeMessages();
+  const m = messages.detail.copyDialog;
+
   return (
     <Dialog
       open
@@ -971,19 +955,12 @@ function CopyDraftDialog({
       <DialogContent className="max-w-md sm:p-8" showCloseButton={false}>
         <div className="space-y-4">
           <DialogHeader className="space-y-3">
-            <DialogTitle>Copy to a new draft</DialogTitle>
+            <DialogTitle>{m.title}</DialogTitle>
             <DialogDescription asChild>
               <div className="space-y-2 text-sm leading-6 text-(--secondary)">
-                <p>
-                  This starts a new draft with the same document, the same
-                  people and the same fields. Nothing that was filled in is
-                  copied.
-                </p>
-                <p>
-                  Access codes are not copied: they are stored hashed, so they
-                  cannot be brought across. You can set new ones before sending.
-                </p>
-                <p>Nobody is emailed, and this envelope is left as it is.</p>
+                {m.lines.map((line) => (
+                  <p key={line}>{line}</p>
+                ))}
               </div>
             </DialogDescription>
           </DialogHeader>
@@ -1000,10 +977,10 @@ function CopyDraftDialog({
               onClick={onCancel}
               variant="secondary"
             >
-              Cancel
+              {messages.common.cancel}
             </ShellButton>
             <ShellButton loading={processing} onClick={onConfirm}>
-              {processing ? "Copying..." : "Copy to new draft"}
+              {processing ? m.copying : messages.detail.copyToDraft}
             </ShellButton>
           </div>
         </div>
@@ -1027,6 +1004,8 @@ function DeadlineDialog({
   onConfirm,
   processing = false,
 }: DeadlineDialogProps) {
+  const messages = useEnvelopeMessages();
+  const m = messages.detail.deadlineDialog;
   const [days, setDays] = useState<number>(DEFAULT_ENVELOPE_DEADLINE_DAYS);
 
   return (
@@ -1041,16 +1020,12 @@ function DeadlineDialog({
       <DialogContent className="max-w-md sm:p-8" showCloseButton={false}>
         <div className="space-y-4">
           <DialogHeader className="space-y-3">
-            <DialogTitle>
-              {expired ? "Set a new deadline" : "Change the deadline"}
-            </DialogTitle>
+            <DialogTitle>{expired ? m.titleExpired : m.title}</DialogTitle>
             <DialogDescription asChild>
               <div className="space-y-2 text-sm leading-6 text-(--secondary)">
                 <p>
-                  The new deadline counts from now.{" "}
-                  {expired
-                    ? "The signing link that was already sent will work again."
-                    : "The signing link that was already sent keeps working until then."}
+                  {m.countsFromNow}{" "}
+                  {expired ? m.linkWorksAgain : m.linkKeepsWorking}
                 </p>
               </div>
             </DialogDescription>
@@ -1058,7 +1033,7 @@ function DeadlineDialog({
 
           <label className="grid gap-1.5">
             <span className="text-[0.8125rem] font-semibold text-(--secondary)">
-              Signing deadline
+              {m.label}
             </span>
             <select
               autoFocus
@@ -1069,7 +1044,7 @@ function DeadlineDialog({
             >
               {ENVELOPE_DEADLINE_DAY_OPTIONS.map((option) => (
                 <option key={option} value={option}>
-                  {option} days from now
+                  {m.daysFromNow(option)}
                 </option>
               ))}
             </select>
@@ -1087,10 +1062,10 @@ function DeadlineDialog({
               onClick={onCancel}
               variant="secondary"
             >
-              Cancel
+              {messages.common.cancel}
             </ShellButton>
             <ShellButton loading={processing} onClick={() => onConfirm(days)}>
-              {processing ? "Saving..." : "Save deadline"}
+              {processing ? messages.common.saving : m.save}
             </ShellButton>
           </div>
         </div>
@@ -1114,6 +1089,8 @@ function RemindersDialog({
   onConfirm,
   processing = false,
 }: RemindersDialogProps) {
+  const messages = useEnvelopeMessages();
+  const m = messages.detail.remindersDialog;
   const [intervalDays, setIntervalDays] = useState<number | null>(
     initialIntervalDays,
   );
@@ -1137,21 +1114,17 @@ function RemindersDialog({
       <DialogContent className="max-w-md sm:p-8" showCloseButton={false}>
         <div className="space-y-4">
           <DialogHeader className="space-y-3">
-            <DialogTitle>Automatic reminders</DialogTitle>
+            <DialogTitle>{m.title}</DialogTitle>
             <DialogDescription asChild>
               <div className="space-y-2 text-sm leading-6 text-(--secondary)">
-                <p>
-                  A reminder goes to the signer whose turn it is when they have
-                  not heard from you for this long. Reminders stop once everyone
-                  has signed or the deadline passes.
-                </p>
+                <p>{m.help}</p>
               </div>
             </DialogDescription>
           </DialogHeader>
 
           <label className="grid gap-1.5">
             <span className="text-[0.8125rem] font-semibold text-(--secondary)">
-              Send a reminder
+              {m.label}
             </span>
             <select
               autoFocus
@@ -1166,10 +1139,10 @@ function RemindersDialog({
               }
               value={intervalDays ?? "off"}
             >
-              <option value="off">{formatReminderInterval(null)}</option>
+              <option value="off">{messages.reminderInterval(null)}</option>
               {options.map((option) => (
                 <option key={option} value={option}>
-                  {formatReminderInterval(option)}
+                  {messages.reminderInterval(option)}
                 </option>
               ))}
             </select>
@@ -1187,13 +1160,13 @@ function RemindersDialog({
               onClick={onCancel}
               variant="secondary"
             >
-              Cancel
+              {messages.common.cancel}
             </ShellButton>
             <ShellButton
               loading={processing}
               onClick={() => onConfirm(intervalDays)}
             >
-              {processing ? "Saving..." : "Save reminders"}
+              {processing ? messages.common.saving : m.save}
             </ShellButton>
           </div>
         </div>
@@ -1219,6 +1192,8 @@ function CorrectSignerDialog({
   onConfirm,
   processing = false,
 }: CorrectSignerDialogProps) {
+  const messages = useEnvelopeMessages();
+  const m = messages.detail.correctDialog;
   const [nextName, setNextName] = useState(name);
   const [nextEmail, setNextEmail] = useState(email);
 
@@ -1234,21 +1209,17 @@ function CorrectSignerDialog({
       <DialogContent className="max-w-md sm:p-8" showCloseButton={false}>
         <div className="space-y-4">
           <DialogHeader className="space-y-3">
-            <DialogTitle>Correct this signer</DialogTitle>
+            <DialogTitle>{m.title}</DialogTitle>
             <DialogDescription asChild>
               <div className="space-y-2 text-sm leading-6 text-(--secondary)">
-                <p>
-                  The signing link already sent to this person will stop
-                  working. If it is their turn, a new invitation goes to the
-                  corrected address.
-                </p>
+                <p>{m.help}</p>
               </div>
             </DialogDescription>
           </DialogHeader>
 
           <label className="grid gap-1.5">
             <span className="text-[0.8125rem] font-semibold text-(--secondary)">
-              Name
+              {messages.common.nameLabel}
             </span>
             <input
               autoFocus
@@ -1261,7 +1232,7 @@ function CorrectSignerDialog({
 
           <label className="grid gap-1.5">
             <span className="text-[0.8125rem] font-semibold text-(--secondary)">
-              Email
+              {messages.common.emailLabel}
             </span>
             <input
               className="field-input"
@@ -1284,13 +1255,13 @@ function CorrectSignerDialog({
               onClick={onCancel}
               variant="secondary"
             >
-              Cancel
+              {messages.common.cancel}
             </ShellButton>
             <ShellButton
               loading={processing}
               onClick={() => onConfirm({ email: nextEmail, name: nextName })}
             >
-              {processing ? "Saving..." : "Save"}
+              {processing ? messages.common.saving : m.save}
             </ShellButton>
           </div>
         </div>
@@ -1322,6 +1293,8 @@ function ConfirmationDialog({
   processing = false,
   title,
 }: ConfirmationDialogProps) {
+  const messages = useEnvelopeMessages();
+
   return (
     <Dialog
       open
@@ -1358,7 +1331,7 @@ function ConfirmationDialog({
               onClick={onCancel}
               variant="secondary"
             >
-              Cancel
+              {messages.common.cancel}
             </ShellButton>
             <ShellButton
               disabled={confirmDisabled}

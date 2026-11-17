@@ -10,6 +10,7 @@ import {
   SigningVerificationRequiredError,
   getSigningPayloadForToken,
 } from "@/lib/signing";
+import { localize } from "@/lib/i18n/server-locale";
 import { logRouteError } from "@/lib/security/logging";
 import {
   applyRateLimit,
@@ -68,7 +69,7 @@ export async function GET(request: Request, context: SigningRouteContext) {
     if (error instanceof SigningAccessError) {
       return NextResponse.json(
         {
-          error: error.message,
+          error: await localize(error),
           state: error.state,
         },
         {
@@ -89,7 +90,7 @@ export async function GET(request: Request, context: SigningRouteContext) {
 
     return NextResponse.json(
       {
-        error: "Unable to load this signing link.",
+        error: await localize((m) => m.signing.unableToLoadLink),
       },
       {
         headers: {

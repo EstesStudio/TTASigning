@@ -5,6 +5,7 @@ import {
   type StorageService,
 } from "./storage/types.ts";
 import { isPendingUploadKey } from "./storage-keys.ts";
+import { inEnglish, type UserMessage } from "../i18n/server-messages.ts";
 
 // A pending upload is a PDF the browser sent straight to storage (see
 // direct-upload.ts). Nothing about it is trusted. The app reads it back
@@ -12,8 +13,11 @@ import { isPendingUploadKey } from "./storage-keys.ts";
 // copy under the envelope's key, and deletes the pending one.
 
 export class PendingUploadError extends Error {
-  constructor(message: string) {
-    super(message);
+  readonly userMessage: UserMessage;
+
+  constructor(message: UserMessage) {
+    super(inEnglish(message));
+    this.userMessage = message;
     this.name = "PendingUploadError";
   }
 }
@@ -79,7 +83,7 @@ export async function readPendingUpload({
   userId: string;
 }): Promise<Uint8Array> {
   if (!isPendingUploadKey(key, userId)) {
-    throw new PendingUploadError("Invalid upload reference.");
+    throw new PendingUploadError((m) => m.upload.invalidReference);
   }
 
   try {
@@ -94,9 +98,7 @@ export async function readPendingUpload({
     return await readStreamWithLimit(object.stream, maxBytes);
   } catch (error) {
     if (error instanceof StorageObjectNotFoundError) {
-      throw new PendingUploadError(
-        "The uploaded file was not found. Please upload it again.",
-      );
+      throw new PendingUploadError((m) => m.upload.fileNotFound);
     }
 
     throw error;

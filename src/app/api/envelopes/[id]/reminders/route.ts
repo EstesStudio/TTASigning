@@ -13,6 +13,7 @@ import {
   buildRateLimitKey,
 } from "@/lib/security/route-controls";
 import { getClientIpAddress, getRequestPathname } from "@/lib/security/request";
+import { localize } from "@/lib/i18n/server-locale";
 
 type EnvelopeRemindersRouteContext = {
   params: Promise<{
@@ -58,8 +59,7 @@ export async function POST(
   if (!parsed.success) {
     return NextResponse.json(
       {
-        error:
-          "Choose reminders between 1 and 30 days apart, or turn them off.",
+        error: await localize((m) => m.envelope.api.invalidReminders),
       },
       { headers: noStore, status: 400 },
     );
@@ -77,7 +77,7 @@ export async function POST(
   } catch (error) {
     if (error instanceof EnvelopeMutationError) {
       return NextResponse.json(
-        { error: error.message },
+        { error: await localize(error) },
         { headers: noStore, status: error.statusCode },
       );
     }
@@ -91,7 +91,7 @@ export async function POST(
     });
 
     return NextResponse.json(
-      { error: "Unable to change the reminders." },
+      { error: await localize((m) => m.envelope.api.unableToChangeReminders) },
       { headers: noStore, status: 500 },
     );
   }

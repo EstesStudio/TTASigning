@@ -2,12 +2,13 @@
 
 import { useState } from "react";
 
+import { useSettingsMessages } from "@/lib/i18n/use-settings-messages";
+
 // Part 11 mode. Administrators only. The install's audit trail is in the
 // security panel.
 
-const GENERIC_ERROR_MESSAGE = "Something went wrong. Please try again.";
-
 export function Part11Panel({ initialEnabled }: { initialEnabled: boolean }) {
+  const t = useSettingsMessages();
   const enabled = initialEnabled;
   const [error, setError] = useState<string | null>(null);
   const [isSaving, setIsSaving] = useState(false);
@@ -28,14 +29,14 @@ export function Part11Panel({ initialEnabled }: { initialEnabled: boolean }) {
       } | null;
 
       if (!response.ok || typeof payload?.part11Mode !== "boolean") {
-        setError(payload?.error ?? GENERIC_ERROR_MESSAGE);
+        setError(payload?.error ?? t.common.genericError);
         return;
       }
 
       // The People list and the retention field depend on the mode.
       window.location.reload();
     } catch {
-      setError(GENERIC_ERROR_MESSAGE);
+      setError(t.common.genericError);
     } finally {
       setIsSaving(false);
     }
@@ -45,23 +46,13 @@ export function Part11Panel({ initialEnabled }: { initialEnabled: boolean }) {
     <div className="space-y-5 border-t border-(--border) pt-8" id="part11">
       <div className="space-y-2">
         <h3 className="text-lg font-extrabold tracking-[-0.02em] text-(--fg)">
-          FDA 21 CFR Part 11 mode
+          {t.part11.heading}
         </h3>
         <p className="max-w-2xl text-sm leading-6 text-(--secondary)">
-          For regulated records. While it is on, envelopes are sent only to
-          people with an account here whose identity an administrator has
-          confirmed under People. Each signer gives their email address and
-          password to open the document and again to sign, and confirms what the
-          signature means, which is printed beside it with their name and the
-          time. Five wrong passwords lock the account for signing and email the
-          administrators. Finished envelopes are never deleted by the retention
-          period or a data request, and a void needs a reason.
+          {t.part11.description}
         </p>
         <p className="max-w-2xl text-sm leading-6 text-(--secondary)">
-          Turning it on does not by itself make this site compliant. Your
-          organization still validates the system, writes and follows its own
-          procedures, trains its people and certifies its electronic signatures
-          to the FDA.
+          {t.part11.disclaimer}
         </p>
       </div>
 
@@ -73,7 +64,7 @@ export function Part11Panel({ initialEnabled }: { initialEnabled: boolean }) {
 
       <div className="flex flex-wrap items-center gap-3">
         <span className={`pill ${enabled ? "pill-success" : "pill-neutral"}`}>
-          {enabled ? "On" : "Off"}
+          {enabled ? t.common.on : t.common.off}
         </span>
         <button
           className={enabled ? "btn-quiet btn-quiet-danger" : "btn-quiet"}
@@ -82,10 +73,10 @@ export function Part11Panel({ initialEnabled }: { initialEnabled: boolean }) {
           type="button"
         >
           {isSaving
-            ? "Saving..."
+            ? t.common.saving
             : enabled
-              ? "Turn off Part 11 mode"
-              : "Turn on Part 11 mode"}
+              ? t.part11.turnOff
+              : t.part11.turnOn}
         </button>
       </div>
     </div>

@@ -2,12 +2,10 @@ import { NextResponse } from "next/server";
 
 import { requireVerifiedSenderSession } from "@/lib/auth/route-session";
 import { getDb } from "@/lib/db/connection";
-import {
-  deleteDraftEnvelope,
-  EnvelopeMutationError,
-} from "@/lib/envelopes";
+import { deleteDraftEnvelope, EnvelopeMutationError } from "@/lib/envelopes";
 import { logRouteError } from "@/lib/security/logging";
 import { getClientIpAddress, getRequestPathname } from "@/lib/security/request";
+import { localize } from "@/lib/i18n/server-locale";
 
 type EnvelopeRouteContext = {
   params: Promise<{
@@ -40,7 +38,7 @@ export async function DELETE(request: Request, context: EnvelopeRouteContext) {
   } catch (error) {
     if (error instanceof EnvelopeMutationError) {
       return NextResponse.json(
-        { error: error.message },
+        { error: await localize(error) },
         { status: error.statusCode },
       );
     }
@@ -54,7 +52,7 @@ export async function DELETE(request: Request, context: EnvelopeRouteContext) {
     });
 
     return NextResponse.json(
-      { error: "Unable to delete this draft envelope." },
+      { error: await localize((m) => m.envelope.api.unableToDeleteDraft) },
       { status: 500 },
     );
   }

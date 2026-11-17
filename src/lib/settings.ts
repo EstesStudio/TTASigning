@@ -12,6 +12,12 @@ import {
   type SignupMode,
   type SignupPolicy,
 } from "./signup-policy.ts";
+import {
+  DEFAULT_LOCALE,
+  normalizeLocale,
+  type Locale,
+} from "./i18n/locales.ts";
+import { serverMessages } from "./i18n/server-messages.ts";
 import { getEnv, isHostedMode, type EnvSource } from "./utils/env.ts";
 
 // Install-wide settings: one row in app_settings, written by the first-run
@@ -27,6 +33,8 @@ export type AppSettings = {
   /** The install's own color as "#rrggbb", or null for the default. */
   brandColor: string | null;
   emailReadyAt: number | null;
+  /** The language signers are spoken to in, and email is written in. */
+  locale: Locale;
   /**
    * A short hash of the install's logo, or null when it has none. The logo
    * itself is read and written in brand-logo.ts, never here.
@@ -98,6 +106,7 @@ type AppSettingsRow = {
   allowed_email_domains: string[] | null;
   brand_color: string | null;
   email_ready_at: number | null;
+  locale: string;
   logo_hash: string | null;
   organization_name: string | null;
   part11_mode: boolean;
@@ -137,6 +146,7 @@ const LATER_SETTINGS_COLUMNS = [
   ["part11_mode"], // 20261115090000_part11_mode
   ["require_two_factor"], // 20261117090000_sign_in_security
   ["session_idle_minutes", "session_max_hours"], // 20261117100000_session_controls
+  ["locale"], // 20261118100000_locale
 ] as const;
 
 type LaterSettingsColumn = (typeof LATER_SETTINGS_COLUMNS)[number][number];
@@ -162,6 +172,7 @@ const UNSET_SETTINGS: AppSettings = {
   allowedEmailDomains: [],
   brandColor: null,
   emailReadyAt: null,
+  locale: DEFAULT_LOCALE,
   logoVersion: null,
   organizationName: null,
   part11Mode: false,
@@ -231,6 +242,7 @@ function mapSettingsRow(row: StoredSettingsRow): AppSettings {
     allowedEmailDomains: row.allowed_email_domains ?? [],
     brandColor: row.brand_color ?? null,
     emailReadyAt: row.email_ready_at,
+    locale: normalizeLocale(row.locale),
     logoVersion: row.logo_hash ?? null,
     organizationName: row.organization_name,
     part11Mode: row.part11_mode ?? false,
@@ -405,10 +417,11 @@ async function saveSettingsLocked(
         require_two_factor,
         session_idle_minutes,
         session_max_hours,
+        locale,
         created_at,
         updated_at
       )
-      values (true, $1, $2, $3, $4, $5, $6, $7, $8, $9, $11, $12, $13, $14, $15, $16, $10, $10)
+      values (true, $1, $2, $3, $4, $5, $6, $7, $8, $9, $11, $12, $13, $14, $15, $16, $17, $10, $10)
       on conflict (id) do update set
         allowed_email_domains = excluded.allowed_email_domains,
         email_ready_at = excluded.email_ready_at,
@@ -425,6 +438,7 @@ async function saveSettingsLocked(
         require_two_factor = excluded.require_two_factor,
         session_idle_minutes = excluded.session_idle_minutes,
         session_max_hours = excluded.session_max_hours,
+        locale = excluded.locale,
         updated_at = excluded.updated_at
       returning ${SETTINGS_COLUMNS}
     `,
@@ -445,6 +459,7 @@ async function saveSettingsLocked(
       next.requireTwoFactor,
       next.sessionIdleMinutes,
       next.sessionMaxHours,
+      next.locale,
     ],
   );
 
@@ -596,6 +611,7 @@ export async function evaluateSignupRequest(
   email: string,
   env: EnvSource = process.env,
   database: DbExecutor = getDb(),
+  locale: Locale = DEFAULT_LOCALE,
 ): Promise<SignupDecision | SetupRequiredDecision> {
   const setupState =
     cache.setupCompleteUntil > Date.now()
@@ -606,13 +622,14 @@ export async function evaluateSignupRequest(
     return {
       allowed: false,
       code: "setup_required",
-      message: "This site has not been set up yet.",
+      message: serverMessages(locale).auth.signup.notSetUp,
     };
   }
 
   return evaluateSignup(
     email,
     resolveSettings(await readStoredSettings(database), env),
+    locale,
   );
 }
 

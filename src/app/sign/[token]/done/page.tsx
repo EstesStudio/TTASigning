@@ -1,4 +1,5 @@
 import { SigningDoneShell } from "@/components/signing/signing-done-shell";
+import { getBranding } from "@/lib/settings";
 
 type SignDonePageProps = {
   searchParams?: Promise<{
@@ -14,5 +15,7 @@ export default async function SignDonePage({
     ? resolvedSearchParams.title[0]
     : resolvedSearchParams?.title;
 
-  return <SigningDoneShell envelopeTitle={envelopeTitle} />;
+  const { locale } = await getBranding();
+
+  return <SigningDoneShell envelopeTitle={envelopeTitle} locale={locale} />;
 }

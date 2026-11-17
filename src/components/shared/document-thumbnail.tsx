@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 
 import { cn } from "@/lib/cn";
+import { useAppMessages } from "@/lib/i18n/use-app-messages";
 import {
   backfillEnvelopeThumbnail,
   buildEnvelopeThumbnailUrl,
@@ -29,6 +30,7 @@ export function DocumentThumbnail({
   envelopeId,
   title,
 }: DocumentThumbnailProps) {
+  const m = useAppMessages();
   const [state, setState] = useState<ThumbnailState>(
     envelopeId ? "loading" : "missing",
   );
@@ -118,7 +120,7 @@ export function DocumentThumbnail({
       // A blob: URL made in this browser: next/image has nothing to optimize.
       // eslint-disable-next-line @next/next/no-img-element
       <img
-        alt={`First page of ${title}`}
+        alt={m.thumbnail.firstPageOf(title)}
         className={frameClassName}
         decoding="async"
         src={drawnUrl}
@@ -138,7 +140,7 @@ export function DocumentThumbnail({
           would fetch it from the server without that cookie. */}
       {/* eslint-disable-next-line @next/next/no-img-element */}
       <img
-        alt={`First page of ${title}`}
+        alt={m.thumbnail.firstPageOf(title)}
         className={
           state === "loading"
             ? "pointer-events-none absolute left-1/2 top-1/2 size-px opacity-0"

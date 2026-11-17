@@ -17,7 +17,6 @@ import {
 } from "./envelope-deadline.ts";
 import {
   countAnswerableFields,
-  describeChoiceFieldProblem,
   findChoiceFieldProblem,
 } from "./field-choices.ts";
 import { idSchema } from "./schemas/common.ts";
@@ -81,13 +80,21 @@ import {
 } from "./services/audit.ts";
 import {
   createEmailService,
-  EMAIL_NOT_CONNECTED_MESSAGE,
   isEmailNotConnectedError,
   resolveEmailAddresses,
   type EmailService,
 } from "./services/email.ts";
 import { withUserEmailLegalFooter } from "./services/email-legal-footer.ts";
 import { buildSigningInvitationEmail } from "./services/signing-invitation-email.ts";
+import { emailMessages } from "./i18n/email-messages.ts";
+import { envelopeMessages } from "./i18n/envelope-messages.ts";
+import { DEFAULT_LOCALE, intlLocale, type Locale } from "./i18n/locales.ts";
+import { readEmailLocale } from "./i18n/email-locale.ts";
+import {
+  inEnglish,
+  translateMessage,
+  type UserMessage,
+} from "./i18n/server-messages.ts";
 import {
   storeEnvelopeCertificatePdf,
   storeRecipientEnvelopeCertificatePdf,
@@ -446,9 +453,11 @@ const COPY_RECIPIENT_SIGN_ORDER_BASE = 500;
 
 export class EnvelopeMutationError extends Error {
   readonly statusCode: number;
+  readonly userMessage: UserMessage;
 
-  constructor(message: string, statusCode: number) {
-    super(message);
+  constructor(message: UserMessage, statusCode: number) {
+    super(inEnglish(message));
+    this.userMessage = message;
     this.name = "EnvelopeMutationError";
     this.statusCode = statusCode;
   }
@@ -464,7 +473,7 @@ function createEmailServiceForSending(): EmailService {
     return createEmailService();
   } catch (error) {
     if (isEmailNotConnectedError(error)) {
-      throw new EnvelopeMutationError(EMAIL_NOT_CONNECTED_MESSAGE, 503);
+      throw new EnvelopeMutationError((m) => m.envelope.emailNotConnected, 503);
     }
 
     throw error;
@@ -473,9 +482,11 @@ function createEmailServiceForSending(): EmailService {
 
 export class EnvelopeDocumentAccessError extends Error {
   readonly statusCode: number;
+  readonly userMessage: UserMessage;
 
-  constructor(message: string, statusCode: number) {
-    super(message);
+  constructor(message: UserMessage, statusCode: number) {
+    super(inEnglish(message));
+    this.userMessage = message;
     this.name = "EnvelopeDocumentAccessError";
     this.statusCode = statusCode;
   }
@@ -542,21 +553,40 @@ const TIMELINE_TONE_MAP: Record<
   voided: "danger",
 };
 
-const shortDateFormatter = new Intl.DateTimeFormat("en-US", {
+// Dates on the sender's pages, in the install's language. Built once per
+// language and kept.
+function dateFormatters(
+  options: Intl.DateTimeFormatOptions,
+): (locale: Locale) => Intl.DateTimeFormat {
+  const formatters = new Map<Locale, Intl.DateTimeFormat>();
+
+  return (locale) => {
+    let formatter = formatters.get(locale);
+
+    if (!formatter) {
+      formatter = new Intl.DateTimeFormat(intlLocale(locale), options);
+      formatters.set(locale, formatter);
+    }
+
+    return formatter;
+  };
+}
+
+const shortDateFormatter = dateFormatters({
   day: "numeric",
   month: "short",
   timeZone: "UTC",
   year: "numeric",
 });
 
-const longDateFormatter = new Intl.DateTimeFormat("en-US", {
+const longDateFormatter = dateFormatters({
   day: "numeric",
   month: "long",
   timeZone: "UTC",
   year: "numeric",
 });
 
-const timelineDateFormatter = new Intl.DateTimeFormat("en-US", {
+const timelineDateFormatter = dateFormatters({
   day: "numeric",
   hour: "numeric",
   minute: "2-digit",
@@ -740,11 +770,11 @@ export async function copyEnvelopeToDraft(
   );
 
   if (!envelope) {
-    throw new EnvelopeMutationError("Envelope not found.", 404);
+    throw new EnvelopeMutationError((m) => m.envelope.notFound, 404);
   }
 
   if (envelope.status === "draft") {
-    throw new EnvelopeMutationError("Draft envelopes cannot be copied.", 409);
+    throw new EnvelopeMutationError((m) => m.envelope.draftCannotBeCopied, 409);
   }
 
   let sourcePdf: Uint8Array;
@@ -754,7 +784,7 @@ export async function copyEnvelopeToDraft(
   } catch (error) {
     if (error instanceof StorageObjectNotFoundError) {
       throw new EnvelopeMutationError(
-        "This envelope's document is no longer available, so it cannot be copied.",
+        (m) => m.envelope.documentGoneCannotCopy,
         409,
       );
     }
@@ -792,12 +822,12 @@ export async function copyEnvelopeToDraft(
       );
 
       if (!source) {
-        throw new EnvelopeMutationError("Envelope not found.", 404);
+        throw new EnvelopeMutationError((m) => m.envelope.notFound, 404);
       }
 
       if (source.status === "draft") {
         throw new EnvelopeMutationError(
-          "Draft envelopes cannot be copied.",
+          (m) => m.envelope.draftCannotBeCopied,
           409,
         );
       }
@@ -821,7 +851,7 @@ export async function copyEnvelopeToDraft(
       for (const field of fields) {
         if (!signerIdBySourceId.has(field.signerId)) {
           throw new EnvelopeMutationError(
-            "This envelope cannot be copied.",
+            (m) => m.envelope.cannotBeCopied,
             409,
           );
         }
@@ -1108,28 +1138,16 @@ function buildInClausePlaceholders(length: number, startAt = 1): string {
   ).join(", ");
 }
 
-function pluralize(count: number, singular: string, plural = `${singular}s`) {
-  return `${count} ${count === 1 ? singular : plural}`;
+function formatShortDate(timestamp: number, locale: Locale): string {
+  return shortDateFormatter(locale).format(new Date(timestamp * 1000));
 }
 
-function formatShortDate(timestamp: number): string {
-  return shortDateFormatter.format(new Date(timestamp * 1000));
+function formatLongDate(timestamp: number, locale: Locale): string {
+  return longDateFormatter(locale).format(new Date(timestamp * 1000));
 }
 
-function formatLongDate(timestamp: number): string {
-  return longDateFormatter.format(new Date(timestamp * 1000));
-}
-
-function formatTimelineTimestamp(timestamp: number): string {
-  return timelineDateFormatter.format(new Date(timestamp * 1000));
-}
-
-function formatFileSize(sizeBytes: number): string {
-  if (sizeBytes < 1024 * 1024) {
-    return `${(sizeBytes / 1024).toFixed(1)} KB`;
-  }
-
-  return `${(sizeBytes / (1024 * 1024)).toFixed(1)} MB`;
+function formatTimelineTimestamp(timestamp: number, locale: Locale): string {
+  return timelineDateFormatter(locale).format(new Date(timestamp * 1000));
 }
 
 async function getEnvelopeByIdForUser(
@@ -1418,10 +1436,12 @@ function buildDashboardContextLine(
   envelope: EnvelopeRecord,
   signers: readonly PersistedSignerRecord[],
   fields: readonly PersistedFieldRecord[],
+  locale: Locale,
 ): string {
+  const labels = envelopeMessages(locale).labels;
+
   if (envelope.status === "completed") {
-    const sentTo = signers.map((signer) => signer.email).join(", ");
-    return sentTo.length > 0 ? `Sent to: ${sentTo}` : "Sent to: —";
+    return labels.sentTo(signers.map((signer) => signer.email).join(", "));
   }
 
   if (envelope.status === "sent") {
@@ -1430,40 +1450,40 @@ function buildDashboardContextLine(
       signers.find((signer) => signer.status === "pending");
 
     if (isEnvelopeExpired(envelope, Math.floor(Date.now() / 1000))) {
-      return `Expired ${formatShortDate(envelope.expiresAt!)} · was waiting on: ${currentSigner?.email ?? "—"}`;
+      return labels.expiredWaitingOn(
+        formatShortDate(envelope.expiresAt!, locale),
+        currentSigner?.email ?? "—",
+      );
     }
 
-    return `Waiting on: ${currentSigner?.email ?? "—"}`;
+    return labels.waitingOn(currentSigner?.email ?? "—");
   }
 
   if (envelope.status === "declined") {
     const declinedSigner = signers.find(
       (signer) => signer.status === "declined",
     );
-    return `Declined by: ${declinedSigner?.email ?? "—"}`;
+    return labels.declinedBy(declinedSigner?.email ?? "—");
   }
 
   if (envelope.status === "voided") {
-    return `Voided on ${formatShortDate(envelope.voidedAt ?? envelope.updatedAt)}`;
+    return labels.voidedOn(
+      formatShortDate(envelope.voidedAt ?? envelope.updatedAt, locale),
+    );
   }
 
-  return `${pluralize(signers.length, "signer")} · ${pluralize(fields.length, "field")} placed`;
+  return labels.draftSummary(signers.length, fields.length);
 }
-
-const dashboardStatusLabels: Record<EnvelopeRecord["status"], string> = {
-  completed: "Completed",
-  declined: "Declined",
-  draft: "Draft",
-  sent: "Sent",
-  voided: "Voided",
-};
 
 function buildDashboardStatusLabel(
   envelope: EnvelopeRecord,
   signers: readonly PersistedSignerRecord[],
+  locale: Locale,
 ): string {
+  const labels = envelopeMessages(locale).labels;
+
   if (isEnvelopeExpired(envelope, Math.floor(Date.now() / 1000))) {
-    return "Expired";
+    return labels.expired;
   }
 
   // With one signer "Sent" says it all. With several, say how many are done.
@@ -1472,10 +1492,10 @@ function buildDashboardStatusLabel(
       (signer) => signer.status === "signed",
     ).length;
 
-    return `${String(signedCount)} of ${String(signers.length)} signed`;
+    return labels.signedOf(signedCount, signers.length);
   }
 
-  return dashboardStatusLabels[envelope.status];
+  return labels.statuses[envelope.status];
 }
 
 function buildFieldsBySigner(
@@ -1501,18 +1521,25 @@ function buildFieldsBySigner(
 function describeChoiceProblem(
   signers: readonly PersistedSignerRecord[],
   fields: readonly FieldRecord[],
-): string | null {
+): UserMessage | null {
   const problem = findChoiceFieldProblem(fields);
 
   if (!problem) {
     return null;
   }
 
-  return describeChoiceFieldProblem(
-    problem,
-    signers.find((signer) => signer.id === problem.signerId)?.name ??
-      "a signer",
-  );
+  const signerName = signers.find(
+    (signer) => signer.id === problem.signerId,
+  )?.name;
+
+  // The words of describeChoiceFieldProblem, in the reader's language.
+  return (m) => {
+    const name = signerName ?? m.envelope.aSigner;
+
+    return problem.kind === "dropdown_options"
+      ? m.envelope.dropdownNeedsChoices(name)
+      : m.envelope.radioButtonAlone(name);
+  };
 }
 
 /** The fields with each group of radio buttons counted once. */
@@ -1554,17 +1581,30 @@ function buildVoidNotificationEmail(input: {
   signerEmail: string;
   signerName: string;
 }) {
-  const subject = `"${input.envelopeTitle}" was voided by ${input.senderName}`;
+  const { locale, productName } = input.branding;
+  const m = emailMessages(locale);
+  const subject = m.void.subject({
+    sender: input.senderName,
+    title: m.quote(input.envelopeTitle),
+  });
   const textBody = [
-    `Hi ${input.signerName},`,
+    m.hi(input.signerName),
     "",
-    `${input.senderName} voided "${input.envelopeTitle}" in ${input.branding.productName}.`,
-    "The signing process has been canceled. No further action is needed.",
+    m.void.intro({
+      product: productName,
+      sender: input.senderName,
+      title: m.quote(input.envelopeTitle),
+    }),
+    m.void.noActionNeeded,
   ].join("\n");
   const htmlBody = [
-    `<p>Hi ${escapeHtml(input.signerName)},</p>`,
-    `<p>${escapeHtml(input.senderName)} voided &ldquo;${escapeHtml(input.envelopeTitle)}&rdquo; in ${escapeHtml(input.branding.productName)}.</p>`,
-    "<p>The signing process has been canceled. No further action is needed.</p>",
+    `<p>${m.hi(escapeHtml(input.signerName))}</p>`,
+    `<p>${m.void.intro({
+      product: escapeHtml(productName),
+      sender: escapeHtml(input.senderName),
+      title: m.quoteHtml(escapeHtml(input.envelopeTitle)),
+    })}</p>`,
+    `<p>${m.void.noActionNeeded}</p>`,
   ].join("");
   const legalFooter = withUserEmailLegalFooter(
     {
@@ -1583,11 +1623,6 @@ function buildVoidNotificationEmail(input: {
   };
 }
 
-const SIGNATURE_LEVEL_NAMES = {
-  advanced: "advanced electronic signature",
-  qualified: "qualified electronic signature",
-} as const;
-
 function providerName(id: string | null | undefined): string | null {
   if (!id) {
     return null;
@@ -1599,21 +1634,27 @@ function providerName(id: string | null | undefined): string | null {
   );
 }
 
-function describeSignatureType(envelope: EnvelopeRecord): string | null {
+function describeSignatureType(
+  envelope: EnvelopeRecord,
+  locale: Locale,
+): string | null {
   const level = envelope.signatureLevel;
 
   if (!level || level === "simple") {
     return null;
   }
 
-  const name = SIGNATURE_LEVEL_NAMES[level];
-  const through = providerName(envelope.signatureProvider);
-
-  return `${name[0]!.toUpperCase()}${name.slice(1)}s${through ? ` through ${through}` : ""}`;
+  return envelopeMessages(locale).labels.signatureType(
+    level,
+    providerName(envelope.signatureProvider),
+  );
 }
 
-/** "with a qualified electronic signature through eID Easy", or null. */
-function describeProviderSignature(metadata: unknown): string | null {
+/** How a signature was made at a signing provider, or null. */
+function readProviderSignature(metadata: unknown): {
+  level: "advanced" | "qualified";
+  provider: string | null;
+} | null {
   if (typeof metadata !== "object" || metadata === null) {
     return null;
   }
@@ -1634,12 +1675,38 @@ function describeProviderSignature(metadata: unknown): string | null {
     return null;
   }
 
-  return `with ${level === "advanced" ? "an" : "a"} ${SIGNATURE_LEVEL_NAMES[level]}${
-    typeof provider === "string" ? ` through ${provider}` : ""
-  }`;
+  return { level, provider: typeof provider === "string" ? provider : null };
 }
 
-function buildTimelineDescription(event: AuditEventRecord): string {
+/** What a Part 11 meaning is called, in the install's language. */
+function meaningLabel(meaning: string, locale: Locale): string {
+  const parsed = parseSignatureMeaning(meaning);
+
+  if (!parsed) {
+    return meaning;
+  }
+
+  return locale === DEFAULT_LOCALE
+    ? (signatureMeaningLabel(parsed) ?? meaning)
+    : envelopeMessages(locale).signers.meanings[parsed].label;
+}
+
+function readMetadataText(
+  metadata: Record<string, unknown> | null | undefined,
+  key: string,
+): string | null {
+  const value = metadata?.[key];
+
+  return typeof value === "string" && value.trim().length > 0 ? value : null;
+}
+
+// Built for the detail page from each audit event's type and metadata; the
+// stored audit trail, its export and the certificate stay in English.
+function buildTimelineDescription(
+  event: AuditEventRecord,
+  locale: Locale,
+): string {
+  const timeline = envelopeMessages(locale).labels.timeline;
   const signerName =
     typeof event.metadata?.signerName === "string"
       ? event.metadata.signerName
@@ -1653,60 +1720,82 @@ function buildTimelineDescription(event: AuditEventRecord): string {
     event.metadata.reason.trim().length > 0
       ? event.metadata.reason.trim()
       : null;
-  const targetLabel = signerName ?? event.actorEmail ?? signerEmail ?? "signer";
+  const targetLabel =
+    signerName ?? event.actorEmail ?? signerEmail ?? timeline.someoneSigner;
 
   switch (event.event) {
     case "copied":
-      return "Copied from an earlier envelope";
+      return timeline.copied;
     case "created":
-      return "Envelope created";
+      return timeline.created;
     case "sent":
-      return `Sent to ${targetLabel}`;
+      return timeline.sent(targetLabel);
     case "viewed":
-      return `Viewed by ${targetLabel}`;
-    case "signed":
-      return typeof event.metadata?.part11 === "object" &&
+      return timeline.viewed(targetLabel);
+    case "signed": {
+      if (
+        typeof event.metadata?.part11 === "object" &&
         event.metadata.part11 !== null &&
         "meaning" in event.metadata.part11 &&
         typeof event.metadata.part11.meaning === "string"
-        ? `Signed by ${targetLabel} (${signatureMeaningLabel(parseSignatureMeaning(event.metadata.part11.meaning)) ?? event.metadata.part11.meaning}, password given again)`
-        : describeProviderSignature(event.metadata)
-          ? `Signed by ${targetLabel} ${describeProviderSignature(event.metadata)!}`
-          : `Signed by ${targetLabel}`;
+      ) {
+        return timeline.signedPart11(
+          targetLabel,
+          meaningLabel(event.metadata.part11.meaning, locale),
+        );
+      }
+
+      const providerSignature = readProviderSignature(event.metadata);
+
+      return providerSignature
+        ? timeline.signedWithProvider(
+            targetLabel,
+            providerSignature.level,
+            providerSignature.provider,
+          )
+        : timeline.signed(targetLabel);
+    }
     case "declined":
-      return declineReason
-        ? `Declined by ${targetLabel} — ${declineReason}`
-        : `Declined by ${targetLabel}`;
+      return timeline.declined(targetLabel, declineReason);
     case "reminded_manual":
-      return `Manual reminder sent to ${targetLabel}`;
+      return timeline.remindedManual(targetLabel);
     case "reminded_auto":
-      return `Automatic reminder sent to ${targetLabel}`;
+      return timeline.remindedAuto(targetLabel);
     case "consented":
-      return `${targetLabel} agreed to use electronic records and signatures`;
+      return timeline.consented(targetLabel);
     case "verified":
-      return `${targetLabel} confirmed their identity`;
+      return timeline.verified(targetLabel);
     case "verification_failed":
-      return `Wrong identity code entered for ${targetLabel}`;
+      return timeline.verificationFailed(targetLabel);
     case "email_sent":
-      return typeof event.metadata?.recipient === "string"
-        ? `Email accepted for delivery to ${event.metadata.recipient}`
-        : "Email accepted for delivery";
+      return timeline.emailSent(
+        typeof event.metadata?.recipient === "string"
+          ? event.metadata.recipient
+          : null,
+      );
     case "completed":
-      return "Final signed PDF and certificate generated";
+      return timeline.completed;
     case "voided":
-      return declineReason
-        ? `Envelope voided by sender — ${declineReason}`
-        : "Envelope voided by sender";
+      return timeline.voided(declineReason);
     case "reauthentication_failed":
-      return `Wrong password given while signing for ${targetLabel}`;
+      return timeline.reauthenticationFailed(targetLabel);
     case "deadline_changed":
-      return typeof event.metadata?.expiresAt === "number"
-        ? `Deadline set to ${formatDeadline(event.metadata.expiresAt)}`
-        : "Deadline changed";
+      return timeline.deadlineChanged(
+        typeof event.metadata?.expiresAt === "number"
+          ? formatDeadline(event.metadata.expiresAt, locale)
+          : null,
+      );
     case "expired":
-      return "Deadline passed before everyone signed";
+      return timeline.expired;
     case "signer_corrected":
-      return describeSignerCorrectedEvent(event.metadata);
+      return locale === DEFAULT_LOCALE
+        ? describeSignerCorrectedEvent(event.metadata)
+        : timeline.signerCorrected({
+            email: readMetadataText(event.metadata, "signerEmail"),
+            name: readMetadataText(event.metadata, "signerName"),
+            previousEmail: readMetadataText(event.metadata, "previousEmail"),
+            previousName: readMetadataText(event.metadata, "previousName"),
+          });
     default:
       return event.event;
   }
@@ -1715,72 +1804,82 @@ function buildTimelineDescription(event: AuditEventRecord): string {
 function buildDetailSignerStatusLabel(
   envelope: EnvelopeRecord,
   signer: PersistedSignerRecord,
+  locale: Locale,
   previousSignerName?: string,
 ): string | undefined {
+  const labels = envelopeMessages(locale).labels;
+
   if (signer.status === "signed" && signer.signedAt) {
-    return `Signed ${formatShortDate(signer.signedAt)}`;
+    return labels.signerSigned(formatShortDate(signer.signedAt, locale));
   }
 
   if (signer.status === "declined" && signer.declinedAt) {
-    return `Declined ${formatShortDate(signer.declinedAt)}`;
+    return labels.signerDeclined(formatShortDate(signer.declinedAt, locale));
   }
 
   if (signer.status === "notified") {
     const sentAt = signer.lastNotifiedAt ?? signer.turnStartedAt;
     if (envelope.status === "voided") {
       return sentAt
-        ? `Notified ${formatShortDate(sentAt)}`
-        : "Notified before void";
+        ? labels.signerNotified(formatShortDate(sentAt, locale))
+        : labels.signerNotifiedBeforeVoid;
     }
 
-    return sentAt ? `Sent ${formatShortDate(sentAt)}` : undefined;
+    return sentAt
+      ? labels.signerSent(formatShortDate(sentAt, locale))
+      : undefined;
   }
 
   if (envelope.status === "draft") {
     return previousSignerName
-      ? `Ready to notify after ${previousSignerName}`
-      : "Ready to notify after send";
+      ? labels.readyAfter(previousSignerName)
+      : labels.readyAfterSend;
   }
 
-  return "No notification sent";
+  return labels.noNotification;
 }
 
 function buildDetailSignerMetaLabel(
   envelope: EnvelopeRecord,
   signer: PersistedSignerRecord,
   assignedFieldCount: number,
+  locale: Locale,
 ): string {
+  const labels = envelopeMessages(locale).labels;
+
   if (envelope.status === "voided" && signer.status === "notified") {
-    return "Last notified signer before void";
+    return labels.lastNotifiedBeforeVoid;
   }
 
   if (signer.status === "declined" && signer.declineReason) {
-    return `Decline reason: ${signer.declineReason}`;
+    return labels.declineReason(signer.declineReason);
   }
 
   if (envelope.status === "declined" && signer.status === "pending") {
-    return "Skipped after decline";
+    return labels.skippedAfterDecline;
   }
 
   if (envelope.status === "voided" && signer.status === "pending") {
-    return "Not reached before void";
+    return labels.notReachedBeforeVoid;
   }
 
   if (signer.status === "signed") {
-    return `${pluralize(assignedFieldCount, "field")} completed`;
+    return labels.fieldsCompleted(assignedFieldCount);
   }
 
   if (signer.status === "notified") {
-    return "Current signer";
+    return labels.currentSigner;
   }
 
-  return `${pluralize(assignedFieldCount, "field")} assigned`;
+  return labels.fieldsAssigned(assignedFieldCount);
 }
 
 export async function listEnvelopesForUser(
   userId: string,
   filters: Partial<EnvelopeListFilters> = {},
   database: DbExecutor = getDb(),
+  /** The language of the labels; the install's, read by the page. */
+  locale: Locale = DEFAULT_LOCALE,
 ): Promise<DashboardEnvelopeListItem[]> {
   const parsedFilters = envelopeListFiltersSchema.parse(filters);
   const values: unknown[] = [userId];
@@ -1864,8 +1963,8 @@ export async function listEnvelopesForUser(
     const fields = fieldsByEnvelope.get(envelope.id) ?? [];
 
     return {
-      contextLine: buildDashboardContextLine(envelope, signers, fields),
-      createdAtLabel: formatShortDate(envelope.createdAt),
+      contextLine: buildDashboardContextLine(envelope, signers, fields, locale),
+      createdAtLabel: formatShortDate(envelope.createdAt, locale),
       expired: isEnvelopeExpired(envelope, Math.floor(Date.now() / 1000)),
       id: envelope.id,
       // The search on the server matches copy recipients too.
@@ -1874,7 +1973,7 @@ export async function listEnvelopesForUser(
         ...(copyRecipientsByEnvelope.get(envelope.id) ?? []),
       ].map((recipient) => recipient.email),
       status: envelope.status,
-      statusLabel: buildDashboardStatusLabel(envelope, signers),
+      statusLabel: buildDashboardStatusLabel(envelope, signers, locale),
       title: envelope.title,
     };
   });
@@ -1884,6 +1983,8 @@ export async function getEnvelopeDetailDataForUser(
   userId: string,
   envelopeId: string,
   database: DbExecutor = getDb(),
+  /** The language of the labels; the install's, read by the page. */
+  locale: Locale = DEFAULT_LOCALE,
 ): Promise<EnvelopeDetailData | null> {
   const envelope = await getEnvelopeByIdForUser(userId, envelopeId, database);
 
@@ -1910,9 +2011,9 @@ export async function getEnvelopeDetailDataForUser(
     ),
   );
   const timeline = auditEvents.map((event) => ({
-    description: buildTimelineDescription(event),
+    description: buildTimelineDescription(event, locale),
     id: event.id,
-    timestamp: formatTimelineTimestamp(event.createdAt),
+    timestamp: formatTimelineTimestamp(event.createdAt, locale),
     tone: TIMELINE_TONE_MAP[event.event],
   }));
 
@@ -1928,6 +2029,7 @@ export async function getEnvelopeDetailDataForUser(
         envelope,
         signer,
         fieldCountsBySigner.get(signer.id) ?? 0,
+        locale,
       ),
       name: signer.name,
       order: signer.signOrder,
@@ -1935,6 +2037,7 @@ export async function getEnvelopeDetailDataForUser(
       statusDateLabel: buildDetailSignerStatusLabel(
         envelope,
         signer,
+        locale,
         previousSignerName,
       ),
     };
@@ -1962,21 +2065,21 @@ export async function getEnvelopeDetailDataForUser(
       canSend,
       nextAvailableAtLabel:
         !canSend && typeof nextAvailableAt === "number"
-          ? formatReminderAvailableAt(nextAvailableAt)
+          ? formatReminderAvailableAt(nextAvailableAt, locale)
           : null,
     };
   }
 
   return {
     copyRecipients,
-    createdAtLabel: formatLongDate(envelope.createdAt),
+    createdAtLabel: formatLongDate(envelope.createdAt, locale),
     deadline:
       envelope.status === "sent"
         ? {
             expired,
             expiresAtLabel:
               typeof envelope.expiresAt === "number"
-                ? formatDeadline(envelope.expiresAt)
+                ? formatDeadline(envelope.expiresAt, locale)
                 : null,
           }
         : null,
@@ -1987,7 +2090,7 @@ export async function getEnvelopeDetailDataForUser(
         : null,
     manualReminder,
     part11: Boolean(envelope.part11),
-    signatureTypeLabel: describeSignatureType(envelope),
+    signatureTypeLabel: describeSignatureType(envelope, locale),
     signers: signerViews,
     status: envelope.status,
     timeline,
@@ -2041,7 +2144,7 @@ export async function getDraftEnvelopeDocumentForUser(
   const envelope = await getEnvelopeByIdForUser(userId, envelopeId, database);
 
   if (!envelope) {
-    throw new EnvelopeDocumentAccessError("Envelope not found.", 404);
+    throw new EnvelopeDocumentAccessError((m) => m.envelope.notFound, 404);
   }
 
   try {
@@ -2059,7 +2162,10 @@ export async function getDraftEnvelopeDocumentForUser(
       (error instanceof Error &&
         (error.name === "NoSuchKey" || error.name === "NotFound"))
     ) {
-      throw new EnvelopeDocumentAccessError("Source PDF is unavailable.", 404);
+      throw new EnvelopeDocumentAccessError(
+        (m) => m.envelope.sourcePdfUnavailable,
+        404,
+      );
     }
 
     throw error;
@@ -2093,7 +2199,7 @@ export async function saveEnvelopeThumbnailForUser(
   const envelope = await getEnvelopeByIdForUser(userId, envelopeId, database);
 
   if (!envelope) {
-    throw new EnvelopeDocumentAccessError("Envelope not found.", 404);
+    throw new EnvelopeDocumentAccessError((m) => m.envelope.notFound, 404);
   }
 
   const key = buildEnvelopeThumbnailKey({
@@ -2124,7 +2230,7 @@ export async function saveEnvelopeThumbnailForUser(
   if (!envelopeAfterWrite) {
     await storageService.deleteObject(key);
 
-    throw new EnvelopeDocumentAccessError("Envelope not found.", 404);
+    throw new EnvelopeDocumentAccessError((m) => m.envelope.notFound, 404);
   }
 }
 
@@ -2155,7 +2261,7 @@ export async function getEnvelopeThumbnailForUser(
   const envelope = await getEnvelopeByIdForUser(userId, envelopeId, database);
 
   if (!envelope) {
-    throw new EnvelopeDocumentAccessError("Envelope not found.", 404);
+    throw new EnvelopeDocumentAccessError((m) => m.envelope.notFound, 404);
   }
 
   const etag = buildThumbnailEtag(envelope.id);
@@ -2177,7 +2283,7 @@ export async function getEnvelopeThumbnailForUser(
   } catch (error) {
     if (error instanceof StorageObjectNotFoundError) {
       throw new EnvelopeDocumentAccessError(
-        "This document has no thumbnail yet.",
+        (m) => m.envelope.noThumbnailYet,
         404,
       );
     }
@@ -2228,6 +2334,8 @@ export async function getReviewEnvelopeDataForUser(
   userId: string,
   envelopeId: string,
   database: DbExecutor = getDb(),
+  /** The language of the labels; read from the settings when not given. */
+  locale?: Locale,
 ): Promise<ReviewEnvelopeData | null> {
   const envelope = await getEnvelopeByIdForUser(userId, envelopeId, database);
 
@@ -2254,14 +2362,18 @@ export async function getReviewEnvelopeDataForUser(
   const part11Mode = provider
     ? ((await readStoredSettings(database))?.part11Mode ?? false)
     : false;
+  const disabledReason: UserMessage | null = missingSignatureSigner
+    ? (m) => m.envelope.signerMissingSignature(missingSignatureSigner.name)
+    : choiceProblem;
+  const labelLocale = locale ?? (await readEmailLocale(database));
 
   return {
     canSend: !isEmpty && !missingSignatureSigner && !choiceProblem,
     signingProvider: provider && !part11Mode ? { name: provider.name } : null,
     copyRecipients,
-    disabledReason: missingSignatureSigner
-      ? `Every signer must have at least one Signature field before sending. ${missingSignatureSigner.name} is missing one.`
-      : choiceProblem,
+    disabledReason: disabledReason
+      ? translateMessage(disabledReason, labelLocale)
+      : null,
     envelopeId,
     filename: envelope.sourcePdfFilename,
     isEmpty,
@@ -2279,7 +2391,9 @@ export async function getReviewEnvelopeDataForUser(
       name: signer.name,
       order: signer.signOrder,
     })),
-    sizeLabel: formatFileSize(envelope.sourcePdfSizeBytes),
+    sizeLabel: envelopeMessages(labelLocale).labels.fileSize(
+      envelope.sourcePdfSizeBytes,
+    ),
     status: envelope.status,
     title: envelope.title,
   };
@@ -2325,10 +2439,7 @@ async function lockDraftEnvelope(
   );
 
   if (locked.rowCount !== 1) {
-    throw new EnvelopeMutationError(
-      "Only draft envelopes can be updated.",
-      409,
-    );
+    throw new EnvelopeMutationError((m) => m.envelope.onlyDraftsUpdated, 409);
   }
 }
 
@@ -2341,28 +2452,25 @@ export async function sendDraftEnvelope(
   const envelope = await getEnvelopeByIdForUser(userId, envelopeId, database);
 
   if (!envelope) {
-    throw new EnvelopeMutationError("Envelope not found.", 404);
+    throw new EnvelopeMutationError((m) => m.envelope.notFound, 404);
   }
 
   if (envelope.status !== "draft") {
-    throw new EnvelopeMutationError("Only draft envelopes can be sent.", 409);
+    throw new EnvelopeMutationError((m) => m.envelope.onlyDraftsSent, 409);
   }
 
   const checkedParties = await readDraftParties(envelopeId, database);
   const { fields, signers } = checkedParties;
 
   if (signers.length === 0 || fields.length === 0) {
-    throw new EnvelopeMutationError(
-      "Add signers and place fields before sending this envelope.",
-      400,
-    );
+    throw new EnvelopeMutationError((m) => m.envelope.addSignersAndFields, 400);
   }
 
   const signerIds = new Set(signers.map((signer) => signer.id));
 
   if (fields.some((field) => !signerIds.has(field.signerId))) {
     throw new EnvelopeMutationError(
-      "Each field must be assigned to an existing signer on this envelope.",
+      (m) => m.envelope.fieldNeedsExistingSigner,
       400,
     );
   }
@@ -2374,7 +2482,7 @@ export async function sendDraftEnvelope(
 
   if (missingSignatureSigner) {
     throw new EnvelopeMutationError(
-      `Every signer must have at least one Signature field before sending. ${missingSignatureSigner.name} is missing one.`,
+      (m) => m.envelope.signerMissingSignature(missingSignatureSigner.name),
       400,
     );
   }
@@ -2398,15 +2506,12 @@ export async function sendDraftEnvelope(
 
   if (signatureLevel !== "simple") {
     if (!signingProvider) {
-      throw new EnvelopeMutationError(
-        "This install has no signing provider for advanced or qualified signatures.",
-        400,
-      );
+      throw new EnvelopeMutationError((m) => m.envelope.noSigningProvider, 400);
     }
 
     if (part11) {
       throw new EnvelopeMutationError(
-        "Part 11 mode signs with the signers' accounts. Send with simple signatures.",
+        (m) => m.envelope.part11SimpleSignaturesOnly,
         400,
       );
     }
@@ -2434,7 +2539,17 @@ export async function sendDraftEnvelope(
 
       if (problem || !account) {
         throw new EnvelopeMutationError(
-          problem ?? "A signer cannot sign in Part 11 mode.",
+          (m) =>
+            describePart11SignerProblem(
+              {
+                email: signer.email,
+                name: signer.name,
+                signatureMeaning:
+                  checks.get(signer.id)?.signatureMeaning ?? null,
+              },
+              account,
+              m,
+            ) ?? m.envelope.part11SignerCannotSign,
           400,
         );
       }
@@ -2446,10 +2561,7 @@ export async function sendDraftEnvelope(
   const firstSigner = signers[0];
 
   if (!firstSigner) {
-    throw new EnvelopeMutationError(
-      "Add signers before sending this envelope.",
-      400,
-    );
+    throw new EnvelopeMutationError((m) => m.envelope.addSigners, 400);
   }
 
   const emailService = createEmailServiceForSending();
@@ -2458,7 +2570,7 @@ export async function sendDraftEnvelope(
 
   if (!sourcePdfHead.exists) {
     throw new EnvelopeMutationError(
-      "The source document for this envelope could not be found.",
+      (m) => m.envelope.sourceDocumentMissing,
       500,
     );
   }
@@ -2498,10 +2610,7 @@ export async function sendDraftEnvelope(
       );
 
       if (updatedEnvelope.rowCount !== 1) {
-        throw new EnvelopeMutationError(
-          "This envelope has already been sent.",
-          409,
-        );
+        throw new EnvelopeMutationError((m) => m.envelope.alreadySent, 409);
       }
 
       // The signers and fields were read and checked before this
@@ -2515,7 +2624,7 @@ export async function sendDraftEnvelope(
         JSON.stringify(checkedParties)
       ) {
         throw new EnvelopeMutationError(
-          "This envelope was changed while it was being sent. Check it and send it again.",
+          (m) => m.envelope.changedWhileSending,
           409,
         );
       }
@@ -2570,7 +2679,7 @@ export async function sendDraftEnvelope(
 
           if (bound.rowCount !== 1) {
             throw new EnvelopeMutationError(
-              "This envelope was changed while it was being sent. Check it and send it again.",
+              (m) => m.envelope.changedWhileSending,
               409,
             );
           }
@@ -2603,7 +2712,7 @@ export async function sendDraftEnvelope(
 
       if (updatedSigner.rowCount !== 1) {
         throw new EnvelopeMutationError(
-          "Unable to activate the first signer for this envelope.",
+          (m) => m.envelope.unableToActivateFirstSigner,
           500,
         );
       }
@@ -2788,12 +2897,12 @@ export async function changeEnvelopeDeadline(
     );
 
     if (!current) {
-      throw new EnvelopeMutationError("Envelope not found.", 404);
+      throw new EnvelopeMutationError((m) => m.envelope.notFound, 404);
     }
 
     if (current.status !== "sent") {
       throw new EnvelopeMutationError(
-        "Only an envelope that is out for signature has a deadline to change.",
+        (m) => m.envelope.noDeadlineToChange,
         409,
       );
     }
@@ -2834,12 +2943,9 @@ export async function changeEnvelopeDeadline(
   return changeDeadlineResponseSchema.parse({
     envelopeId,
     expiresAt,
-    expiresAtLabel: formatDeadline(expiresAt),
+    expiresAtLabel: formatDeadline(expiresAt, await readEmailLocale(database)),
   });
 }
-
-const SENT_ENVELOPE_SIGNER_CORRECTION_MESSAGE =
-  "Only an envelope that is out for signature can have a signer corrected.";
 
 /**
  * Fixes the name and/or email of a signer who has not signed or declined on
@@ -2900,21 +3006,18 @@ export async function correctSentEnvelopeSigner(
     );
 
     if (!envelope) {
-      throw new EnvelopeMutationError("Envelope not found.", 404);
+      throw new EnvelopeMutationError((m) => m.envelope.notFound, 404);
     }
 
     if (envelope.status !== "sent") {
       throw new EnvelopeMutationError(
-        SENT_ENVELOPE_SIGNER_CORRECTION_MESSAGE,
+        (m) => m.envelope.onlySentSignerCorrection,
         409,
       );
     }
 
     if (envelope.part11) {
-      throw new EnvelopeMutationError(
-        "This envelope was sent in Part 11 mode. The signer's identity is bound to their account and cannot be corrected.",
-        409,
-      );
+      throw new EnvelopeMutationError((m) => m.envelope.part11SignerBound, 409);
     }
 
     const signer = await queryOne<{
@@ -2958,19 +3061,19 @@ export async function correctSentEnvelopeSigner(
     );
 
     if (!signer || signer.role !== "signer") {
-      throw new EnvelopeMutationError("Envelope not found.", 404);
+      throw new EnvelopeMutationError((m) => m.envelope.notFound, 404);
     }
 
     if (signer.status === "signed") {
       throw new EnvelopeMutationError(
-        "This person has already signed and cannot be corrected.",
+        (m) => m.envelope.signedCannotBeCorrected,
         409,
       );
     }
 
     if (signer.status === "declined") {
       throw new EnvelopeMutationError(
-        "This person has already declined and cannot be corrected.",
+        (m) => m.envelope.declinedCannotBeCorrected,
         409,
       );
     }
@@ -3072,7 +3175,7 @@ export async function correctSentEnvelopeSigner(
 
     if (updatedSigner.rowCount !== 1) {
       throw new EnvelopeMutationError(
-        "This person has already signed or declined and cannot be corrected.",
+        (m) => m.envelope.finishedCannotBeCorrected,
         409,
       );
     }
@@ -3210,7 +3313,7 @@ export async function changeEnvelopeReminders(
           "Reminders can only be changed while an envelope is out for signature.",
           409,
         )
-      : new EnvelopeMutationError("Envelope not found.", 404);
+      : new EnvelopeMutationError((m) => m.envelope.notFound, 404);
   }
 
   return changeRemindersResponseSchema.parse({
@@ -3228,20 +3331,17 @@ export async function voidSentEnvelope(
   const envelope = await getEnvelopeByIdForUser(userId, envelopeId, database);
 
   if (!envelope) {
-    throw new EnvelopeMutationError("Envelope not found.", 404);
+    throw new EnvelopeMutationError((m) => m.envelope.notFound, 404);
   }
 
   if (envelope.status !== "sent") {
-    throw new EnvelopeMutationError("Only sent envelopes can be voided.", 409);
+    throw new EnvelopeMutationError((m) => m.envelope.onlySentVoided, 409);
   }
 
   const reason = input.reason?.trim().slice(0, 1000) || null;
 
   if (envelope.part11 && !reason) {
-    throw new EnvelopeMutationError(
-      "Give a reason for voiding. Part 11 records keep it in the audit trail.",
-      400,
-    );
+    throw new EnvelopeMutationError((m) => m.envelope.voidReasonRequired, 400);
   }
 
   const signers = await listSignersForEnvelopeId(envelopeId, database);
@@ -3256,7 +3356,7 @@ export async function voidSentEnvelope(
 
   if (!sourcePdfHead.exists) {
     throw new EnvelopeMutationError(
-      "The source document for this envelope could not be found.",
+      (m) => m.envelope.sourceDocumentMissing,
       500,
     );
   }
@@ -3372,14 +3472,11 @@ export async function voidSentEnvelope(
       );
 
       if (!persistedEnvelope) {
-        throw new EnvelopeMutationError("Envelope not found.", 404);
+        throw new EnvelopeMutationError((m) => m.envelope.notFound, 404);
       }
 
       if (persistedEnvelope.status !== "sent") {
-        throw new EnvelopeMutationError(
-          "Only sent envelopes can be voided.",
-          409,
-        );
+        throw new EnvelopeMutationError((m) => m.envelope.onlySentVoided, 409);
       }
 
       const updatedEnvelope = await tx.query(
@@ -3409,7 +3506,7 @@ export async function voidSentEnvelope(
 
       if (updatedEnvelope.rowCount !== 1) {
         throw new EnvelopeMutationError(
-          "This envelope can no longer be voided.",
+          (m) => m.envelope.noLongerVoidable,
           409,
         );
       }
@@ -3509,14 +3606,11 @@ export async function replaceDraftEnvelopeFields(
   const envelope = await getEnvelopeByIdForUser(userId, envelopeId, database);
 
   if (!envelope) {
-    throw new EnvelopeMutationError("Envelope not found.", 404);
+    throw new EnvelopeMutationError((m) => m.envelope.notFound, 404);
   }
 
   if (envelope.status !== "draft") {
-    throw new EnvelopeMutationError(
-      "Only draft envelopes can be updated.",
-      409,
-    );
+    throw new EnvelopeMutationError((m) => m.envelope.onlyDraftsUpdated, 409);
   }
 
   const [signers, pages, existingFieldsByEnvelope] = await Promise.all([
@@ -3537,14 +3631,14 @@ export async function replaceDraftEnvelopeFields(
 
     if (!signerIds.has(parsedField.signerId)) {
       throw new EnvelopeMutationError(
-        "Each field must be assigned to an existing signer on this envelope.",
+        (m) => m.envelope.fieldNeedsExistingSigner,
         400,
       );
     }
 
     if (!pageNumbers.has(parsedField.page)) {
       throw new EnvelopeMutationError(
-        "Each field must be placed on an existing page in this document.",
+        (m) => m.envelope.fieldNeedsExistingPage,
         400,
       );
     }
@@ -3552,7 +3646,7 @@ export async function replaceDraftEnvelopeFields(
     const fieldId = parsedField.id ?? randomUUID();
 
     if (usedFieldIds.has(fieldId)) {
-      throw new EnvelopeMutationError("Each field must be unique.", 400);
+      throw new EnvelopeMutationError((m) => m.envelope.fieldUnique, 400);
     }
 
     usedFieldIds.add(fieldId);
@@ -3656,14 +3750,11 @@ export async function replaceDraftEnvelopeSigners(
   const envelope = await getEnvelopeByIdForUser(userId, envelopeId, database);
 
   if (!envelope) {
-    throw new EnvelopeMutationError("Envelope not found.", 404);
+    throw new EnvelopeMutationError((m) => m.envelope.notFound, 404);
   }
 
   if (envelope.status !== "draft") {
-    throw new EnvelopeMutationError(
-      "Only draft envelopes can be updated.",
-      409,
-    );
+    throw new EnvelopeMutationError((m) => m.envelope.onlyDraftsUpdated, 409);
   }
 
   const existingSigners = await listSignersForEnvelopeId(envelopeId, database);
@@ -3687,7 +3778,7 @@ export async function replaceDraftEnvelopeSigners(
     // Two rows of one request claiming to be the same saved recipient.
     if (usedCopyRecipientIds.has(persistedId)) {
       throw new EnvelopeMutationError(
-        "Each copy recipient must be unique.",
+        (m) => m.envelope.copyRecipientUnique,
         400,
       );
     }
@@ -3725,7 +3816,7 @@ export async function replaceDraftEnvelopeSigners(
       signer.id && existingSignerIds.has(signer.id) ? signer.id : randomUUID();
 
     if (usedSignerIds.has(persistedSignerId)) {
-      throw new EnvelopeMutationError("Each signer must be unique.", 400);
+      throw new EnvelopeMutationError((m) => m.envelope.signerUnique, 400);
     }
 
     usedSignerIds.add(persistedSignerId);
@@ -3920,14 +4011,11 @@ export async function deleteDraftEnvelope(
   const envelope = await getEnvelopeByIdForUser(userId, envelopeId, database);
 
   if (!envelope) {
-    throw new EnvelopeMutationError("Envelope not found.", 404);
+    throw new EnvelopeMutationError((m) => m.envelope.notFound, 404);
   }
 
   if (envelope.status !== "draft") {
-    throw new EnvelopeMutationError(
-      "Only draft envelopes can be deleted.",
-      409,
-    );
+    throw new EnvelopeMutationError((m) => m.envelope.onlyDraftsDeleted, 409);
   }
 
   const deleteResult = await database.query(
@@ -3940,7 +4028,7 @@ export async function deleteDraftEnvelope(
 
   if (deleteResult.rowCount !== 1) {
     throw new EnvelopeMutationError(
-      "This draft envelope can no longer be deleted.",
+      (m) => m.envelope.draftNoLongerDeletable,
       409,
     );
   }

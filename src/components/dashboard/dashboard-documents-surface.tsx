@@ -5,6 +5,10 @@ import type { ChangeEventHandler } from "react";
 import { cn } from "@/lib/cn";
 import type { DashboardEnvelopeListItem } from "@/lib/envelopes";
 import {
+  envelopeMessages,
+  type EnvelopeMessages,
+} from "@/lib/i18n/envelope-messages";
+import {
   DocumentThumbnail,
   SampleDocumentPage,
 } from "@/components/shared/document-thumbnail";
@@ -38,16 +42,11 @@ export const dashboardStatusFilterMap: Record<
   Voided: "voided",
 };
 
-const documentsDescription =
-  "Track drafts, sent envelopes, and completed agreements in one place.";
+export type DashboardMessages = EnvelopeMessages["dashboard"];
 
-const statusLabelMap: Record<EnvelopeStatus, string> = {
-  completed: "Completed",
-  declined: "Declined",
-  draft: "Draft",
-  sent: "Sent",
-  voided: "Voided",
-};
+// The landing page's preview is rendered on the server, without the
+// install's language, and speaks English.
+const defaultMessages: DashboardMessages = envelopeMessages("en").dashboard;
 
 const statusPillClasses: Record<EnvelopeStatus, string> = {
   completed: "pill-success",
@@ -59,6 +58,7 @@ const statusPillClasses: Record<EnvelopeStatus, string> = {
 
 type DashboardDocumentsHeaderProps = {
   interactive?: boolean;
+  messages?: DashboardMessages;
 };
 
 type DashboardDocumentsPanelProps = {
@@ -66,6 +66,7 @@ type DashboardDocumentsPanelProps = {
   filteredEnvelopes: readonly DashboardEnvelopeListItem[];
   interactive?: boolean;
   isError?: boolean;
+  messages?: DashboardMessages;
   onFilterChange?: (filter: DashboardFilter) => void;
   onReset?: () => void;
   onRetry?: () => void;
@@ -77,20 +78,24 @@ type DashboardDocumentsPanelProps = {
 type EnvelopeGridProps = {
   envelopes: readonly DashboardEnvelopeListItem[];
   interactive: boolean;
+  messages: DashboardMessages;
 };
 
 type NoResultsStateProps = {
   interactive: boolean;
+  messages: DashboardMessages;
   onReset?: () => void;
 };
 
 type ErrorBannerProps = {
   interactive: boolean;
+  messages: DashboardMessages;
   onRetry?: () => void;
 };
 
 export function DashboardDocumentsHeader({
   interactive = true,
+  messages = defaultMessages,
 }: DashboardDocumentsHeaderProps) {
   const label = (
     <>
@@ -99,7 +104,7 @@ export function DashboardDocumentsHeader({
         className="size-[1.125rem]"
         strokeWidth={2.4}
       />
-      New envelope
+      {messages.newEnvelope}
     </>
   );
 
@@ -112,8 +117,8 @@ export function DashboardDocumentsHeader({
           <StaticShellButton>{label}</StaticShellButton>
         )
       }
-      description={documentsDescription}
-      title="Documents"
+      description={messages.description}
+      title={messages.title}
     />
   );
 }
@@ -123,6 +128,7 @@ export function DashboardDocumentsPanel({
   filteredEnvelopes,
   interactive = true,
   isError = false,
+  messages = defaultMessages,
   onFilterChange,
   onReset,
   onRetry,
@@ -136,7 +142,7 @@ export function DashboardDocumentsPanel({
     <section className="space-y-4" data-animate="enter" data-animate-delay="1">
       <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
         <div
-          aria-label="Filter documents"
+          aria-label={messages.filterLabel}
           className="segmented self-start"
           role="group"
         >
@@ -150,7 +156,7 @@ export function DashboardDocumentsPanel({
                   data-active={isActive}
                   key={filter}
                 >
-                  {filter}
+                  {messages.filters[filter]}
                 </span>
               );
             }
@@ -163,7 +169,7 @@ export function DashboardDocumentsPanel({
                 onClick={() => onFilterChange?.(filter)}
                 type="button"
               >
-                {filter}
+                {messages.filters[filter]}
               </button>
             );
           })}
@@ -172,10 +178,10 @@ export function DashboardDocumentsPanel({
         <label className="flex min-h-[2.625rem] w-full items-center gap-2.5 rounded-xl bg-white px-3.5 text-(--tertiary) transition focus-within:ring-3 focus-within:ring-ring/50 lg:w-[19rem]">
           <SearchIcon aria-hidden="true" className="size-4 shrink-0" />
           <input
-            aria-label="Search by title or email..."
+            aria-label={messages.search}
             className="min-w-0 flex-1 bg-transparent py-2 text-sm text-(--fg) outline-none placeholder:text-(--placeholder)"
             onChange={interactive ? onSearchChange : undefined}
-            placeholder="Search by title or email..."
+            placeholder={messages.search}
             readOnly={!interactive}
             tabIndex={interactive ? undefined : -1}
             type="search"
@@ -185,54 +191,72 @@ export function DashboardDocumentsPanel({
       </div>
 
       {isError ? (
-        <ErrorBanner interactive={interactive} onRetry={onRetry} />
+        <ErrorBanner
+          interactive={interactive}
+          messages={messages}
+          onRetry={onRetry}
+        />
       ) : null}
 
       {filteredEnvelopes.length > 0 ? (
-        <EnvelopeGrid envelopes={filteredEnvelopes} interactive={interactive} />
+        <EnvelopeGrid
+          envelopes={filteredEnvelopes}
+          interactive={interactive}
+          messages={messages}
+        />
       ) : hasSeededEnvelopes ? (
-        <NoResultsState interactive={interactive} onReset={onReset} />
+        <NoResultsState
+          interactive={interactive}
+          messages={messages}
+          onReset={onReset}
+        />
       ) : null}
 
       {!isError && hasSeededEnvelopes ? (
         <p className="px-1 text-[0.8125rem] text-(--tertiary)">
-          Showing {filteredEnvelopes.length} of {envelopes.length} envelopes
+          {messages.showing(filteredEnvelopes.length, envelopes.length)}
         </p>
       ) : null}
     </section>
   );
 }
 
-function ErrorBanner({ interactive, onRetry }: ErrorBannerProps) {
+function ErrorBanner({ interactive, messages, onRetry }: ErrorBannerProps) {
   return (
     <div
       className="flex flex-col gap-4 rounded-2xl bg-(--danger-soft) px-5 py-4 sm:flex-row sm:items-center sm:justify-between"
       role="alert"
     >
       <p className="text-sm font-semibold text-(--danger)">
-        We couldn&apos;t load your documents. Please try again.
+        {messages.loadError}
       </p>
       {interactive ? (
         <ShellButton onClick={onRetry} variant="secondary">
-          Retry
+          {messages.retry}
         </ShellButton>
       ) : (
-        <StaticShellButton variant="secondary">Retry</StaticShellButton>
+        <StaticShellButton variant="secondary">
+          {messages.retry}
+        </StaticShellButton>
       )}
     </div>
   );
 }
 
-function EnvelopeGrid({ envelopes, interactive }: EnvelopeGridProps) {
+function EnvelopeGrid({ envelopes, interactive, messages }: EnvelopeGridProps) {
   return (
     <ul className="grid grid-cols-[repeat(auto-fill,minmax(15rem,1fr))] gap-4">
       {envelopes.map((envelope) => (
         <li className="min-w-0" key={envelope.id}>
-          <EnvelopeCard envelope={envelope} interactive={interactive} />
+          <EnvelopeCard
+            envelope={envelope}
+            interactive={interactive}
+            messages={messages}
+          />
         </li>
       ))}
       <li className="min-w-0">
-        <UploadCard interactive={interactive} />
+        <UploadCard interactive={interactive} messages={messages} />
       </li>
     </ul>
   );
@@ -241,9 +265,11 @@ function EnvelopeGrid({ envelopes, interactive }: EnvelopeGridProps) {
 function EnvelopeCard({
   envelope,
   interactive,
+  messages,
 }: {
   envelope: DashboardEnvelopeListItem;
   interactive: boolean;
+  messages: DashboardMessages;
 }) {
   const content = (
     <>
@@ -273,9 +299,11 @@ function EnvelopeCard({
 
       <span className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1.5 px-1 pb-0.5">
         <span
-          aria-label={`Status: ${
-            envelope.expired ? "Expired" : statusLabelMap[envelope.status]
-          }`}
+          aria-label={messages.statusLabel(
+            envelope.expired
+              ? messages.expired
+              : messages.statusLabels[envelope.status],
+          )}
           className={cn(
             "pill",
             envelope.expired
@@ -286,7 +314,7 @@ function EnvelopeCard({
           {envelope.statusLabel}
         </span>
         <span className="text-xs text-(--tertiary)">
-          <span className="sr-only">Created </span>
+          <span className="sr-only">{messages.createdPrefix}</span>
           {envelope.createdAtLabel}
         </span>
       </span>
@@ -313,13 +341,19 @@ function EnvelopeCard({
 }
 
 /** The last tile in the grid: the way to add the next document. */
-function UploadCard({ interactive }: { interactive: boolean }) {
+function UploadCard({
+  interactive,
+  messages,
+}: {
+  interactive: boolean;
+  messages: DashboardMessages;
+}) {
   const content = (
     <>
       <span className="inline-flex size-11 items-center justify-center rounded-[0.875rem] bg-(--accent-soft) text-(--accent)">
         <PlusIcon aria-hidden="true" className="size-5" strokeWidth={2.4} />
       </span>
-      Upload a PDF
+      {messages.uploadPdf}
     </>
   );
   const className =
@@ -342,24 +376,28 @@ function UploadCard({ interactive }: { interactive: boolean }) {
   );
 }
 
-function NoResultsState({ interactive, onReset }: NoResultsStateProps) {
+function NoResultsState({
+  interactive,
+  messages,
+  onReset,
+}: NoResultsStateProps) {
   return (
     <div className="panel px-6 py-12 text-center">
       <div className="mx-auto max-w-md space-y-3">
         <h2 className="text-xl font-extrabold tracking-[-0.02em] text-(--fg)">
-          No documents match your search
+          {messages.noResultsTitle}
         </h2>
         <p className="text-sm leading-6 text-(--secondary)">
-          Try a different title, signer email, or status filter.
+          {messages.noResultsHelp}
         </p>
         <div className="flex justify-center pt-2">
           {interactive ? (
             <ShellButton onClick={onReset} variant="secondary">
-              Reset filters
+              {messages.resetFilters}
             </ShellButton>
           ) : (
             <StaticShellButton variant="secondary">
-              Reset filters
+              {messages.resetFilters}
             </StaticShellButton>
           )}
         </div>

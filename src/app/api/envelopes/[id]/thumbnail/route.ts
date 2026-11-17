@@ -19,6 +19,7 @@ import {
   ThumbnailValidationError,
 } from "@/lib/services/thumbnails";
 import { readLimitedBody } from "@/lib/utils/limited-body";
+import { localize } from "@/lib/i18n/server-locale";
 
 type EnvelopeThumbnailRouteContext = {
   params: Promise<{
@@ -85,7 +86,7 @@ export async function GET(
   } catch (error) {
     if (error instanceof EnvelopeDocumentAccessError) {
       return NextResponse.json(
-        { error: error.message },
+        { error: await localize(error) },
         { headers: privateNoStore, status: error.statusCode },
       );
     }
@@ -99,7 +100,7 @@ export async function GET(
     });
 
     return NextResponse.json(
-      { error: "Unable to load this thumbnail." },
+      { error: await localize((m) => m.envelope.api.unableToLoadThumbnail) },
       { headers: privateNoStore, status: 500 },
     );
   }
@@ -135,7 +136,7 @@ export async function PUT(
 
   if (Number.isFinite(declaredLength) && declaredLength > THUMBNAIL_MAX_BYTES) {
     return NextResponse.json(
-      { error: "The thumbnail is too large." },
+      { error: await localize((m) => m.upload.thumbnail.tooLarge) },
       { status: 413 },
     );
   }
@@ -147,7 +148,7 @@ export async function PUT(
 
     if (!body) {
       return NextResponse.json(
-        { error: "The thumbnail is too large." },
+        { error: await localize((m) => m.upload.thumbnail.tooLarge) },
         { status: 413 },
       );
     }
@@ -159,12 +160,15 @@ export async function PUT(
     return new Response(null, { headers: privateNoStore, status: 204 });
   } catch (error) {
     if (error instanceof ThumbnailValidationError) {
-      return NextResponse.json({ error: error.message }, { status: 400 });
+      return NextResponse.json(
+        { error: await localize(error) },
+        { status: 400 },
+      );
     }
 
     if (error instanceof EnvelopeDocumentAccessError) {
       return NextResponse.json(
-        { error: error.message },
+        { error: await localize(error) },
         { status: error.statusCode },
       );
     }
@@ -178,7 +182,7 @@ export async function PUT(
     });
 
     return NextResponse.json(
-      { error: "Unable to save this thumbnail." },
+      { error: await localize((m) => m.envelope.api.unableToSaveThumbnail) },
       { status: 500 },
     );
   }

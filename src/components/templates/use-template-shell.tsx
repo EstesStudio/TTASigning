@@ -6,7 +6,8 @@ import { getSignerPalette } from "@/components/envelopes/signer-palette";
 import { ShellButton } from "@/components/shared/form-shell";
 import { PageHeader } from "@/components/shared/page-header";
 import { StatusPanel } from "@/components/shared/status-panel";
-import { duplicateSignerEmailMessage } from "@/lib/schemas/signer";
+import type { EnvelopeMessages } from "@/lib/i18n/envelope-messages";
+import { useEnvelopeMessages } from "@/lib/i18n/use-envelope-messages";
 import type { UseTemplateData } from "@/lib/templates";
 
 type UseTemplateShellProps = {
@@ -26,9 +27,10 @@ type PersonErrors = {
 };
 
 const validEmailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-const genericError = "Something went wrong. Please try again.";
-
-function findErrors(people: readonly Person[]): PersonErrors[] {
+function findErrors(
+  people: readonly Person[],
+  common: EnvelopeMessages["common"],
+): PersonErrors[] {
   const emailCounts = new Map<string, number>();
 
   for (const person of people) {
@@ -44,13 +46,13 @@ function findErrors(people: readonly Person[]): PersonErrors[] {
     const email = person.email.trim().toLowerCase();
 
     if (person.name.trim().length === 0) {
-      errors.name = "Name is required";
+      errors.name = common.nameRequired;
     }
 
     if (!validEmailPattern.test(email)) {
-      errors.email = "Enter a valid email address";
+      errors.email = common.invalidEmail;
     } else if ((emailCounts.get(email) ?? 0) > 1) {
-      errors.email = duplicateSignerEmailMessage;
+      errors.email = common.duplicateSignerEmail;
     }
 
     return errors;
@@ -62,6 +64,7 @@ export function UseTemplateShell({
   errorMessage,
   template,
 }: UseTemplateShellProps) {
+  const { common, useTemplate: messages } = useEnvelopeMessages();
   const [title, setTitle] = useState(template?.name ?? "");
   const [people, setPeople] = useState<Person[]>(() =>
     (template?.roles ?? []).map(() => ({ email: "", name: "" })),
@@ -73,23 +76,20 @@ export function UseTemplateShell({
   if (!template) {
     return (
       <div className="space-y-5">
-        <PageHeader title="Use a template" />
+        <PageHeader title={messages.title} />
         <StatusPanel
-          action={{ href: "/templates", label: "Back to templates" }}
-          description={
-            errorMessage ??
-            "We couldn't load this template. Try again in a moment."
-          }
-          title="This template can't be used"
+          action={{ href: "/templates", label: messages.backToTemplates }}
+          description={errorMessage ?? messages.loadError}
+          title={messages.cannotUse}
           tone="error"
         />
       </div>
     );
   }
 
-  const errors = findErrors(people);
+  const errors = findErrors(people, common);
   const titleError =
-    title.trim().length === 0 ? "Give the envelope a title" : undefined;
+    title.trim().length === 0 ? messages.titleRequired : undefined;
   const canSubmit =
     !titleError && errors.every((error) => !error.name && !error.email);
 
@@ -125,7 +125,7 @@ export function UseTemplateShell({
       } | null;
 
       if (!response.ok || !payload?.redirectPath) {
-        setSubmitError(payload?.error ?? genericError);
+        setSubmitError(payload?.error ?? common.genericError);
         setIsSubmitting(false);
         return;
       }
@@ -133,7 +133,7 @@ export function UseTemplateShell({
       // The button stays busy until the next page takes over.
       window.location.assign(payload.redirectPath);
     } catch {
-      setSubmitError(genericError);
+      setSubmitError(common.genericError);
       setIsSubmitting(false);
     }
   }
@@ -142,7 +142,7 @@ export function UseTemplateShell({
     <div className="space-y-5">
       <PageHeader
         description={`${template.name} · ${template.pageCountLabel} · ${template.fieldCountLabel}`}
-        title="Use a template"
+        title={messages.title}
       />
 
       <form
@@ -154,7 +154,7 @@ export function UseTemplateShell({
       >
         <label className="grid max-w-xl gap-1.5">
           <span className="text-[0.8125rem] font-semibold text-(--secondary)">
-            Envelope title
+            {messages.envelopeTitle}
           </span>
           <input
             aria-invalid={showErrors && titleError ? true : undefined}
@@ -181,11 +181,10 @@ export function UseTemplateShell({
         <div className="space-y-3">
           <div className="space-y-1">
             <h2 className="text-lg font-extrabold text-(--fg)">
-              Who is signing this time?
+              {messages.whoHeading}
             </h2>
             <p className="text-sm leading-6 text-(--secondary)">
-              They receive the document in this order. The fields are already
-              placed for each of them.
+              {messages.whoHelp}
             </p>
           </div>
 
@@ -216,18 +215,18 @@ export function UseTemplateShell({
                   <div className="mt-3 grid gap-x-4 gap-y-3 md:grid-cols-2">
                     <label className="grid auto-rows-min gap-1.5">
                       <span className="text-[0.8125rem] font-semibold text-(--secondary)">
-                        Name
+                        {common.nameLabel}
                       </span>
                       <input
                         aria-invalid={nameError ? true : undefined}
-                        aria-label={`${role.name} name`}
+                        aria-label={messages.nameAria(role.name)}
                         className="field-input"
                         disabled={isSubmitting}
                         maxLength={120}
                         onChange={(event) =>
                           updatePerson(index, { name: event.target.value })
                         }
-                        placeholder="Jane Smith"
+                        placeholder={common.namePlaceholder}
                         type="text"
                         value={person.name}
                       />
@@ -243,18 +242,18 @@ export function UseTemplateShell({
 
                     <label className="grid auto-rows-min gap-1.5">
                       <span className="text-[0.8125rem] font-semibold text-(--secondary)">
-                        Email
+                        {common.emailLabel}
                       </span>
                       <input
                         aria-invalid={emailError ? true : undefined}
-                        aria-label={`${role.name} email`}
+                        aria-label={messages.emailAria(role.name)}
                         className="field-input"
                         disabled={isSubmitting}
                         maxLength={320}
                         onChange={(event) =>
                           updatePerson(index, { email: event.target.value })
                         }
-                        placeholder="jane@company.com"
+                        placeholder={common.emailPlaceholder}
                         type="email"
                         value={person.email}
                       />
@@ -275,9 +274,7 @@ export function UseTemplateShell({
         </div>
 
         <p className="text-sm leading-6 text-(--secondary)">
-          Nothing is sent yet. You will see the review step next, where you can
-          still change the fields, add people who get a copy, or add an extra
-          check before signing.
+          {messages.nothingSent}
         </p>
 
         {submitError ? (
@@ -292,10 +289,10 @@ export function UseTemplateShell({
             href="/templates"
             variant="secondary"
           >
-            Cancel
+            {common.cancel}
           </ShellButton>
           <ShellButton loading={isSubmitting} type="submit">
-            {isSubmitting ? "Creating..." : "Create draft"}
+            {isSubmitting ? messages.creating : messages.create}
           </ShellButton>
         </div>
       </form>

@@ -14,6 +14,7 @@ import {
 } from "@/lib/security/route-controls";
 import { getClientIpAddress } from "@/lib/security/request";
 import { resolveAppUrl } from "@/lib/utils/env";
+import { localize } from "@/lib/i18n/server-locale";
 
 // Public download route for recipient email links only.
 // Sender downloads must go through the authenticated /api/envelopes/[id]/download route.
@@ -70,7 +71,7 @@ export async function GET(
     }
 
     if (error instanceof DownloadAccessError) {
-      return new NextResponse(error.message, {
+      return new NextResponse(await localize(error), {
         headers: {
           "cache-control": "private, no-store",
           "content-type": "text/plain; charset=utf-8",
@@ -86,7 +87,7 @@ export async function GET(
       path: request.url,
     });
 
-    return new NextResponse("Unable to start this download.", {
+    return new NextResponse(await localize((m) => m.download.unableToStart), {
       headers: {
         "cache-control": "private, no-store",
         "content-type": "text/plain; charset=utf-8",

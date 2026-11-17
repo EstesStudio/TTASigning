@@ -1,7 +1,13 @@
+"use client";
+
+import { useAppMessages } from "@/lib/i18n/use-app-messages";
+
 export default function AuthLoading() {
+  const m = useAppMessages();
+
   return (
     <section
-      aria-label="Loading authentication page"
+      aria-label={m.authShell.loadingLabel}
       className="panel w-full max-w-[440px] p-8 sm:p-10"
     >
       <div className="space-y-3">

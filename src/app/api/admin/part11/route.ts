@@ -13,6 +13,7 @@ import {
   getRequestUserAgent,
 } from "@/lib/security/request";
 import { getSettings } from "@/lib/settings";
+import { localize } from "@/lib/i18n/server-locale";
 
 const noStore = { "cache-control": "private, no-store" };
 
@@ -44,14 +45,14 @@ export async function PUT(request: Request) {
 
   if (typeof body?.enabled !== "boolean") {
     return NextResponse.json(
-      { error: "Say whether Part 11 mode should be on." },
+      { error: await localize((m) => m.admin.part11.sayWhether) },
       { headers: noStore, status: 400 },
     );
   }
 
   if ((await getSettings()).hosted) {
     return NextResponse.json(
-      { error: "Part 11 mode is for self-hosted installs." },
+      { error: await localize((m) => m.admin.part11.selfHostedOnly) },
       { headers: noStore, status: 400 },
     );
   }
@@ -74,7 +75,7 @@ export async function PUT(request: Request) {
   } catch (error) {
     if (error instanceof Part11Error) {
       return NextResponse.json(
-        { error: error.message },
+        { error: await localize(error) },
         { headers: noStore, status: error.statusCode },
       );
     }
@@ -88,7 +89,7 @@ export async function PUT(request: Request) {
     });
 
     return NextResponse.json(
-      { error: "That change could not be saved." },
+      { error: await localize((m) => m.admin.changeNotSaved) },
       { headers: noStore, status: 500 },
     );
   }

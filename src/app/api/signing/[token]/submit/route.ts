@@ -12,6 +12,7 @@ import {
   SigningMutationError,
   submitSigningForToken,
 } from "@/lib/signing";
+import { localize } from "@/lib/i18n/server-locale";
 import { logRouteError } from "@/lib/security/logging";
 import {
   applyRateLimit,
@@ -72,7 +73,9 @@ export async function POST(
 
       return NextResponse.json(
         {
-          error: issue?.message ?? "Invalid signing submission.",
+          error: await localize(
+            issue?.message ?? ((m) => m.signing.invalidSubmission),
+          ),
         },
         {
           headers: {
@@ -90,7 +93,7 @@ export async function POST(
     if (error instanceof SigningAccessError) {
       return NextResponse.json(
         {
-          error: error.message,
+          error: await localize(error),
           state: error.state,
         },
         {
@@ -105,7 +108,7 @@ export async function POST(
     if (error instanceof SigningMutationError) {
       return NextResponse.json(
         {
-          error: error.message,
+          error: await localize(error),
         },
         {
           headers: {
@@ -125,7 +128,7 @@ export async function POST(
 
     return NextResponse.json(
       {
-        error: "Unable to finish signing.",
+        error: await localize((m) => m.signing.unableToFinish),
       },
       {
         headers: {

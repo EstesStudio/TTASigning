@@ -7,6 +7,7 @@ import {
 } from "./db/connection.ts";
 import { deleteEnvelopesAndFiles } from "./retention.ts";
 import { emailSchema } from "./schemas/common.ts";
+import { inEnglish, type UserMessage } from "./i18n/server-messages.ts";
 
 // What an administrator needs to answer a signer who asks for their data
 // (GDPR Articles 15 and 20) or for it to be erased (Article 17).
@@ -17,10 +18,12 @@ import { emailSchema } from "./schemas/common.ts";
 
 export class SignerDataError extends Error {
   readonly statusCode: number;
+  readonly userMessage: UserMessage;
 
-  constructor(message: string, statusCode = 400) {
-    super(message);
+  constructor(message: UserMessage, statusCode = 400) {
+    super(inEnglish(message));
     this.name = "SignerDataError";
+    this.userMessage = message;
     this.statusCode = statusCode;
   }
 }
@@ -47,7 +50,7 @@ function parseEmail(email: unknown): string {
   const parsed = emailSchema.safeParse(email);
 
   if (!parsed.success) {
-    throw new SignerDataError("Enter the signer's email address.");
+    throw new SignerDataError((m) => m.admin.signerData.enterEmail);
   }
 
   return parsed.data.toLowerCase();
@@ -175,9 +178,7 @@ export async function eraseSignerData(
     typeof confirmation !== "string" ||
     confirmation.trim().toLowerCase() !== email
   ) {
-    throw new SignerDataError(
-      "Type the signer's email address again to confirm.",
-    );
+    throw new SignerDataError((m) => m.admin.signerData.confirmEmail);
   }
 
   const envelopes = await listSignerEnvelopes(email, database);
