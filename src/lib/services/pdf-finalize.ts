@@ -14,6 +14,11 @@ import { describeSignerCorrectedEvent } from "./audit.ts";
 import { canonicalJson } from "../utils/canonical-json.ts";
 import { normalizedRectToPdfRect } from "../utils/pdf-coords.ts";
 import { embedTextFaces, type TextFace } from "./pdf-fonts.ts";
+import {
+  drawOnDisplayedPage,
+  getDisplayedPageGeometry,
+  type DisplayedPageGeometry,
+} from "./pdf-page-geometry.ts";
 import { sha256Hex } from "./pdf-seal.ts";
 import { getBranding } from "../settings.ts";
 import {
@@ -149,6 +154,33 @@ function redactAuditEventForRecipients(
     metadata: redactAuditEventMetadataForRecipients(event.metadata ?? null),
     userAgent: null,
   });
+}
+
+/**
+ * Who did what an audit row records. An event's `signerName` and
+ * `signerEmail` metadata name the signer it concerns, which is the actor
+ * only on the signer's own events: a send or a reminder names the signer it
+ * went to while the sender (or the system) did it, so the signer's name must
+ * never be put in front of the sender's address (issue #52).
+ */
+export function describeAuditActor(event: AuditEventRecord): string {
+  if (event.actorType !== "signer") {
+    return event.actorEmail ?? event.actorType;
+  }
+
+  const actor =
+    event.actorEmail ??
+    (typeof event.metadata?.signerEmail === "string"
+      ? event.metadata.signerEmail
+      : event.actorType);
+  const signerName =
+    typeof event.metadata?.signerName === "string"
+      ? event.metadata.signerName
+      : null;
+
+  return signerName && actor !== signerName
+    ? `${signerName} <${actor}>`
+    : actor;
 }
 
 type WrappedLine = {
@@ -396,15 +428,42 @@ export async function stampFieldValue(
   imageCache: Map<string, PDFImage>,
   pdfDocument: PDFDocument,
   storageService: StorageService,
+  // A field's place is given on the page as it is shown, so the value is
+  // drawn in those coordinates. On a rotated page it comes out turned with
+  // the page, and so reads upright. A caller that draws on another page
+  // than the one the field is on passes that page's geometry.
+  geometry: DisplayedPageGeometry = getDisplayedPageGeometry(page),
 ): Promise<void> {
   if (!shouldStampField(field)) {
     return;
   }
 
-  const rect = normalizedRectToPdfRect(field, {
-    heightPt: page.getHeight(),
-    widthPt: page.getWidth(),
-  });
+  await drawOnDisplayedPage(page, geometry, () =>
+    drawFieldValue(
+      field,
+      page,
+      geometry,
+      fonts,
+      imageCache,
+      pdfDocument,
+      storageService,
+    ),
+  );
+}
+
+async function drawFieldValue(
+  field: FieldRecord,
+  page: PDFPage,
+  geometry: DisplayedPageGeometry,
+  fonts: {
+    auditRegular: TextFace;
+    signature: TextFace;
+  },
+  imageCache: Map<string, PDFImage>,
+  pdfDocument: PDFDocument,
+  storageService: StorageService,
+): Promise<void> {
+  const rect = normalizedRectToPdfRect(field, geometry);
   const padding = getFieldPadding(rect.widthPt, rect.heightPt);
 
   switch (field.type) {
@@ -459,6 +518,7 @@ export async function stampFieldValue(
       return;
     }
     case "date":
+    case "name":
     case "text":
     case "number":
     case "dropdown": {
@@ -552,17 +612,28 @@ export async function stampFieldValue(
  * Prints a Part 11 signature's manifestation just under the signature, or
  * just above it when the field sits at the foot of the page.
  */
-function stampSignatureManifestation(
+async function stampSignatureManifestation(
   field: FieldRecord,
   page: PDFPage,
   font: TextFace,
   text: string,
+): Promise<void> {
+  const geometry = getDisplayedPageGeometry(page);
+
+  await drawOnDisplayedPage(page, geometry, () =>
+    drawSignatureManifestation(field, page, geometry, font, text),
+  );
+}
+
+function drawSignatureManifestation(
+  field: FieldRecord,
+  page: PDFPage,
+  geometry: DisplayedPageGeometry,
+  font: TextFace,
+  text: string,
 ): void {
-  const pageWidth = page.getWidth();
-  const rect = normalizedRectToPdfRect(field, {
-    heightPt: page.getHeight(),
-    widthPt: pageWidth,
-  });
+  const pageWidth = geometry.widthPt;
+  const rect = normalizedRectToPdfRect(field, geometry);
   const margin = 2;
   const fullWidth = pageWidth - margin * 2;
   const minimumSize = 5;
@@ -590,7 +661,7 @@ function stampSignatureManifestation(
       ? rect.yPt - lineHeight
       : Math.min(
           rect.yPt + rect.heightPt + blockHeight - size,
-          page.getHeight() - size - margin,
+          geometry.heightPt - size - margin,
         );
 
   lines.forEach((line, index) => {
@@ -766,18 +837,7 @@ function buildAuditLines(input: {
   });
 
   for (const event of auditEvents) {
-    const actor =
-      event.actorEmail ??
-      (typeof event.metadata?.signerEmail === "string"
-        ? event.metadata.signerEmail
-        : event.actorType);
-    const signerName =
-      typeof event.metadata?.signerName === "string"
-        ? event.metadata.signerName
-        : null;
-    const actorLabel =
-      signerName && actor !== signerName ? `${signerName} <${actor}>` : actor;
-
+    const actorLabel = describeAuditActor(event);
     const eventLabel =
       event.event === "signer_corrected" ? "Signer corrected" : event.event;
 
@@ -1383,7 +1443,12 @@ export async function renderFinalizedEnvelopePdf(
       field.type === "signature" ? manifestations.get(field.signerId) : null;
 
     if (manifestation) {
-      stampSignatureManifestation(field, page, faces.regular, manifestation);
+      await stampSignatureManifestation(
+        field,
+        page,
+        faces.regular,
+        manifestation,
+      );
     }
   }
 

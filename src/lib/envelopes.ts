@@ -1,6 +1,7 @@
 import { randomUUID } from "node:crypto";
 
 import { type Branding } from "./branding.ts";
+import { removeUnclaimedEnvelopeCertificates } from "./certificate-cleanup.ts";
 import {
   type DbExecutor,
   type DbPool,
@@ -85,12 +86,15 @@ import {
 } from "./services/audit.ts";
 import {
   createEmailService,
+  EMAIL_NOT_CONNECTED_MESSAGE,
+  isEmailNotConnectedError,
   resolveEmailAddresses,
   type EmailService,
 } from "./services/email.ts";
 import { withUserEmailLegalFooter } from "./services/email-legal-footer.ts";
 import { buildSigningInvitationEmail } from "./services/signing-invitation-email.ts";
 import {
+  loadInstallSealer,
   storeEnvelopeCertificatePdf,
   storeRecipientEnvelopeCertificatePdf,
 } from "./services/pdf-finalize.ts";
@@ -317,6 +321,7 @@ type ReviewFieldSummary =
   | "Date"
   | "Dropdown"
   | "Initials"
+  | "Name"
   | "Number"
   | "Radio group"
   | "Signature"
@@ -456,6 +461,23 @@ export class EnvelopeMutationError extends Error {
   }
 }
 
+/**
+ * The email service for a send. With no provider connected, sending is
+ * refused with a message that says so, before anything changes, instead of
+ * failing as an unexpected server error (issue #53).
+ */
+function createEmailServiceForSending(): EmailService {
+  try {
+    return createEmailService();
+  } catch (error) {
+    if (isEmailNotConnectedError(error)) {
+      throw new EnvelopeMutationError(EMAIL_NOT_CONNECTED_MESSAGE, 503);
+    }
+
+    throw error;
+  }
+}
+
 export class EnvelopeDocumentAccessError extends Error {
   readonly statusCode: number;
 
@@ -486,6 +508,7 @@ const FIELD_TYPE_SUMMARY_LABELS: Record<
   date: "Date",
   dropdown: "Dropdown",
   initials: "Initials",
+  name: "Name",
   number: "Number",
   radio: "Radio group",
   signature: "Signature",
@@ -493,14 +516,15 @@ const FIELD_TYPE_SUMMARY_LABELS: Record<
 };
 
 const FIELD_TYPE_SORT_ORDER: Record<FieldRecord["type"], number> = {
-  checkbox: 6,
+  checkbox: 7,
   date: 2,
-  dropdown: 5,
+  dropdown: 6,
   initials: 1,
-  number: 4,
-  radio: 7,
+  name: 3,
+  number: 5,
+  radio: 8,
   signature: 0,
-  text: 3,
+  text: 4,
 };
 
 const TIMELINE_TONE_MAP: Record<
@@ -2437,7 +2461,7 @@ export async function sendDraftEnvelope(
     );
   }
 
-  const emailService = createEmailService();
+  const emailService = createEmailServiceForSending();
   const storageService = createStorageService();
   const sourcePdfHead = await storageService.headObject(envelope.sourcePdfKey);
 
@@ -3303,11 +3327,41 @@ export async function voidSentEnvelope(
     voidedAuditEvent,
   ];
   const storedCertificateKeys: string[] = [];
-  let certificate: { key: string; sha256: string };
-  let recipientCertificateSha256: string;
+  // The seal's key and the install's name, read before the transaction:
+  // sealing inside it then needs no second connection from the pool.
+  const seal = await loadInstallSealer();
+  let webhookDeliveryIds: string[] = [];
 
-  try {
-    certificate = await storeEnvelopeCertificatePdf(
+  await withTransaction(async (tx) => {
+    // Taken before the certificates are made. They have fixed keys, so a
+    // second void, a decline or the last signature at the same time waits
+    // here, then stops below: it never writes over, or deletes, the files
+    // the first one saved.
+    const locked = await queryOne<{ status: EnvelopeRecord["status"] }>(
+      tx,
+      `
+        SELECT status
+        FROM envelopes
+        WHERE id = $1 AND user_id = $2
+        -- The lock an UPDATE takes, not FOR UPDATE: storing an audit event
+        -- needs a share of this row for its foreign key.
+        FOR NO KEY UPDATE
+      `,
+      [envelopeId, userId],
+    );
+
+    if (!locked) {
+      throw new EnvelopeMutationError("Envelope not found.", 404);
+    }
+
+    if (locked.status !== "sent") {
+      throw new EnvelopeMutationError(
+        "Only sent envelopes can be voided.",
+        409,
+      );
+    }
+
+    const certificate = await storeEnvelopeCertificatePdf(
       {
         auditEvents,
         certificate: canonicalCertificate,
@@ -3315,6 +3369,7 @@ export async function voidSentEnvelope(
         signers: voidedSigners,
       },
       {
+        seal,
         storageService,
       },
     );
@@ -3334,119 +3389,98 @@ export async function voidSentEnvelope(
         signers: voidedSigners,
       },
       {
+        seal,
         storageService,
       },
     );
     storedCertificateKeys.push(recipientCertificate.key);
-    recipientCertificateSha256 = recipientCertificate.sha256;
-  } catch (error) {
-    await Promise.all(
-      storedCertificateKeys.map((key) =>
-        storageService.deleteObject(key).catch(() => undefined),
-      ),
-    );
-    throw error;
-  }
 
-  let webhookDeliveryIds: string[] = [];
-
-  try {
-    await withTransaction(async (tx) => {
-      const persistedEnvelope = await getEnvelopeByIdForUser(
-        userId,
+    const updatedEnvelope = await tx.query(
+      `
+        UPDATE envelopes
+        SET
+          status = 'voided',
+          evidence_key = $1,
+          voided_at = $2,
+          updated_at = $3,
+          evidence_sha256 = $6,
+          recipient_evidence_sha256 = $7
+        WHERE id = $4
+          AND user_id = $5
+          AND status = 'sent'
+      `,
+      [
+        certificate.key,
+        voidedAt,
+        voidedAt,
         envelopeId,
-        tx,
-      );
-
-      if (!persistedEnvelope) {
-        throw new EnvelopeMutationError("Envelope not found.", 404);
-      }
-
-      if (persistedEnvelope.status !== "sent") {
-        throw new EnvelopeMutationError(
-          "Only sent envelopes can be voided.",
-          409,
-        );
-      }
-
-      const updatedEnvelope = await tx.query(
-        `
-          UPDATE envelopes
-          SET
-            status = 'voided',
-            evidence_key = $1,
-            voided_at = $2,
-            updated_at = $3,
-            evidence_sha256 = $6,
-            recipient_evidence_sha256 = $7
-          WHERE id = $4
-            AND user_id = $5
-            AND status = 'sent'
-        `,
-        [
-          certificate.key,
-          voidedAt,
-          voidedAt,
-          envelopeId,
-          userId,
-          certificate.sha256,
-          recipientCertificateSha256,
-        ],
-      );
-
-      if (updatedEnvelope.rowCount !== 1) {
-        throw new EnvelopeMutationError(
-          "This envelope can no longer be voided.",
-          409,
-        );
-      }
-
-      await tx.query(
-        `
-          UPDATE signers
-          SET
-            signing_token_hash = NULL,
-            signing_token_expires_at = NULL,
-            updated_at = $1
-          WHERE envelope_id = $2
-            AND status = 'notified'
-        `,
-        [voidedAt, envelopeId],
-      );
-
-      await recordAuditEvent(
-        {
-          actorEmail: voidedAuditEvent.actorEmail,
-          actorType: voidedAuditEvent.actorType,
-          id: voidedAuditEvent.id,
-          createdAt: voidedAuditEvent.createdAt,
-          envelopeId: voidedAuditEvent.envelopeId,
-          event: voidedAuditEvent.event,
-          ipAddress: voidedAuditEvent.ipAddress,
-          metadata: voidedAuditEvent.metadata,
-          userAgent: voidedAuditEvent.userAgent,
-        },
-        tx,
-      );
-
-      webhookDeliveryIds = await enqueueEnvelopeWebhookEvent(
-        {
-          envelopeId,
-          eventType: "envelope.voided",
-          occurredAt: voidedAt,
-        },
-        tx,
-      );
-    }, database);
-    await attemptWebhookDeliveriesQuietly(webhookDeliveryIds, database);
-  } catch (error) {
-    await Promise.all(
-      storedCertificateKeys.map((key) =>
-        storageService.deleteObject(key).catch(() => undefined),
-      ),
+        userId,
+        certificate.sha256,
+        recipientCertificate.sha256,
+      ],
     );
+
+    if (updatedEnvelope.rowCount !== 1) {
+      throw new EnvelopeMutationError(
+        "This envelope can no longer be voided.",
+        409,
+      );
+    }
+
+    await tx.query(
+      `
+        UPDATE signers
+        SET
+          signing_token_hash = NULL,
+          signing_token_expires_at = NULL,
+          updated_at = $1
+        WHERE envelope_id = $2
+          AND status = 'notified'
+      `,
+      [voidedAt, envelopeId],
+    );
+
+    await recordAuditEvent(
+      {
+        actorEmail: voidedAuditEvent.actorEmail,
+        actorType: voidedAuditEvent.actorType,
+        id: voidedAuditEvent.id,
+        createdAt: voidedAuditEvent.createdAt,
+        envelopeId: voidedAuditEvent.envelopeId,
+        event: voidedAuditEvent.event,
+        ipAddress: voidedAuditEvent.ipAddress,
+        metadata: voidedAuditEvent.metadata,
+        userAgent: voidedAuditEvent.userAgent,
+      },
+      tx,
+    );
+
+    webhookDeliveryIds = await enqueueEnvelopeWebhookEvent(
+      {
+        envelopeId,
+        eventType: "envelope.voided",
+        occurredAt: voidedAt,
+      },
+      tx,
+    );
+  }, database).catch(async (error: unknown) => {
+    // Only files this call stored, so only once the envelope was its to end.
+    // That includes a failed COMMIT: the cleanup keeps the files if the
+    // envelope did end after all.
+    if (storedCertificateKeys.length > 0) {
+      await removeUnclaimedEnvelopeCertificates(
+        {
+          envelopeId: envelopeId,
+          keys: storedCertificateKeys,
+          storageService,
+        },
+        database,
+      );
+    }
+
     throw error;
-  }
+  });
+  await attemptWebhookDeliveriesQuietly(webhookDeliveryIds, database);
 
   const branding = await getBranding().catch(() => null);
 
