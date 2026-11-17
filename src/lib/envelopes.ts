@@ -73,6 +73,12 @@ import { getBranding, readStoredSettings } from "./settings.ts";
 import { type SignatureMeaning } from "./types/domain.ts";
 import { importPdfDocument } from "./services/document-import.ts";
 import {
+  sendWithTurboSign,
+  turboSignConfigured,
+  type TurboSignClient,
+} from "./services/turbosign.ts";
+import { setUpTurboSignWebhookOnce } from "./turbosign-webhook.ts";
+import {
   describeSignerCorrectedEvent,
   listAuditEventsForEnvelope,
   lockEnvelopeAuditChain,
@@ -181,6 +187,8 @@ type CorrectSentEnvelopeSignerOptions = {
 
 type SendDraftEnvelopeOptions = {
   database?: DbPool;
+  /** Stands in for the TurboDocx SDK in tests. */
+  turboSignClient?: TurboSignClient;
 };
 
 type VoidEnvelopeOptions = {
@@ -2339,7 +2347,7 @@ export async function sendDraftEnvelope(
   userId: string,
   envelopeId: string,
   input: SendDraftEnvelopeInput,
-  { database = getDb() }: SendDraftEnvelopeOptions = {},
+  { database = getDb(), turboSignClient }: SendDraftEnvelopeOptions = {},
 ): Promise<SendDraftEnvelopeResult> {
   const envelope = await getEnvelopeByIdForUser(userId, envelopeId, database);
 
@@ -2455,8 +2463,60 @@ export async function sendDraftEnvelope(
     );
   }
 
-  const emailService = createEmailServiceForSending();
   const storageService = createStorageService();
+  let turboSign: "limit_reached" | undefined;
+
+  if (signatureLevel === "simple" && !part11 && turboSignConfigured()) {
+    const source = await storageService.getObject(envelope.sourcePdfKey);
+    const pages = await listEnvelopePagesForEnvelopeId(envelopeId, database);
+    const result = await sendWithTurboSign({
+      client: turboSignClient,
+      documentName: envelope.title,
+      fields,
+      // The page sizes the editor placed the fields on.
+      pageSizes: pages.map((page) => ({
+        height: page.heightPt,
+        width: page.widthPt,
+      })),
+      expiresInDays: input.expiresInDays,
+      pdf: Buffer.from(source.body),
+      reminderIntervalDays: input.reminderIntervalDays,
+      senderEmail: input.senderEmail,
+      senderName: input.senderName,
+      signers,
+    });
+
+    // The first send through TurboSign also sets up the webhook that brings
+    // finished documents back. It never holds up or fails the send.
+    void setUpTurboSignWebhookOnce(database);
+
+    if (result.outcome === "sent") {
+      const turboSentAt = Math.floor(Date.now() / 1000);
+      // ponytail: no reminders, deadline or audit row on SignuDoc's side; TurboSign keeps the audit trail.
+      await database.query(
+        `
+          UPDATE envelopes
+          SET status = 'sent', sent_at = $1, updated_at = $1, turbosign_document_id = $2
+          WHERE id = $3 AND user_id = $4 AND status = 'draft'
+        `,
+        [turboSentAt, result.documentId, envelopeId, userId],
+      );
+
+      return sendEnvelopeResponseSchema.parse({
+        envelopeId,
+        notifiedSignerName: firstSigner.name,
+        redirectPath: `/envelopes/${envelopeId}`,
+        sentAt: turboSentAt,
+        turboSign: "sent",
+      });
+    }
+
+    if (result.outcome === "limit_reached") {
+      turboSign = "limit_reached";
+    }
+  }
+
+  const emailService = createEmailServiceForSending();
   const sourcePdfHead = await storageService.headObject(envelope.sourcePdfKey);
 
   if (!sourcePdfHead.exists) {
@@ -2746,7 +2806,27 @@ export async function sendDraftEnvelope(
     notifiedSignerName: firstSigner.name,
     redirectPath: `/envelopes/${envelopeId}`,
     sentAt,
+    turboSign,
   });
+}
+
+/** The TurboSign document an envelope went out as, or null. */
+export async function getTurboSignDocumentIdForUser(
+  userId: string,
+  envelopeId: string,
+  database: DbExecutor = getDb(),
+): Promise<string | null> {
+  const row = await queryOne<{ documentId: string | null }>(
+    database,
+    `
+      SELECT turbosign_document_id AS "documentId"
+      FROM envelopes
+      WHERE id = $1 AND user_id = $2
+    `,
+    [envelopeId, userId],
+  );
+
+  return row?.documentId ?? null;
 }
 
 type ChangeEnvelopeDeadlineInput = {
