@@ -15,10 +15,15 @@ import type { EmailService } from "./services/email.ts";
 import type { StorageService } from "./services/storage.ts";
 import { isMissingSchemaError } from "./settings.ts";
 import { getEnv, type EnvSource } from "./utils/env.ts";
+import {
+  expireWebhookDeliveryPayloads,
+  retryDueWebhookDeliveries,
+} from "./webhooks.ts";
 
 // The daily job. First the cleanup: stale drafts, queued account deletions,
 // expired download links and finished rate limit windows. Then the envelopes
-// that are out for signature: see envelope-schedule.ts.
+// that are out for signature: see envelope-schedule.ts. Then webhook
+// deliveries that failed earlier, with backoff.
 //
 // On Vercel it is called by a cron job (see vercel.json). A click-to-deploy
 // install has no secret for that call, because nobody typed one in, so the
@@ -191,6 +196,20 @@ export async function runRetentionJob({
         stoppedEarly: false,
       };
     });
+
+    await retryDueWebhookDeliveries({ database }).catch((error: unknown) => {
+      if (!isMissingSchemaError(error)) {
+        console.error("Webhook delivery retries failed:", error);
+      }
+    });
+
+    await expireWebhookDeliveryPayloads({ database }).catch(
+      (error: unknown) => {
+        if (!isMissingSchemaError(error)) {
+          console.error("Webhook delivery body expiry failed:", error);
+        }
+      },
+    );
 
     return { schedule, status: "ran", summary };
   } finally {

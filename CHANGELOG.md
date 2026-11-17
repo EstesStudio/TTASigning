@@ -8,6 +8,15 @@ release says when it does.
 
 ## [Unreleased]
 
+### Added
+
+- Signed webhooks when an envelope is completed, declined, voided, or expires.
+  Admins add HTTPS endpoints in Settings, copy a signing secret shown once,
+  and verify `SignuDoc-Signature` as HMAC-SHA256 of `"<timestamp>.<raw body>"`.
+  Failed deliveries retry from the existing daily cleanup. This release needs
+  a migration step: `20261117110000_webhooks.sql` adds `webhook_endpoints`
+  and `webhook_deliveries`.
+
 ## [0.3.0] - 2026-11-16
 
 Sign-in security and audit features for organizations that need them, and

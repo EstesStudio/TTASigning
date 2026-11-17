@@ -70,6 +70,10 @@ import {
   signatureMeaningLabel,
 } from "./part11.ts";
 import { getBranding, readStoredSettings } from "./settings.ts";
+import {
+  attemptWebhookDeliveriesQuietly,
+  enqueueEnvelopeWebhookEvent,
+} from "./webhooks.ts";
 import { type SignatureMeaning } from "./types/domain.ts";
 import { importPdfDocument } from "./services/document-import.ts";
 import {
@@ -3344,6 +3348,8 @@ export async function voidSentEnvelope(
     throw error;
   }
 
+  let webhookDeliveryIds: string[] = [];
+
   try {
     await withTransaction(async (tx) => {
       const persistedEnvelope = await getEnvelopeByIdForUser(
@@ -3422,7 +3428,17 @@ export async function voidSentEnvelope(
         },
         tx,
       );
+
+      webhookDeliveryIds = await enqueueEnvelopeWebhookEvent(
+        {
+          envelopeId,
+          eventType: "envelope.voided",
+          occurredAt: voidedAt,
+        },
+        tx,
+      );
     }, database);
+    await attemptWebhookDeliveriesQuietly(webhookDeliveryIds, database);
   } catch (error) {
     await Promise.all(
       storedCertificateKeys.map((key) =>

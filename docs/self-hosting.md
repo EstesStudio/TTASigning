@@ -8,6 +8,7 @@ Everything about running your own SignuDoc: deploying it, setting it up, what it
 - [Signed PDFs and the seal](#signed-pdfs-and-the-seal)
 - [Running in the EU](#running-in-the-eu)
 - [Daily cleanup](#daily-cleanup)
+- [Webhooks](#webhooks)
 - [Rate limits](#rate-limits)
 - [Bot protection](#bot-protection)
 - [Hosted mode](#hosted-mode)
@@ -293,7 +294,7 @@ Turn on the daily backup to a second Blob store, and learn the restore steps, in
 
 ## Daily cleanup
 
-Once a day the app deletes drafts nobody has touched for 30 days, finishes account deletions that were requested, and clears expired download links, finished rate limit counters, and trips to a signing provider that nobody came back from, with the signer revisions nothing needs any more (a file that could not be deleted is tried again the next day). The same run sends the automatic reminders that are due and tells a sender when an envelope has passed its signing deadline. The work is done by a request to:
+Once a day the app deletes drafts nobody has touched for 30 days, finishes account deletions that were requested, and clears expired download links, finished rate limit counters, and trips to a signing provider that nobody came back from, with the signer revisions nothing needs any more (a file that could not be deleted is tried again the next day). The same run sends the automatic reminders that are due, tells a sender when an envelope has passed its signing deadline, and tries webhook deliveries that are due for another attempt. The work is done by a request to:
 
 ```text
 /api/internal/retention
@@ -308,6 +309,54 @@ To close the route, set a secret. A caller then has to send `Authorization: Bear
 
 - `CRON_SECRET` is the one to use on Vercel, because Vercel sends it on its own cron calls.
 - `RETENTION_JOB_SECRET` does the same for a scheduler of your own. On Vercel, a deployment that sets only this one turns Vercel's cron call away, so store the secret as `CRON_SECRET` there instead.
+
+## Webhooks
+
+An admin can send a signed HTTP POST to a URL you choose when an envelope finishes, is declined, is voided, or passes its signing deadline. The endpoints live in **Settings**, under Webhooks: add a URL, pick the events, and copy the signing secret the page shows once. Rotate the secret from the same row if it leaks. Disable an endpoint to stop new deliveries without deleting it. **Send a test event** posts a sample payload with `"test": true` so you can check the URL and your verifier without moving an envelope. **Send again** retries a failed delivery from its history row.
+
+The body is JSON:
+
+```json
+{
+  "id": "evt_…",
+  "type": "envelope.completed",
+  "occurredAt": "2026-11-16T18:00:00.000Z",
+  "envelope": {
+    "id": "…",
+    "title": "NDA",
+    "status": "completed",
+    "senderEmail": "sender@example.com",
+    "signerCount": 2,
+    "url": "https://your.install/envelopes/…"
+  }
+}
+```
+
+`type` is one of `envelope.completed`, `envelope.declined`, `envelope.voided`, or `envelope.expired`. A test POST also includes `"test": true`. The request headers are `Content-Type: application/json`, `User-Agent: SignuDoc-Webhooks/1.0`, `SignuDoc-Event` (the type), `SignuDoc-Delivery` (the delivery id), `SignuDoc-Timestamp` (Unix seconds), and `SignuDoc-Signature`.
+
+The signature is HMAC-SHA256 of `"<timestamp>.<raw body>"`, hex-encoded, written as `v1=<hex>`. Verify it with the secret from Settings, using the raw request body, not a re-serialized JSON object:
+
+```js
+import { createHmac, timingSafeEqual } from "node:crypto";
+
+function verifySignuDocWebhook(
+  rawBody,
+  timestampHeader,
+  signatureHeader,
+  secret,
+) {
+  const expected = `v1=${createHmac("sha256", secret)
+    .update(`${timestampHeader}.${rawBody}`)
+    .digest("hex")}`;
+  const given = Buffer.from(signatureHeader ?? "");
+  const want = Buffer.from(expected);
+  return given.length === want.length && timingSafeEqual(given, want);
+}
+```
+
+Reject a timestamp that is more than a few minutes off your clock so a captured request cannot be replayed forever.
+
+The URL must be HTTPS. `http://localhost`, `http://127.0.0.1`, and `http://[::1]` are allowed only outside production, for a receiver on the same machine. Loopback, private, link-local, and cloud-metadata hosts are refused, including `http://10.0.0.5` on a non-production install. At send time the app looks the hostname up itself and connects to that address, so a later DNS answer cannot point the POST at a private host. The POST follows no redirects and waits at most eight seconds. Completing, declining or voiding an envelope does not wait for the POST: the delivery is saved first and sent after the response. A 2xx response counts as delivered. Anything else is tried again on the daily cleanup, waiting 1, 2, 4, then 8 days, up to five attempts, then given up. A disabled endpoint is left alone, including retries that were already queued. Delivery bodies (envelope title and sender email) are dropped when the envelope is deleted, and by the daily job after 30 days; the history row stays.
 
 ## Rate limits
 

@@ -1,6 +1,7 @@
 import { OrganizationSettings } from "@/components/settings/organization-settings";
 import { SettingsShell } from "@/components/settings/settings-shell";
 import { UpdatesPanel } from "@/components/settings/updates-panel";
+import { WebhooksPanel } from "@/components/settings/webhooks-panel";
 import { isAdminUser } from "@/lib/auth/admin";
 import { getAuthSession } from "@/lib/auth/server";
 import { toOrganizationSettingsView } from "@/lib/organization-settings";
@@ -38,6 +39,7 @@ export default async function SettingsPage() {
           )}
         />
       ) : null}
+      {isAdmin ? <WebhooksPanel /> : null}
       {isAdmin ? <UpdatesPanel initialStatus={getUpdateStatus(null)} /> : null}
     </div>
   );

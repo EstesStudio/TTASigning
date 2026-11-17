@@ -95,6 +95,10 @@ import {
   isEnvelopeExpired,
   nextSignerLinkExpiresAt,
 } from "./envelope-deadline.ts";
+import {
+  attemptWebhookDeliveriesQuietly,
+  enqueueEnvelopeWebhookEvent,
+} from "./webhooks.ts";
 import { describeEntryProblem, judgeRadioGroups } from "./field-choices.ts";
 import {
   buildElectronicRecordsDisclosure,
@@ -2714,6 +2718,7 @@ export async function submitSigningForToken(
     // Set once this submission may have stored the final files.
     let finalArtifactsStored = false;
     let finalArtifacts: Awaited<ReturnType<typeof finalizeEnvelope>>;
+    let webhookDeliveryIds: string[] = [];
 
     try {
       finalArtifacts = await withTransaction(async (tx) => {
@@ -2884,9 +2889,19 @@ export async function submitSigningForToken(
           tx,
         );
 
+        webhookDeliveryIds = await enqueueEnvelopeWebhookEvent(
+          {
+            envelopeId: context.envelope.id,
+            eventType: "envelope.completed",
+            occurredAt: artifacts.generatedAt,
+          },
+          tx,
+        );
+
         return artifacts;
       }, database);
       signingStatePersisted = true;
+      await attemptWebhookDeliveriesQuietly(webhookDeliveryIds, database);
       await deleteReplacedRevision(replacedRevisionKey, storageService);
     } catch (error) {
       if (finalArtifactsStored) {
@@ -3130,6 +3145,8 @@ export async function declineSigningForToken(
     throw error;
   }
 
+  let webhookDeliveryIds: string[] = [];
+
   try {
     await withTransaction(async (tx) => {
       await lockSentEnvelope(context.envelope.id, tx);
@@ -3246,7 +3263,17 @@ export async function declineSigningForToken(
         },
         tx,
       );
+
+      webhookDeliveryIds = await enqueueEnvelopeWebhookEvent(
+        {
+          envelopeId: context.envelope.id,
+          eventType: "envelope.declined",
+          occurredAt: declinedAt,
+        },
+        tx,
+      );
     }, database);
+    await attemptWebhookDeliveriesQuietly(webhookDeliveryIds, database);
   } catch (error) {
     await Promise.all(
       storedCertificateKeys.map((key) =>

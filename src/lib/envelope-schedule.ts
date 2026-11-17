@@ -7,6 +7,11 @@ import {
 import { formatDeadline } from "./envelope-deadline.ts";
 import { sendAutomaticEnvelopeReminder } from "./reminders.ts";
 import { recordAuditEvent } from "./services/audit.ts";
+import {
+  attemptWebhookDeliveriesQuietly,
+  enqueueEnvelopeWebhookEvent,
+  expiryWebhookEventId,
+} from "./webhooks.ts";
 import { createEmailService, type EmailService } from "./services/email.ts";
 import { AUTOMATIC_REMINDER_SLACK_SECONDS } from "./services/reminders.ts";
 import { resolveAppUrl } from "./utils/env.ts";
@@ -27,6 +32,9 @@ import { resolveAppUrl } from "./utils/env.ts";
 // was cut off, is simply still due on the next run. The cost is that a run
 // cut off between the two can send the notice a second time; the mail
 // provider drops a repeat that reaches it within its idempotency window.
+//
+// The expiry webhook is queued before that email, so a mail failure does not
+// hide the event. The same deadline is not queued twice.
 //
 // A reminder changes the signer's link, so it is saved first and undone if
 // its email fails (see reminders.ts).
@@ -204,6 +212,17 @@ async function sendExpiryNotices({
       if (!(await isExpiryNoticeDue(envelope, database))) {
         continue;
       }
+
+      const webhookDeliveryIds = await enqueueEnvelopeWebhookEvent(
+        {
+          envelopeId: envelope.id,
+          eventId: expiryWebhookEventId(envelope.id, envelope.expiresAt),
+          eventType: "envelope.expired",
+          occurredAt: now,
+        },
+        database,
+      );
+      await attemptWebhookDeliveriesQuietly(webhookDeliveryIds, database);
 
       await emailService().send(buildExpiryNotice(envelope), {
         idempotencyKey: `expiry-notice/${envelope.id}/${envelope.expiresAt}`,
