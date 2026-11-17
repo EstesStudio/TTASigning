@@ -65,7 +65,7 @@ The app restarts by itself to take the new address, within about a minute of the
 
 Nearly everything for Cloudflare is in new files: this folder, `wrangler.jsonc` and `.dev.vars.example` at the top of the repository, `.dockerignore`, `.github/workflows/deploy-cloudflare.yml`, the storage driver in `src/lib/services/storage/s3.ts` and the email driver in `src/lib/services/email-cloudflare.ts`, each with its test.
 
-Seven of SignuDoc's own files have a few added lines. `README.md` has the Cloudflare button, and `.gitignore` has two entries for Wrangler. The other five have theirs so that the two drivers can be chosen and Settings can describe Cloudflare email:
+Eight of SignuDoc's own files have a few added lines. `README.md` has the Cloudflare button, `SECURITY.md` says where to report a problem in the Cloudflare parts, and `.gitignore` has two entries for Wrangler. The other five have theirs so that the two drivers can be chosen and Settings can describe Cloudflare email:
 
 - `src/lib/services/storage.ts` and `src/lib/services/storage/driver.ts`, for `STORAGE_DRIVER=s3`
 - `src/lib/services/email.ts`, `src/lib/email-status.ts` and `src/components/settings/organization-settings.tsx`, for `EMAIL_DRIVER=cloudflare`
@@ -87,4 +87,4 @@ Both drivers also work away from Cloudflare. `STORAGE_DRIVER=s3` takes any S3-co
 
 SignuDoc's own update workflow, `.github/workflows/update-signudoc.yml`, works here as it does on any copy: every Monday it merges the latest release into a branch and opens a pull request. Merging it runs CI, and a pass deploys it. Where the pull request says "Vercel builds a preview", there is no preview here: CI is the check.
 
-An update stops and asks for help only when a release changes the same lines this copy changed, which are the few in the seven files above.
+An update stops and asks for help only when a release changes the same lines this copy changed, which are the few in the eight files above.
