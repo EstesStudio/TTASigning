@@ -1077,18 +1077,57 @@ function deliveryFailureMessage(error: unknown) {
   return "The request failed.";
 }
 
-async function postSignedWebhook(input: {
+/**
+ * Settles with `promise`, or rejects with the signal's reason once it aborts.
+ * A DNS lookup cannot be cancelled, so this stops waiting for it instead.
+ */
+function untilAborted<T>(promise: Promise<T>, signal: AbortSignal): Promise<T> {
+  if (signal.aborted) {
+    return Promise.reject(signal.reason as Error);
+  }
+
+  return new Promise<T>((resolve, reject) => {
+    const onAbort = () => {
+      reject(signal.reason as Error);
+    };
+
+    signal.addEventListener("abort", onAbort, { once: true });
+    promise.then(
+      (value) => {
+        signal.removeEventListener("abort", onAbort);
+        resolve(value);
+      },
+      (error: unknown) => {
+        signal.removeEventListener("abort", onAbort);
+        reject(error as Error);
+      },
+    );
+  });
+}
+
+/**
+ * One deadline covers the DNS lookup and the POST, so a slow resolver
+ * cannot hold a delivery open past the timeout.
+ */
+export async function postSignedWebhook(input: {
   body: string;
   deliveryId: string;
   eventType: WebhookEventType;
   lookupAddresses?: DnsLookup;
   secret: string;
+  timeoutMs?: number;
   timestamp: number;
   url: string;
 }): Promise<number> {
-  const destination = await resolveWebhookDestination(input.url, {
-    lookupAddresses: input.lookupAddresses,
-  });
+  const signal = AbortSignal.timeout(
+    input.timeoutMs ?? WEBHOOK_DELIVERY_TIMEOUT_MS,
+  );
+  const destination = await untilAborted(
+    resolveWebhookDestination(input.url, {
+      lookupAddresses: input.lookupAddresses,
+    }),
+    signal,
+  );
   const target = webhookRequestTarget(destination.url, destination.addresses);
   const headers = {
     "Content-Length": String(Buffer.byteLength(input.body)),
@@ -1124,7 +1163,7 @@ async function postSignedWebhook(input: {
         path: `${destination.url.pathname}${destination.url.search}`,
         port,
         setHost: false,
-        signal: AbortSignal.timeout(WEBHOOK_DELIVERY_TIMEOUT_MS),
+        signal,
       },
       (response) => {
         response.resume();

@@ -10,6 +10,7 @@ import {
   hostnameForNetwork,
   isBlockedWebhookAddress,
   lookupPinnedAddresses,
+  postSignedWebhook,
   serializeWebhookPayload,
   signWebhookBody,
   webhookRequestTarget,
@@ -294,4 +295,24 @@ test("metadata hosts and URLs with credentials are refused", async () => {
     assertWebhookUrlAllowed("https://169.254.169.254/latest/meta-data"),
     WebhooksError,
   );
+});
+
+test("a slow DNS lookup counts against the delivery timeout", async () => {
+  const started = Date.now();
+  const neverResolves = () => new Promise<Array<{ address: string }>>(() => {});
+
+  await assert.rejects(
+    postSignedWebhook({
+      body: "{}",
+      deliveryId: "dlv-1",
+      eventType: "envelope.completed",
+      lookupAddresses: neverResolves,
+      secret: "s".repeat(64),
+      timeoutMs: 50,
+      timestamp: 1_700_000_000,
+      url: "https://hooks.example.test/signudoc",
+    }),
+    { name: "TimeoutError" },
+  );
+  assert.ok(Date.now() - started < 2_000);
 });
