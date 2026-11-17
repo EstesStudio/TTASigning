@@ -268,7 +268,12 @@ export function webhookRequestTarget(
   };
 }
 
-function lookupPinnedAddresses(addresses: string[]): LookupFunction {
+/**
+ * A socket lookup that answers only with the checked addresses. Node calls it
+ * with `all: true` for hostname connections (autoSelectFamily), so it must
+ * return the full list in that case and a single address otherwise.
+ */
+export function lookupPinnedAddresses(addresses: string[]): LookupFunction {
   return (hostname, options, callback) => {
     const wantedFamily =
       typeof options === "object" &&
@@ -277,12 +282,14 @@ function lookupPinnedAddresses(addresses: string[]): LookupFunction {
       (options.family === 4 || options.family === 6)
         ? options.family
         : 0;
-    const match =
-      addresses.find(
-        (address) => wantedFamily === 0 || isIP(address) === wantedFamily,
-      ) ?? addresses[0];
+    const wantsAll =
+      typeof options === "object" && options !== null && options.all === true;
+    const matches = addresses.filter(
+      (address) => wantedFamily === 0 || isIP(address) === wantedFamily,
+    );
+    const candidates = matches.length > 0 ? matches : addresses;
 
-    if (!match) {
+    if (candidates.length === 0) {
       callback(
         Object.assign(new Error(`getaddrinfo ENOTFOUND ${hostname}`), {
           code: "ENOTFOUND",
@@ -292,6 +299,21 @@ function lookupPinnedAddresses(addresses: string[]): LookupFunction {
       );
       return;
     }
+
+    if (wantsAll) {
+      (
+        callback as unknown as (
+          error: NodeJS.ErrnoException | null,
+          addresses: Array<{ address: string; family: number }>,
+        ) => void
+      )(
+        null,
+        candidates.map((address) => ({ address, family: isIP(address) })),
+      );
+      return;
+    }
+
+    const match = candidates[0] as string;
 
     callback(null, match, isIP(match));
   };

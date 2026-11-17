@@ -1,5 +1,7 @@
 import assert from "node:assert/strict";
 import { createHmac } from "node:crypto";
+import http from "node:http";
+import type { AddressInfo } from "node:net";
 import test from "node:test";
 
 import {
@@ -7,6 +9,7 @@ import {
   buildWebhookPayload,
   hostnameForNetwork,
   isBlockedWebhookAddress,
+  lookupPinnedAddresses,
   serializeWebhookPayload,
   signWebhookBody,
   webhookRequestTarget,
@@ -149,6 +152,63 @@ test("delivery connects to the checked address and keeps the hostname for TLS", 
   assert.equal(target.hostname, "hooks.example.test");
   assert.equal(target.hostHeader, "hooks.example.test");
   assert.deepEqual(target.connectAddresses, ["93.184.216.34"]);
+});
+
+test("pinned lookup returns the address list when Node asks for all", () => {
+  const lookup = lookupPinnedAddresses(["93.184.216.34", "2606:2800::1"]);
+  let all: unknown;
+  let single: unknown;
+
+  lookup("hooks.example.test", { all: true }, (error, addresses) => {
+    assert.equal(error, null);
+    all = addresses;
+  });
+  lookup("hooks.example.test", { family: 6 }, (error, address, family) => {
+    assert.equal(error, null);
+    single = [address, family];
+  });
+
+  assert.deepEqual(all, [
+    { address: "93.184.216.34", family: 4 },
+    { address: "2606:2800::1", family: 6 },
+  ]);
+  assert.deepEqual(single, ["2606:2800::1", 6]);
+});
+
+test("a hostname request connects through the pinned lookup", async () => {
+  const server = http.createServer((request, response) => {
+    response.statusCode = 204;
+    response.end(request.headers.host);
+  });
+
+  await new Promise<void>((resolve) => {
+    server.listen(0, "127.0.0.1", resolve);
+  });
+
+  try {
+    const { port } = server.address() as AddressInfo;
+    const status = await new Promise<number>((resolve, reject) => {
+      const request = http.request(
+        {
+          hostname: "hooks.example.test",
+          lookup: lookupPinnedAddresses(["127.0.0.1"]),
+          method: "POST",
+          port,
+        },
+        (response) => {
+          response.resume();
+          response.on("end", () => resolve(response.statusCode ?? 0));
+        },
+      );
+
+      request.on("error", reject);
+      request.end("{}");
+    });
+
+    assert.equal(status, 204);
+  } finally {
+    await new Promise((resolve) => server.close(resolve));
+  }
 });
 
 test("IPv6 delivery target strips brackets for the connect hostname", () => {
