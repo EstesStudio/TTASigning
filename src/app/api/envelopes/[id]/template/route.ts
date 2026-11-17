@@ -10,6 +10,7 @@ import {
 } from "@/lib/security/route-controls";
 import { getClientIpAddress, getRequestPathname } from "@/lib/security/request";
 import { saveEnvelopeAsTemplate, TemplateError } from "@/lib/templates";
+import { localize } from "@/lib/i18n/server-locale";
 
 type EnvelopeTemplateRouteContext = {
   params: Promise<{
@@ -58,14 +59,18 @@ export async function POST(
   } catch (error) {
     if (error instanceof ZodError) {
       return NextResponse.json(
-        { error: error.issues[0]?.message ?? "Invalid template request." },
+        {
+          error: await localize(
+            error.issues[0]?.message ?? ((m) => m.template.api.invalidRequest),
+          ),
+        },
         { status: 400 },
       );
     }
 
     if (error instanceof TemplateError) {
       return NextResponse.json(
-        { error: error.message },
+        { error: await localize(error) },
         { status: error.statusCode },
       );
     }
@@ -79,7 +84,7 @@ export async function POST(
     });
 
     return NextResponse.json(
-      { error: "Unable to save this as a template." },
+      { error: await localize((m) => m.template.api.unableToSave) },
       { status: 500 },
     );
   }

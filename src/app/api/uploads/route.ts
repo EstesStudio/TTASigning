@@ -12,6 +12,7 @@ import {
   DirectUploadRequestError,
 } from "@/lib/services/direct-upload";
 import { supportsDirectUploads } from "@/lib/services/storage";
+import { localize } from "@/lib/i18n/server-locale";
 
 // Hands the browser a short-lived signed URL for sending one PDF straight to
 // Vercel Blob. Called by the Blob SDK from the upload page, never by hand.
@@ -38,7 +39,7 @@ export async function POST(request: Request) {
 
   if (!supportsDirectUploads()) {
     return NextResponse.json(
-      { error: "Direct uploads are not available on this install." },
+      { error: await localize((m) => m.upload.directUploadsUnavailable) },
       { status: 404 },
     );
   }
@@ -53,7 +54,10 @@ export async function POST(request: Request) {
     );
   } catch (error) {
     if (error instanceof DirectUploadRequestError) {
-      return NextResponse.json({ error: error.message }, { status: 400 });
+      return NextResponse.json(
+        { error: await localize(error) },
+        { status: 400 },
+      );
     }
 
     logRouteError(error, {
@@ -65,7 +69,7 @@ export async function POST(request: Request) {
     });
 
     return NextResponse.json(
-      { error: "Unable to start the upload." },
+      { error: await localize((m) => m.upload.unableToStart) },
       { status: 500 },
     );
   }

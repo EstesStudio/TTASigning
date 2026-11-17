@@ -7,10 +7,18 @@ import {
   withTransaction,
 } from "./db/connection.ts";
 import { SIGNUDOC_NAME } from "./branding.ts";
+import { emailMessages } from "./i18n/email-messages.ts";
+import { DEFAULT_LOCALE } from "./i18n/locales.ts";
 import { createEmailService, type EmailService } from "./services/email.ts";
 import { recordSystemAuditEvent } from "./services/system-audit.ts";
 import { getBranding, getSettings } from "./settings.ts";
 import { type SignatureMeaning } from "./types/domain.ts";
+import {
+  inEnglish,
+  serverMessages,
+  type ServerMessages,
+  type UserMessage,
+} from "./i18n/server-messages.ts";
 
 // Part 11 mode: the controls 21 CFR Part 11 asks of a system that keeps
 // signed electronic records, for installs that turn it on.
@@ -41,10 +49,12 @@ export {
 
 export class Part11Error extends Error {
   readonly statusCode: number;
+  readonly userMessage: UserMessage;
 
-  constructor(message: string, statusCode: number) {
-    super(message);
+  constructor(message: UserMessage, statusCode: number) {
+    super(inEnglish(message));
     this.name = "Part11Error";
+    this.userMessage = message;
     this.statusCode = statusCode;
   }
 }
@@ -102,25 +112,28 @@ export function describePart11SignerProblem(
     signatureMeaning?: SignatureMeaning | null;
   },
   account: Part11SignerAccount | undefined,
+  messages: ServerMessages = serverMessages("en"),
 ): string | null {
+  const words = messages.envelope.part11Signer;
+
   if (!account) {
-    return `${signer.name} (${signer.email}) needs an account on this site before they can sign. Part 11 mode only lets people sign with their own account.`;
+    return words.needsAccount(signer);
   }
 
   if (!account.emailVerified) {
-    return `${signer.name} has not confirmed their email address yet.`;
+    return words.emailNotConfirmed(signer.name);
   }
 
   if (account.identityVerifiedAt === null) {
-    return `An administrator has to confirm ${signer.name}'s identity under Settings, People before they can sign.`;
+    return words.identityNotConfirmed(signer.name);
   }
 
   if (account.signingLockedAt !== null) {
-    return `${signer.name}'s account is locked for signing after too many wrong passwords. An administrator can unlock it under Settings, People.`;
+    return words.lockedForSigning(signer.name);
   }
 
   if (!signer.signatureMeaning) {
-    return `Choose what ${signer.name}'s signature means (approval, review, responsibility or authorship).`;
+    return words.chooseMeaning(signer.name);
   }
 
   return null;
@@ -141,7 +154,7 @@ async function assertActorIsAdmin(actor: Actor, tx: DbExecutor) {
   );
 
   if (row?.role !== "admin") {
-    throw new Part11Error("Only an administrator can do this.", 403);
+    throw new Part11Error((m) => m.admin.onlyAdministrator, 403);
   }
 }
 
@@ -174,7 +187,7 @@ async function lockTarget(
   );
 
   if (!target) {
-    throw new Part11Error("That account no longer exists.", 404);
+    throw new Part11Error((m) => m.admin.accountNoLongerExists, 404);
   }
 
   return target;
@@ -194,10 +207,7 @@ export async function setIdentityVerification(
   const note = input.note?.trim().slice(0, 500) || null;
 
   if (input.verified && !note) {
-    throw new Part11Error(
-      "Say how you checked this person's identity, for example the document you saw.",
-      400,
-    );
+    throw new Part11Error((m) => m.admin.part11.describeIdentityCheck, 400);
   }
 
   await withTransaction(async (tx) => {
@@ -206,10 +216,7 @@ export async function setIdentityVerification(
     const target = await lockTarget(targetUserId, tx);
 
     if (input.verified && !target.emailVerified) {
-      throw new Part11Error(
-        "This person has not confirmed their email address yet.",
-        409,
-      );
+      throw new Part11Error((m) => m.admin.part11.emailNotConfirmed, 409);
     }
 
     const now = Math.floor(Date.now() / 1000);
@@ -493,22 +500,29 @@ async function alertAdministrators(
       `SELECT email FROM "user" WHERE role = 'admin'`,
     );
     // The alert goes out even when the branding cannot be read.
-    const productName = await getBranding()
-      .then((branding) => branding.productName)
-      .catch(() => SIGNUDOC_NAME);
+    const { locale, productName } = await getBranding().catch(() => ({
+      locale: DEFAULT_LOCALE,
+      productName: SIGNUDOC_NAME,
+    }));
+    const m = emailMessages(locale).signingLock;
     const service = emailService ?? createEmailService();
     const textBody = [
-      `${person.name} <${person.email}> gave the wrong password ${MAX_SIGNING_PASSWORD_ATTEMPTS} times in a row while signing on ${productName}.`,
+      m.what({
+        attempts: MAX_SIGNING_PASSWORD_ATTEMPTS,
+        email: person.email,
+        name: person.name,
+        product: productName,
+      }),
       "",
-      "Their account can no longer sign until an administrator unlocks it under Settings, People.",
-      "If this was not them, someone may be trying to sign in their name. Check with them before unlocking.",
+      m.unlock,
+      m.checkFirst,
     ].join("\n");
 
     // One failed delivery must not keep the alert from the others.
     for (const admin of admins) {
       try {
         await service.send({
-          subject: `Signing locked for ${person.name}`,
+          subject: m.subject(person.name),
           template: "signing_lock_alert",
           textBody,
           to: admin.email,
@@ -548,10 +562,7 @@ export async function setPart11Mode(
     }
 
     if (enabled && current?.retentionDays != null) {
-      throw new Part11Error(
-        "Turn off the retention period under Organization first. Part 11 records are kept for as long as the rules that apply to them require.",
-        409,
-      );
+      throw new Part11Error((m) => m.admin.part11.turnOffRetentionFirst, 409);
     }
 
     await saveSettings({ part11Mode: enabled }, tx);

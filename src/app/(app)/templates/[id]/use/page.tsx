@@ -3,6 +3,8 @@ import { notFound } from "next/navigation";
 import { UseTemplateShell } from "@/components/templates/use-template-shell";
 import { getAuthSession } from "@/lib/auth/server";
 import { getDb } from "@/lib/db/connection";
+import { installLocale } from "@/lib/i18n/server-locale";
+import { translateMessage } from "@/lib/i18n/server-messages";
 import { getUseTemplateDataForUser, TemplateError } from "@/lib/templates";
 
 type UseTemplatePageProps = {
@@ -15,6 +17,7 @@ export default async function UseTemplatePage({
   params,
 }: UseTemplatePageProps) {
   const { id } = await params;
+  const locale = await installLocale();
   let template: Awaited<ReturnType<typeof getUseTemplateDataForUser>> = null;
   let errorMessage: string | undefined;
   let failed = false;
@@ -23,11 +26,14 @@ export default async function UseTemplatePage({
     const session = await getAuthSession();
 
     template = session
-      ? await getUseTemplateDataForUser(session.user.id, id, getDb())
+      ? await getUseTemplateDataForUser(session.user.id, id, getDb(), locale)
       : null;
   } catch (error) {
     failed = true;
-    errorMessage = error instanceof TemplateError ? error.message : undefined;
+    errorMessage =
+      error instanceof TemplateError
+        ? translateMessage(error, locale)
+        : undefined;
   }
 
   if (!failed && !template) {

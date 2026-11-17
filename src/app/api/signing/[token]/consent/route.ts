@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { ZodError } from "zod";
 
 import { getDb } from "@/lib/db/connection";
+import { localize } from "@/lib/i18n/server-locale";
 import { logRouteError } from "@/lib/security/logging";
 import {
   applyRateLimit,
@@ -63,7 +64,7 @@ export async function POST(request: Request, context: ConsentRouteContext) {
   } catch (error) {
     if (error instanceof ZodError) {
       return NextResponse.json(
-        { error: "Invalid request." },
+        { error: await localize((m) => m.signing.invalidRequest) },
         { headers: NO_STORE, status: 400 },
       );
     }
@@ -74,14 +75,14 @@ export async function POST(request: Request, context: ConsentRouteContext) {
 
     if (error instanceof SigningMutationError) {
       return NextResponse.json(
-        { error: error.message },
+        { error: await localize(error) },
         { headers: NO_STORE, status: error.statusCode },
       );
     }
 
     if (error instanceof SigningAccessError) {
       return NextResponse.json(
-        { error: error.message, state: error.state },
+        { error: await localize(error), state: error.state },
         { headers: NO_STORE, status: error.statusCode },
       );
     }
@@ -94,7 +95,7 @@ export async function POST(request: Request, context: ConsentRouteContext) {
     });
 
     return NextResponse.json(
-      { error: "Your agreement could not be saved right now." },
+      { error: await localize((m) => m.signing.consentNotSaved) },
       { headers: NO_STORE, status: 500 },
     );
   }

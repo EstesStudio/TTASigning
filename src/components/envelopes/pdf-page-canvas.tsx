@@ -15,14 +15,34 @@ type PdfPageProxy = Awaited<ReturnType<PdfDocumentProxy["getPage"]>>;
 type PdfRenderTask = ReturnType<PdfPageProxy["render"]>;
 export type PdfPageRenderState = "error" | "loading" | "ready";
 
+/** The preview's words, for a page that speaks the install's language. */
+export type PdfPageCanvasLabels = {
+  errorHint: string;
+  errorTitle: string;
+  loadingHint: string;
+  loadingTitle: string;
+  pageLabel: (pageNumber: number) => string;
+};
+
+const englishLabels: PdfPageCanvasLabels = {
+  errorHint: "Reload the page or try this draft again in a moment.",
+  errorTitle: "We couldn't render this PDF page.",
+  loadingHint:
+    "Preparing the source PDF so placed fields stay aligned with the stored page size.",
+  loadingTitle: "Rendering document page...",
+  pageLabel: (pageNumber) => `Rendered PDF page ${pageNumber}`,
+};
+
 type PdfPageCanvasProps = {
   documentUrl: string | null;
+  labels?: PdfPageCanvasLabels;
   onRenderStateChange?: (state: PdfPageRenderState) => void;
   pageNumber: number;
 };
 
 export function PdfPageCanvas({
   documentUrl,
+  labels = englishLabels,
   onRenderStateChange,
   pageNumber,
 }: PdfPageCanvasProps) {
@@ -234,7 +254,7 @@ export function PdfPageCanvas({
 
   return (
     <div
-      aria-label={`Rendered PDF page ${pageNumber}`}
+      aria-label={labels.pageLabel(pageNumber)}
       className="absolute inset-0 flex items-center justify-center"
       role="img"
     >
@@ -249,13 +269,11 @@ export function PdfPageCanvas({
           <div className="well max-w-[320px] px-5 py-4">
             <p className="text-sm font-bold text-(--fg)">
               {renderState === "error"
-                ? "We couldn't render this PDF page."
-                : "Rendering document page..."}
+                ? labels.errorTitle
+                : labels.loadingTitle}
             </p>
             <p className="mt-1.5 text-sm leading-6 text-(--secondary)">
-              {renderState === "error"
-                ? "Reload the page or try this draft again in a moment."
-                : "Preparing the source PDF so placed fields stay aligned with the stored page size."}
+              {renderState === "error" ? labels.errorHint : labels.loadingHint}
             </p>
           </div>
         </div>

@@ -11,14 +11,14 @@ import {
 import { SsoButton, type SsoOption } from "@/components/auth/sso-button";
 import { FieldShell, ShellButton } from "@/components/shared/form-shell";
 import { authClient } from "@/lib/auth/client";
+import { useAppMessages } from "@/lib/i18n/use-app-messages";
+import { useLocale } from "@/lib/i18n/use-locale";
 import {
   describePasswordRefusal,
   newPasswordLengthError,
-  PASSWORD_TOO_SHORT_MESSAGE,
+  passwordTooShortMessage,
 } from "@/lib/password-messages";
 import { signUpSchema } from "@/lib/schemas/auth";
-
-const defaultSuccessMessage = "Check your email to verify your sender account.";
 
 type AuthErrorLike = {
   code?: string;
@@ -113,13 +113,15 @@ function SignupFormCard({
   successMessage,
   values,
 }: SignupFormCardProps) {
+  const m = useAppMessages();
+
   return (
     <section className="panel w-full max-w-[460px] p-8 sm:p-10">
       <div className="space-y-7">
         <div className="space-y-2">
-          <p className="section-eyebrow">Create account</p>
+          <p className="section-eyebrow">{m.signup.eyebrow}</p>
           <h1 className="text-[clamp(1.875rem,4.5vw,2.375rem)] font-extrabold leading-[1.08] tracking-[-0.035em] text-(--fg)">
-            Create your account
+            {m.signup.title}
           </h1>
           {signupRule ? (
             <p className="pt-1 text-sm leading-6 text-muted-foreground">
@@ -136,7 +138,7 @@ function SignupFormCard({
 
         {showSuccess ? (
           <div aria-live="polite" className="notice notice-success">
-            <p>{successMessage ?? defaultSuccessMessage}</p>
+            <p>{successMessage ?? m.signup.successDefault}</p>
           </div>
         ) : null}
 
@@ -150,7 +152,7 @@ function SignupFormCard({
 
         {sso && passwordSignIn ? (
           <p className="text-center text-xs font-semibold uppercase tracking-[0.12em] text-(--secondary)">
-            or
+            {m.common.or}
           </p>
         ) : null}
 
@@ -160,10 +162,10 @@ function SignupFormCard({
               autoComplete="name"
               disabled={formLocked}
               error={errors.fullName}
-              label="Full name"
+              label={m.signup.fullName}
               name="signup-full-name"
               onChange={onFullNameChange}
-              placeholder="Jane Smith"
+              placeholder={m.signup.fullNamePlaceholder}
               readOnly={formLocked}
               value={values.fullName}
             />
@@ -171,10 +173,10 @@ function SignupFormCard({
               autoComplete="email"
               disabled={formLocked}
               error={errors.email}
-              label="Email"
+              label={m.common.email}
               name="signup-email"
               onChange={onEmailChange}
-              placeholder="jane@acmecorp.com"
+              placeholder={m.common.emailPlaceholder}
               readOnly={formLocked}
               type="email"
               value={values.email}
@@ -183,11 +185,11 @@ function SignupFormCard({
               autoComplete="new-password"
               disabled={formLocked}
               error={errors.password}
-              helper="Must be at least 15 characters"
-              label="Password"
+              helper={m.common.passwordMinLengthHelper}
+              label={m.common.password}
               name="signup-password"
               onChange={onPasswordChange}
-              placeholder="Enter a password"
+              placeholder={m.common.passwordPlaceholder}
               readOnly={formLocked}
               type="password"
               value={values.password}
@@ -196,7 +198,7 @@ function SignupFormCard({
             {showSuccess ? (
               <div className="flex flex-col gap-3">
                 <ShellButton className="w-full" href="/login" variant="primary">
-                  Go to log in
+                  {m.common.goToLogIn}
                 </ShellButton>
                 {onResendVerification ? (
                   <ShellButton
@@ -208,8 +210,8 @@ function SignupFormCard({
                     variant="secondary"
                   >
                     {isResendingVerification
-                      ? "Sending..."
-                      : "Resend verification email"}
+                      ? m.common.sending
+                      : m.common.resendVerification}
                   </ShellButton>
                 ) : null}
               </div>
@@ -221,19 +223,19 @@ function SignupFormCard({
                 type="submit"
                 variant="primary"
               >
-                {isSubmitting ? "Creating account..." : "Sign up"}
+                {isSubmitting ? m.signup.submitting : m.common.signUp}
               </ShellButton>
             )}
           </form>
         ) : null}
 
         <div className="border-t border-(--border) pt-5 text-sm text-(--secondary)">
-          Already have an account?{" "}
+          {m.signup.alreadyHaveAccount}{" "}
           <Link
             className="font-bold text-(--accent-ink) underline-offset-4 hover:underline"
             href="/login"
           >
-            Log in
+            {m.common.logIn}
           </Link>
         </div>
       </div>
@@ -261,22 +263,22 @@ export function SignupShell({
 }
 
 function SignupClosedCard() {
+  const m = useAppMessages();
+
   return (
     <section className="panel w-full max-w-[460px] p-8 sm:p-10">
       <div className="space-y-7">
         <div className="space-y-2">
-          <p className="section-eyebrow">Create account</p>
+          <p className="section-eyebrow">{m.signup.eyebrow}</p>
           <h1 className="text-[clamp(1.875rem,4.5vw,2.375rem)] font-extrabold leading-[1.08] tracking-[-0.035em] text-(--fg)">
-            Sign-up is closed
+            {m.signup.closedTitle}
           </h1>
           <p className="pt-1 text-sm leading-6 text-muted-foreground">
-            New accounts are not being accepted on this site. If you were sent a
-            document to sign, use the link in that email. You do not need an
-            account.
+            {m.signup.closedDescription}
           </p>
         </div>
         <ShellButton className="w-full" href="/login" variant="primary">
-          Go to log in
+          {m.common.goToLogIn}
         </ShellButton>
       </div>
     </section>
@@ -292,6 +294,8 @@ function LiveSignupShell({
   signupRule: string | null;
   sso: SsoOption | null;
 }) {
+  const m = useAppMessages();
+  const locale = useLocale();
   const [values, setValues] = useState<SignupFormValues>(
     createSignupFormValues(),
   );
@@ -343,13 +347,13 @@ function LiveSignupShell({
       });
 
       if (!response.ok) {
-        setBannerMessage("We couldn't resend the verification email.");
+        setBannerMessage(m.common.resendVerificationFailed);
         return;
       }
 
-      setSuccessMessage("Verification email sent. Check your inbox.");
+      setSuccessMessage(m.common.verificationSent);
     } catch {
-      setBannerMessage("We couldn't resend the verification email.");
+      setBannerMessage(m.common.resendVerificationFailed);
     } finally {
       setIsResendingVerification(false);
     }
@@ -377,17 +381,17 @@ function LiveSignupShell({
         const field = issue.path[0];
 
         if (field === "email") {
-          nextErrors.email = "Enter a valid email address";
+          nextErrors.email = m.common.enterValidEmail;
         }
 
         if (field === "fullName") {
-          nextErrors.fullName = "Enter your full name";
+          nextErrors.fullName = m.signup.enterFullName;
         }
 
         if (field === "password") {
           nextErrors.password =
-            newPasswordLengthError(trimmedValues.password) ??
-            PASSWORD_TOO_SHORT_MESSAGE;
+            newPasswordLengthError(trimmedValues.password, locale) ??
+            passwordTooShortMessage(locale);
         }
       }
 
@@ -417,22 +421,20 @@ function LiveSignupShell({
       const normalizedErrorMessage = normalizeAuthErrorMessage(result.error);
 
       if (SIGNUP_RULE_ERROR_CODES.has(result.error.code ?? "")) {
-        setBannerMessage(
-          result.error.message ?? "New accounts are not being accepted.",
-        );
+        setBannerMessage(result.error.message ?? m.signup.notAccepted);
       } else if (
         normalizedErrorMessage.includes("user already exists") ||
         normalizedErrorMessage.includes("use another email")
       ) {
         setErrors({
-          email: "This email is already registered",
+          email: m.signup.alreadyRegistered,
         });
       } else if (describePasswordRefusal(result.error)) {
         setErrors({
-          password: describePasswordRefusal(result.error)!,
+          password: describePasswordRefusal(result.error, locale)!,
         });
       } else {
-        setBannerMessage("Something went wrong. Please try again.");
+        setBannerMessage(m.common.somethingWentWrong);
       }
 
       setIsSubmitting(false);
@@ -440,7 +442,7 @@ function LiveSignupShell({
     }
 
     setSuccessEmail(validationResult.data.email);
-    setSuccessMessage(defaultSuccessMessage);
+    setSuccessMessage(m.signup.successDefault);
     setShowSuccess(true);
     setIsSubmitting(false);
   }

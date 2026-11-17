@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 
 import { getDb, queryOne, type DbExecutor } from "../db/connection.ts";
+import { localize } from "../i18n/server-locale.ts";
 import { isMissingSchemaError } from "../settings.ts";
 import { requireVerifiedSenderSession } from "./route-session.ts";
 
@@ -40,7 +41,7 @@ export async function requireAdminSession(request: Request) {
 
   if (!(await isAdminUser(sessionResult.user.id))) {
     return NextResponse.json(
-      { error: "Only an administrator can do this." },
+      { error: await localize((m) => m.admin.onlyAdministrator) },
       { status: 403 },
     );
   }

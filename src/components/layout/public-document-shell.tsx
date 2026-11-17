@@ -6,6 +6,7 @@ import { BrandingProvider } from "@/components/layout/branding-provider";
 import { PublicLegalFooter } from "@/components/layout/public-legal-links";
 import { PublicSessionMenu } from "@/components/layout/public-session-menu";
 import { buildBranding, type Branding } from "@/lib/branding";
+import { appMessages } from "@/lib/i18n/app-messages";
 import { getBranding, resolveSettings } from "@/lib/settings";
 
 type PublicDocumentShellProps = {
@@ -16,7 +17,11 @@ type PublicDocumentShellProps = {
   title: string;
 };
 
-async function loadBranding(): Promise<Branding> {
+/**
+ * The install's branding, for a page outside the layouts that hand it down.
+ * Callers have already awaited connection().
+ */
+export async function loadBranding(): Promise<Branding> {
   try {
     return await getBranding();
   } catch {
@@ -47,7 +52,13 @@ export async function PublicDocumentShell({
     <BrandingProvider branding={branding}>
       <PublicDocumentPage
         description={description}
-        lastUpdated={lastUpdated}
+        lastUpdatedLabel={
+          lastUpdated
+            ? appMessages(branding.locale).publicDocument.lastUpdated(
+                lastUpdated,
+              )
+            : undefined
+        }
         title={title}
       >
         {children}
@@ -59,9 +70,9 @@ export async function PublicDocumentShell({
 function PublicDocumentPage({
   children,
   description,
-  lastUpdated,
+  lastUpdatedLabel,
   title,
-}: PublicDocumentShellProps) {
+}: PublicDocumentShellProps & { lastUpdatedLabel?: string }) {
   return (
     <div className="flex min-h-screen flex-col text-(--fg)">
       <header>
@@ -78,10 +89,8 @@ function PublicDocumentPage({
             data-animate="enter"
           >
             <div className="px-6 pb-2 pt-9 sm:px-12 sm:pt-12">
-              {lastUpdated ? (
-                <p className="section-eyebrow mb-3">
-                  Last updated {lastUpdated}
-                </p>
+              {lastUpdatedLabel ? (
+                <p className="section-eyebrow mb-3">{lastUpdatedLabel}</p>
               ) : null}
               <h1 className="max-w-[20ch] text-[clamp(2rem,4.5vw,3rem)] font-extrabold leading-[1.06] tracking-[-0.035em] text-(--fg)">
                 {title}

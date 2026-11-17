@@ -8,6 +8,7 @@ import {
   listSystemAuditEvents,
   verifySystemAuditChain,
 } from "@/lib/services/system-audit";
+import { localize } from "@/lib/i18n/server-locale";
 
 const noStore = { "cache-control": "private, no-store" };
 
@@ -71,7 +72,7 @@ export async function GET(request: Request) {
     });
 
     return NextResponse.json(
-      { error: "The audit trail could not be read." },
+      { error: await localize((m) => m.admin.auditNotRead) },
       { headers: noStore, status: 500 },
     );
   }

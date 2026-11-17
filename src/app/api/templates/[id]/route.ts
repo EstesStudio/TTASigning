@@ -5,6 +5,7 @@ import { getDb } from "@/lib/db/connection";
 import { logRouteError } from "@/lib/security/logging";
 import { getClientIpAddress, getRequestPathname } from "@/lib/security/request";
 import { deleteTemplate, TemplateError } from "@/lib/templates";
+import { localize } from "@/lib/i18n/server-locale";
 
 type TemplateRouteContext = {
   params: Promise<{
@@ -29,7 +30,7 @@ export async function DELETE(request: Request, context: TemplateRouteContext) {
   } catch (error) {
     if (error instanceof TemplateError) {
       return NextResponse.json(
-        { error: error.message },
+        { error: await localize(error) },
         { status: error.statusCode },
       );
     }
@@ -43,7 +44,7 @@ export async function DELETE(request: Request, context: TemplateRouteContext) {
     });
 
     return NextResponse.json(
-      { error: "Unable to delete this template." },
+      { error: await localize((m) => m.template.api.unableToDelete) },
       { status: 500 },
     );
   }

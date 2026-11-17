@@ -20,6 +20,8 @@ import {
 } from "@/lib/security/request";
 import { recordSystemAuditEvent } from "@/lib/services/system-audit";
 import { readStoredSettings, resolveSettings } from "@/lib/settings";
+import { localizeFieldErrors } from "@/lib/i18n/field-errors";
+import { localize } from "@/lib/i18n/server-locale";
 
 // The Organization tab in Settings. Administrators only.
 
@@ -85,7 +87,10 @@ export async function PUT(request: Request) {
   } catch (error) {
     if (error instanceof OrganizationSettingsError) {
       return NextResponse.json(
-        { error: error.message, fieldErrors: error.fieldErrors },
+        {
+          error: await localize(error),
+          fieldErrors: await localizeFieldErrors(error.userFieldErrors),
+        },
         { status: 400 },
       );
     }
@@ -99,7 +104,7 @@ export async function PUT(request: Request) {
     });
 
     return NextResponse.json(
-      { error: "The settings could not be saved." },
+      { error: await localize((m) => m.admin.settingsNotSaved) },
       { status: 500 },
     );
   }

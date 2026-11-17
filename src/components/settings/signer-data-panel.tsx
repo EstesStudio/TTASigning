@@ -3,6 +3,7 @@
 import { useState } from "react";
 
 import { FieldShell, ShellButton } from "@/components/shared/form-shell";
+import { useSettingsMessages } from "@/lib/i18n/use-settings-messages";
 
 // Answers a signer who asks what is stored about them, or for it to be
 // erased. Administrators only.
@@ -15,6 +16,7 @@ type ErasureResult = {
 };
 
 export function SignerDataPanel() {
+  const t = useSettingsMessages();
   const [email, setEmail] = useState("");
   const [confirmation, setConfirmation] = useState("");
   const [isErasing, setIsErasing] = useState(false);
@@ -40,27 +42,27 @@ export function SignerDataPanel() {
 
       if (!response.ok || !payload) {
         setMessage({
-          text: payload?.error ?? "That request could not be completed.",
+          text: payload?.error ?? t.signerData.failed,
           tone: "error",
         });
         return;
       }
 
       const skipped = payload.skippedInProgress.length
-        ? ` ${String(payload.skippedInProgress.length)} envelope(s) still out for signature were left alone: void them first, then erase again.`
+        ? t.signerData.skipped(payload.skippedInProgress.length)
         : "";
       const kept = payload.keptPart11?.length
-        ? ` ${String(payload.keptPart11.length)} Part 11 record(s) were kept: they are deleted by hand only, once the rules that apply to them allow it.`
+        ? t.signerData.kept(payload.keptPart11.length)
         : "";
 
       setMessage({
-        text: `Deleted ${String(payload.deletedEnvelopes)} finished envelope(s) and removed the signer from ${String(payload.removedFromDrafts)} draft(s).${skipped}${kept}`,
+        text: `${t.signerData.erased(payload.deletedEnvelopes, payload.removedFromDrafts)}${skipped}${kept}`,
         tone: "success",
       });
       setConfirmation("");
     } catch {
       setMessage({
-        text: "That request could not be completed.",
+        text: t.signerData.failed,
         tone: "error",
       });
     } finally {
@@ -72,22 +74,18 @@ export function SignerDataPanel() {
     <div className="space-y-5 border-t border-(--border) pt-8">
       <div className="space-y-2">
         <h3 className="text-lg font-extrabold tracking-[-0.02em] text-(--fg)">
-          Signer data requests
+          {t.signerData.heading}
         </h3>
         <p className="max-w-2xl text-sm leading-6 text-(--secondary)">
-          When a signer asks what you hold about them, download it here. When
-          they ask for it to be erased, you can delete every finished envelope
-          they signed, with its files and audit trail. Signed records are often
-          ones you must keep, so erase only when no law or open dispute requires
-          them.
+          {t.signerData.description}
         </p>
       </div>
       <div className="grid max-w-xl gap-4">
         <FieldShell
-          label="Signer's email"
+          label={t.signerData.emailLabel}
           name="signer-data-email"
           onChange={(event) => setEmail(event.target.value)}
-          placeholder="jane@company.com"
+          placeholder={t.signerData.emailPlaceholder}
           readOnly={false}
           type="email"
           value={email}
@@ -100,11 +98,11 @@ export function SignerDataPanel() {
           download
           href={exportHref}
         >
-          Download their data (JSON)
+          {t.signerData.download}
         </a>
         <FieldShell
-          helper="Type the email again to confirm erasure. This cannot be undone."
-          label="Confirm erasure"
+          helper={t.signerData.confirmHelper}
+          label={t.signerData.confirmLabel}
           name="signer-data-confirm"
           onChange={(event) => setConfirmation(event.target.value)}
           readOnly={false}
@@ -120,7 +118,7 @@ export function SignerDataPanel() {
           onClick={erase}
           variant="secondary"
         >
-          Erase this signer&apos;s records
+          {t.signerData.erase}
         </ShellButton>
         {message ? (
           <p

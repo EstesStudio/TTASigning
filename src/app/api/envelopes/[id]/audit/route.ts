@@ -4,6 +4,7 @@ import { AuditExportError, exportEnvelopeAuditCsv } from "@/lib/audit-export";
 import { requireVerifiedSenderSession } from "@/lib/auth/route-session";
 import { logRouteError } from "@/lib/security/logging";
 import { getClientIpAddress, getRequestPathname } from "@/lib/security/request";
+import { localize } from "@/lib/i18n/server-locale";
 
 type EnvelopeAuditRouteContext = {
   params: Promise<{
@@ -38,7 +39,7 @@ export async function GET(
   } catch (error) {
     if (error instanceof AuditExportError) {
       return NextResponse.json(
-        { error: error.message },
+        { error: await localize(error) },
         { status: error.statusCode },
       );
     }
@@ -52,7 +53,7 @@ export async function GET(
     });
 
     return NextResponse.json(
-      { error: "The audit trail could not be exported." },
+      { error: await localize((m) => m.envelope.api.auditExportFailed) },
       { status: 500 },
     );
   }

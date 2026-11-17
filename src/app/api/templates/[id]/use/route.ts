@@ -12,6 +12,7 @@ import {
 import { getClientIpAddress, getRequestPathname } from "@/lib/security/request";
 import { DocumentImportError } from "@/lib/services/document-import";
 import { createDraftFromTemplate, TemplateError } from "@/lib/templates";
+import { localize } from "@/lib/i18n/server-locale";
 
 type UseTemplateRouteContext = {
   params: Promise<{
@@ -55,7 +56,11 @@ export async function POST(request: Request, context: UseTemplateRouteContext) {
   } catch (error) {
     if (error instanceof ZodError) {
       return NextResponse.json(
-        { error: error.issues[0]?.message ?? "Invalid template request." },
+        {
+          error: await localize(
+            error.issues[0]?.message ?? ((m) => m.template.api.invalidRequest),
+          ),
+        },
         { status: 400 },
       );
     }
@@ -65,13 +70,16 @@ export async function POST(request: Request, context: UseTemplateRouteContext) {
       error instanceof EnvelopeMutationError
     ) {
       return NextResponse.json(
-        { error: error.message },
+        { error: await localize(error) },
         { status: error.statusCode },
       );
     }
 
     if (error instanceof DocumentImportError) {
-      return NextResponse.json({ error: error.message }, { status: 400 });
+      return NextResponse.json(
+        { error: await localize(error) },
+        { status: 400 },
+      );
     }
 
     logRouteError(error, {
@@ -83,7 +91,7 @@ export async function POST(request: Request, context: UseTemplateRouteContext) {
     });
 
     return NextResponse.json(
-      { error: "Unable to start an envelope from this template." },
+      { error: await localize((m) => m.template.api.unableToUse) },
       { status: 500 },
     );
   }

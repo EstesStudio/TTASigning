@@ -19,21 +19,18 @@ import { StepIndicator } from "@/components/shared/step-indicator";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/cn";
 import { cacheDraftPdfBlob } from "@/lib/draft-pdf-cache";
+import type { EnvelopeMessages } from "@/lib/i18n/envelope-messages";
+import { useEnvelopeMessages } from "@/lib/i18n/use-envelope-messages";
 import {
   renderPdfThumbnail,
   uploadEnvelopeThumbnail,
 } from "@/lib/pdf-thumbnail";
-import {
-  describePdfPreviewFailure,
-  PREVIEW_UNAVAILABLE_MESSAGE,
-} from "@/lib/pdf-preview-error";
+import { describePdfPreviewFailure } from "@/lib/pdf-preview-error";
+import { useLocale } from "@/lib/i18n/use-locale";
 import { assertPdfPreviewRenderable } from "@/lib/pdfjs-client";
 import { type CreateEnvelopeResponse } from "@/lib/schemas/envelope";
 
-const envelopeSteps = ["Upload", "Signers", "Place fields", "Review"];
 const MAX_FILE_SIZE_BYTES = 20 * 1024 * 1024;
-
-type UploadErrorCode = "invalid-type" | "preview-unavailable" | "too-large";
 
 type UploadSummary = {
   file: File;
@@ -41,27 +38,11 @@ type UploadSummary = {
   sizeLabel: string;
 };
 
-const errorMessageMap: Record<UploadErrorCode, string> = {
-  "invalid-type": "Only PDF files are supported. Please upload a valid PDF.",
-  "preview-unavailable": PREVIEW_UNAVAILABLE_MESSAGE,
-  "too-large": "This file exceeds the 20 MB limit.",
-};
-
 const knownTitleSuggestions: Record<string, string> = {
   "nda-clientbravo-2026.pdf": "NDA - Client Bravo",
   "nda-client-bravo-2026.pdf": "NDA - Client Bravo",
   "vendor-agreement-two-signer.pdf": "Vendor agreement - two signer flow",
 };
-
-function formatFileSize(sizeInBytes: number) {
-  const sizeInMegabytes = sizeInBytes / (1024 * 1024);
-
-  if (sizeInMegabytes >= 1) {
-    return `${sizeInMegabytes.toFixed(1)} MB`;
-  }
-
-  return `${Math.max(1, Math.round(sizeInBytes / 1024))} KB`;
-}
 
 function makeTitleSuggestion(fileName: string) {
   return fileName
@@ -98,6 +79,7 @@ function UploadShellLayout({
   isBusy,
   isDragActive,
   isSubmitting = false,
+  messages,
   onDropzoneKeyDown,
   onOpenFilePicker,
   onRemoveFile,
@@ -112,6 +94,7 @@ function UploadShellLayout({
   isBusy: boolean;
   isDragActive: boolean;
   isSubmitting?: boolean;
+  messages: EnvelopeMessages;
   onContinue?: () => void;
   onDropzoneKeyDown: (event: KeyboardEvent<HTMLDivElement>) => void;
   onOpenFilePicker: () => void;
@@ -134,14 +117,14 @@ function UploadShellLayout({
       <PageHeader
         action={
           <Link className="btn-quiet min-h-11 px-4" href="/templates">
-            Start from a template
+            {messages.upload.startFromTemplate}
           </Link>
         }
-        description="Step 1 of 4 - Upload document"
-        title="New envelope"
+        description={messages.steps.upload}
+        title={messages.steps.newEnvelope}
       />
 
-      <StepIndicator current={1} steps={envelopeSteps} />
+      <StepIndicator current={1} steps={messages.steps.names} />
 
       <section
         className="panel p-5 sm:p-8"
@@ -150,16 +133,16 @@ function UploadShellLayout({
       >
         <div className="space-y-6">
           <FieldShell
-            label="Envelope title"
+            label={messages.upload.titleLabel}
             onChange={onTitleChange}
-            placeholder="e.g., NDA - Client Bravo"
+            placeholder={messages.upload.titlePlaceholder}
             readOnly={false}
             value={title}
           />
 
           <div
             aria-busy={isBusy}
-            aria-label="Document upload dropzone"
+            aria-label={messages.upload.dropzoneLabel}
             className={cn(
               "cursor-pointer rounded-[1.25rem] border-2 border-dashed px-6 py-10 text-center transition sm:px-10 sm:py-12",
               dropzoneClasses,
@@ -176,7 +159,7 @@ function UploadShellLayout({
               {isBusy ? (
                 <>
                   <div
-                    aria-label="Upload progress"
+                    aria-label={messages.upload.progressLabel}
                     className="h-2 w-full max-w-sm overflow-hidden rounded-full bg-white"
                     role="progressbar"
                   >
@@ -184,10 +167,10 @@ function UploadShellLayout({
                   </div>
                   <div className="space-y-1.5">
                     <p className="text-lg font-bold tracking-[-0.02em] text-(--fg)">
-                      Uploading...
+                      {messages.upload.uploading}
                     </p>
                     <p className="text-sm leading-6 text-(--secondary)">
-                      Validating the PDF before you continue to signer setup.
+                      {messages.upload.validating}
                     </p>
                   </div>
                 </>
@@ -202,17 +185,17 @@ function UploadShellLayout({
                   </span>
                   <div className="space-y-1.5">
                     <p className="text-lg font-bold tracking-[-0.02em] text-(--fg)">
-                      Drag and drop your PDF here
+                      {messages.upload.dragAndDrop}
                     </p>
                     <p className="text-sm text-(--secondary)">
-                      or{" "}
+                      {messages.upload.or}{" "}
                       <span className="font-bold text-(--accent-ink) underline decoration-[rgb(var(--accent-rgb)/0.35)] underline-offset-4">
-                        click to browse
+                        {messages.upload.clickToBrowse}
                       </span>
                     </p>
                   </div>
                   <p className="text-[0.8125rem] font-medium text-(--tertiary)">
-                    PDF only - 20 MB max
+                    {messages.upload.limits}
                   </p>
                 </>
               )}
@@ -261,7 +244,7 @@ function UploadShellLayout({
                 type="button"
                 variant="outline"
               >
-                Remove
+                {messages.common.remove}
               </Button>
             </section>
           ) : null}
@@ -272,7 +255,7 @@ function UploadShellLayout({
               loading={isSubmitting}
               onClick={onContinue}
             >
-              Next -&gt;
+              {messages.upload.next}
             </ShellButton>
           </div>
         </div>
@@ -329,6 +312,9 @@ type UploadShellProps = {
 };
 
 export function UploadShell({ directUploadPrefix = null }: UploadShellProps) {
+  const messages = useEnvelopeMessages();
+  const locale = useLocale();
+  const genericError = messages.common.genericError;
   const router = useRouter();
   const [title, setTitle] = useState("");
   const [summary, setSummary] = useState<UploadSummary | null>(null);
@@ -398,8 +384,8 @@ export function UploadShell({ directUploadPrefix = null }: UploadShellProps) {
         data: null,
         error:
           payload && typeof payload === "object" && "error" in payload
-            ? (payload.error ?? "Something went wrong. Please try again.")
-            : "Something went wrong. Please try again.",
+            ? (payload.error ?? genericError)
+            : genericError,
       };
     }
 
@@ -411,14 +397,14 @@ export function UploadShell({ directUploadPrefix = null }: UploadShellProps) {
 
   function beginUpload(file: File) {
     if (!isClientVisiblePdf(file)) {
-      setErrorMessage(errorMessageMap["invalid-type"]);
+      setErrorMessage(messages.upload.invalidType);
       setSummary(null);
       startThumbnail(null);
       return;
     }
 
     if (file.size > MAX_FILE_SIZE_BYTES) {
-      setErrorMessage(errorMessageMap["too-large"]);
+      setErrorMessage(messages.upload.tooLarge);
       setSummary(null);
       startThumbnail(null);
       return;
@@ -431,7 +417,7 @@ export function UploadShell({ directUploadPrefix = null }: UploadShellProps) {
     setSummary({
       file,
       fileName: file.name,
-      sizeLabel: formatFileSize(file.size),
+      sizeLabel: messages.upload.fileSize(file.size),
     });
     setErrorMessage(null);
 
@@ -506,7 +492,7 @@ export function UploadShell({ directUploadPrefix = null }: UploadShellProps) {
           "Failed to validate the PDF preview before draft creation.",
           error,
         );
-        setErrorMessage(describePdfPreviewFailure(error));
+        setErrorMessage(describePdfPreviewFailure(error, locale));
         setIsCreatingDraft(false);
         return;
       }
@@ -521,9 +507,7 @@ export function UploadShell({ directUploadPrefix = null }: UploadShellProps) {
       const payload = await parseResponse<CreateEnvelopeResponse>(response);
 
       if (!payload.data || payload.error) {
-        setErrorMessage(
-          payload.error ?? "Something went wrong. Please try again.",
-        );
+        setErrorMessage(payload.error ?? genericError);
 
         if (response.status === 400) {
           setSummary(null);
@@ -558,7 +542,7 @@ export function UploadShell({ directUploadPrefix = null }: UploadShellProps) {
         router.push(redirectPath);
       });
     } catch {
-      setErrorMessage("Something went wrong. Please try again.");
+      setErrorMessage(genericError);
       setIsCreatingDraft(false);
     }
   }
@@ -587,7 +571,7 @@ export function UploadShell({ directUploadPrefix = null }: UploadShellProps) {
     >
       <input
         accept=".pdf,application/pdf"
-        aria-label="Upload PDF"
+        aria-label={messages.upload.fileInputLabel}
         className="sr-only"
         onChange={handleInputChange}
         ref={fileInputRef}
@@ -599,6 +583,7 @@ export function UploadShell({ directUploadPrefix = null }: UploadShellProps) {
         isBusy={isCreatingDraft}
         isDragActive={isDragActive}
         isSubmitting={isCreatingDraft}
+        messages={messages}
         onContinue={handleContinue}
         onDropzoneKeyDown={handleDropzoneKeyDown}
         onOpenFilePicker={openFilePicker}

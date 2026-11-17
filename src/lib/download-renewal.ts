@@ -4,6 +4,7 @@ import {
   type RenewedDownloadLinks,
 } from "./downloads.ts";
 import { getBranding } from "./settings.ts";
+import { emailMessages } from "./i18n/email-messages.ts";
 import { recordEmailSent } from "./services/audit.ts";
 import { createEmailService, type EmailService } from "./services/email.ts";
 import { withUserEmailLegalFooter } from "./services/email-legal-footer.ts";
@@ -25,26 +26,35 @@ export async function sendFreshDownloadLinks(
   return renewRecipientDownloadLinks(token, {
     database,
     async sendLinks({ envelope, evidenceUrl, signedUrl, signer }) {
-      const subject = `New download links for "${envelope.title}"`;
+      const m = emailMessages(branding.locale);
+      const subject = m.downloads.renewedSubject(m.quote(envelope.title));
       const textBody = [
-        `Hi ${signer.name},`,
+        m.hi(signer.name),
         "",
-        `Here are new download links for "${envelope.title}" in ${branding.productName}. They work for ${String(TTL_DAYS)} days.`,
+        m.downloads.renewedIntro({
+          days: TTL_DAYS,
+          product: branding.productName,
+          title: m.quote(envelope.title),
+        }),
         "",
-        ...(signedUrl ? [`Signed PDF: ${signedUrl}`] : []),
-        `Certificate: ${evidenceUrl}`,
+        ...(signedUrl ? [m.downloads.signedPdf(signedUrl)] : []),
+        m.downloads.certificate(evidenceUrl),
         "",
-        "Download and keep the files: they are your copy of the record.",
+        m.downloads.keepFiles,
       ].join("\n");
       const htmlBody = [
-        `<p>Hi ${escapeHtml(signer.name)},</p>`,
-        `<p>Here are new download links for &ldquo;${escapeHtml(envelope.title)}&rdquo; in ${escapeHtml(branding.productName)}. They work for ${String(TTL_DAYS)} days.</p>`,
+        `<p>${m.hi(escapeHtml(signer.name))}</p>`,
+        `<p>${m.downloads.renewedIntro({
+          days: TTL_DAYS,
+          product: escapeHtml(branding.productName),
+          title: m.quoteHtml(escapeHtml(envelope.title)),
+        })}</p>`,
         "<p>",
         signedUrl
-          ? `<a href="${escapeHtml(signedUrl)}">Download signed PDF</a><br />`
+          ? `<a href="${escapeHtml(signedUrl)}">${m.downloads.downloadSignedPdf}</a><br />`
           : "",
-        `<a href="${escapeHtml(evidenceUrl)}">Download certificate</a></p>`,
-        "<p>Download and keep the files: they are your copy of the record.</p>",
+        `<a href="${escapeHtml(evidenceUrl)}">${m.downloads.downloadCertificate}</a></p>`,
+        `<p>${m.downloads.keepFiles}</p>`,
       ].join("");
       const body = withUserEmailLegalFooter({ htmlBody, textBody }, branding);
       const delivery = await emailService.send({

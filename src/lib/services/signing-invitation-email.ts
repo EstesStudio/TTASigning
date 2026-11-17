@@ -1,5 +1,7 @@
 import { type Branding } from "../branding.ts";
 import { formatDeadline } from "../envelope-deadline.ts";
+import { emailMessages } from "../i18n/email-messages.ts";
+import { DEFAULT_LOCALE, type Locale } from "../i18n/locales.ts";
 import { escapeHtml } from "../utils/html.ts";
 import { withUserEmailLegalFooter } from "./email-legal-footer.ts";
 import { type TransactionalEmailMessage } from "./email.ts";
@@ -18,37 +20,50 @@ type SigningInvitationEmailInput = {
 /** "This request expires on …", or nothing for an envelope with no deadline. */
 export function buildDeadlineLine(
   expiresAt: number | null | undefined,
+  locale: Locale = DEFAULT_LOCALE,
 ): string | null {
   return typeof expiresAt === "number"
-    ? `This request expires on ${formatDeadline(expiresAt)}.`
+    ? emailMessages(locale).signing.deadline(formatDeadline(expiresAt, locale))
     : null;
 }
 
 export function buildSigningInvitationEmail(
   input: SigningInvitationEmailInput,
 ): TransactionalEmailMessage {
-  const { productName } = input.branding;
-  const subject = `${input.senderName} requested your signature on "${input.envelopeTitle}"`;
-  const deadlineLine = buildDeadlineLine(input.expiresAt);
+  const { locale, productName } = input.branding;
+  const m = emailMessages(locale);
+  const subject = m.signing.invitationSubject({
+    sender: input.senderName,
+    title: m.quote(input.envelopeTitle),
+  });
+  const deadlineLine = buildDeadlineLine(input.expiresAt, locale);
   const textBody = [
-    `Hi ${input.signerName},`,
+    m.hi(input.signerName),
     "",
-    `${input.senderName} sent you "${input.envelopeTitle}" through ${productName}.`,
+    m.signing.invitationIntro({
+      product: productName,
+      sender: input.senderName,
+      title: m.quote(input.envelopeTitle),
+    }),
     "",
-    "Review and sign the document here:",
+    m.signing.reviewAndSignHere,
     input.signingUrl,
     ...(deadlineLine ? ["", deadlineLine] : []),
     "",
-    `You do not need a ${productName} account to sign.`,
-    "If you receive a newer invitation or reminder link, use the newest one.",
+    m.signing.noAccountNeeded(productName),
+    m.signing.useNewestLink,
   ].join("\n");
   const htmlBody = [
-    `<p>Hi ${escapeHtml(input.signerName)},</p>`,
-    `<p>${escapeHtml(input.senderName)} sent you &ldquo;${escapeHtml(input.envelopeTitle)}&rdquo; through ${escapeHtml(productName)}.</p>`,
-    `<p><a href="${escapeHtml(input.signingUrl)}">Review and sign the document</a></p>`,
+    `<p>${m.hi(escapeHtml(input.signerName))}</p>`,
+    `<p>${m.signing.invitationIntro({
+      product: escapeHtml(productName),
+      sender: escapeHtml(input.senderName),
+      title: m.quoteHtml(escapeHtml(input.envelopeTitle)),
+    })}</p>`,
+    `<p><a href="${escapeHtml(input.signingUrl)}">${m.signing.reviewAndSignLink}</a></p>`,
     deadlineLine ? `<p>${escapeHtml(deadlineLine)}</p>` : "",
-    `<p>You do not need a ${escapeHtml(productName)} account to sign.</p>`,
-    "<p>If you receive a newer invitation or reminder link, use the newest one.</p>",
+    `<p>${m.signing.noAccountNeeded(escapeHtml(productName))}</p>`,
+    `<p>${m.signing.useNewestLink}</p>`,
   ].join("");
   const legalFooter = withUserEmailLegalFooter(
     {

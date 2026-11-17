@@ -12,6 +12,7 @@ import {
   SigningMutationError,
   SigningVerificationRequiredError,
 } from "@/lib/signing";
+import { localize } from "@/lib/i18n/server-locale";
 import { logRouteError } from "@/lib/security/logging";
 import {
   applyRateLimit,
@@ -72,7 +73,11 @@ export async function POST(
   } catch (error) {
     if (error instanceof ZodError) {
       return NextResponse.json(
-        { error: error.issues[0]?.message ?? "Invalid signing submission." },
+        {
+          error: await localize(
+            error.issues[0]?.message ?? ((m) => m.signing.invalidSubmission),
+          ),
+        },
         { headers: NO_STORE, status: 400 },
       );
     }
@@ -83,14 +88,14 @@ export async function POST(
 
     if (error instanceof SigningAccessError) {
       return NextResponse.json(
-        { error: error.message, state: error.state },
+        { error: await localize(error), state: error.state },
         { headers: NO_STORE, status: error.statusCode },
       );
     }
 
     if (error instanceof SigningMutationError) {
       return NextResponse.json(
-        { error: error.message },
+        { error: await localize(error) },
         { headers: NO_STORE, status: error.statusCode },
       );
     }
@@ -103,7 +108,7 @@ export async function POST(
     });
 
     return NextResponse.json(
-      { error: "Unable to start signing." },
+      { error: await localize((m) => m.signing.unableToStart) },
       { headers: NO_STORE, status: 500 },
     );
   }

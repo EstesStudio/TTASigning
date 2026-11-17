@@ -9,6 +9,7 @@ import {
 import { getDb, queryOne } from "../db/connection.ts";
 import { logSecurityEvent } from "../security/logging.ts";
 import { enforceSessionLimits } from "../session-controls.ts";
+import { installMessages } from "../i18n/server-locale.ts";
 import { getSettings, isMissingSchemaError } from "../settings.ts";
 import {
   getClientIpAddress,
@@ -24,7 +25,6 @@ import {
   countFailedSignIn,
   getSignInLockState,
   MAX_FAILED_SIGN_INS,
-  SIGN_IN_LOCKED_MESSAGE,
 } from "../sign-in-security.ts";
 
 // Puts sign-ins and changes to how people sign in into the install's audit
@@ -217,7 +217,7 @@ export function signInEvents() {
             if (!allowed) {
               throw new APIError("UNAUTHORIZED", {
                 code: "SESSION_ENDED",
-                message: "Your session has ended. Sign in again.",
+                message: (await installMessages()).auth.sessionEnded,
               });
             }
           }),
@@ -237,7 +237,7 @@ export function signInEvents() {
             ) {
               throw new APIError("BAD_REQUEST", {
                 code: "ID_TOKEN_SIGN_IN_NOT_ALLOWED",
-                message: "Sign in through your organization's sign-in page.",
+                message: (await installMessages()).auth.useOrganizationSignIn,
               });
             }
           }),
@@ -255,8 +255,7 @@ export function signInEvents() {
             ) {
               throw new APIError("BAD_REQUEST", {
                 code: "TRUST_DEVICE_NOT_ALLOWED",
-                message:
-                  "This install asks for the second step at every sign-in.",
+                message: (await installMessages()).auth.secondStepEveryTime,
               });
             }
 
@@ -281,7 +280,7 @@ export function signInEvents() {
             if (lock.locked) {
               throw new APIError("TOO_MANY_REQUESTS", {
                 code: "SIGN_IN_LOCKED",
-                message: SIGN_IN_LOCKED_MESSAGE,
+                message: (await installMessages()).auth.signInLocked,
               });
             }
           }),
@@ -295,8 +294,7 @@ export function signInEvents() {
             if ((await getSettings()).requireTwoFactor) {
               throw new APIError("FORBIDDEN", {
                 code: "TWO_FACTOR_REQUIRED_BY_ADMINISTRATOR",
-                message:
-                  "Your organization requires two-step sign-in, so it cannot be turned off.",
+                message: (await installMessages()).auth.twoFactorRequired,
               });
             }
           }),

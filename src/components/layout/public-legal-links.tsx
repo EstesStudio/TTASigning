@@ -6,11 +6,31 @@ import { useBranding } from "@/components/layout/branding-provider";
 import { SIGNUDOC_NAME, SIGNUDOC_URL } from "@/lib/branding";
 import { PUBLIC_COPYRIGHT_YEAR, publicFooterLinks } from "@/lib/legal";
 import { cn } from "@/lib/cn";
+import { useAppMessages } from "@/lib/i18n/use-app-messages";
 import { PERMITTED_USE_PATH } from "@/lib/permitted-uses";
+
+/** The footer's words, for a page that speaks the install's language. */
+export type PublicLegalFooterLabels = {
+  navLabel: string;
+  permittedUseLong: string;
+  permittedUseShort: string;
+  poweredBy: (name: string) => string;
+  privacyNoticeLong: string;
+  privacyPolicyLong: string;
+  privacyShort: string;
+  termsLong: string;
+  termsShort: string;
+};
 
 type PublicLegalFooterProps = {
   className?: string;
   contentClassName?: string;
+  /**
+   * Set by the signing pages, which bring their own words. Left out, the
+   * footer speaks the install's language. The hosted service's own legal
+   * pages keep their English names either way.
+   */
+  labels?: PublicLegalFooterLabels;
   labelVariant?: "long" | "short";
   linkClassName?: string;
 };
@@ -24,10 +44,13 @@ type FooterLink = {
 export function PublicLegalFooter({
   className = "",
   contentClassName = "",
+  labels: labelsOverride,
   labelVariant = "short",
   linkClassName,
 }: PublicLegalFooterProps) {
   const branding = useBranding();
+  const appLabels = useAppMessages().footer;
+  const labels = labelsOverride ?? appLabels;
   const resolvedLinkClassName =
     linkClassName ??
     "text-[0.8125rem] font-medium text-(--tertiary) transition-colors hover:text-(--accent-ink)";
@@ -45,7 +68,10 @@ export function PublicLegalFooter({
               {
                 external: true,
                 href: branding.termsUrl,
-                label: labelVariant === "long" ? "Terms of Service" : "Terms",
+                label:
+                  labelVariant === "long"
+                    ? labels.termsLong
+                    : labels.termsShort,
               },
             ]
           : []),
@@ -55,12 +81,18 @@ export function PublicLegalFooter({
           ? {
               external: true,
               href: branding.privacyUrl,
-              label: labelVariant === "long" ? "Privacy Policy" : "Privacy",
+              label:
+                labelVariant === "long"
+                  ? labels.privacyPolicyLong
+                  : labels.privacyShort,
             }
           : {
               external: false,
               href: "/signer-privacy",
-              label: labelVariant === "long" ? "Privacy notice" : "Privacy",
+              label:
+                labelVariant === "long"
+                  ? labels.privacyNoticeLong
+                  : labels.privacyShort,
             },
       ];
 
@@ -68,7 +100,10 @@ export function PublicLegalFooter({
   links.push({
     external: false,
     href: PERMITTED_USE_PATH,
-    label: labelVariant === "long" ? "What this is for" : "E-signatures",
+    label:
+      labelVariant === "long"
+        ? labels.permittedUseLong
+        : labels.permittedUseShort,
   });
 
   return (
@@ -81,7 +116,7 @@ export function PublicLegalFooter({
 
           {links.length > 0 ? (
             <nav
-              aria-label="Footer"
+              aria-label={labels.navLabel}
               className="flex flex-wrap items-center justify-center gap-x-6 gap-y-2"
             >
               {links.map((link) =>
@@ -115,7 +150,7 @@ export function PublicLegalFooter({
               rel="noreferrer"
               target="_blank"
             >
-              Powered by {SIGNUDOC_NAME}
+              {labels.poweredBy(SIGNUDOC_NAME)}
             </a>
           )}
         </div>

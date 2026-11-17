@@ -15,6 +15,7 @@ import {
   buildRateLimitKey,
 } from "@/lib/security/route-controls";
 import { getClientIpAddress, getRequestPathname } from "@/lib/security/request";
+import { localize } from "@/lib/i18n/server-locale";
 
 // Email setup for the Organization tab in Settings: whether email works,
 // and the steps an administrator can take from the app when it does not.
@@ -23,7 +24,7 @@ const actionSchema = z.object({
   action: z.enum(["add_domain", "recheck", "send_test"]),
 });
 
-function failure(request: Request, error: unknown, userId: string) {
+async function failure(request: Request, error: unknown, userId: string) {
   logRouteError(error, {
     category: "email_setup_failure",
     ipAddress: getClientIpAddress(request.headers),
@@ -33,7 +34,7 @@ function failure(request: Request, error: unknown, userId: string) {
   });
 
   return NextResponse.json(
-    { error: "Email setup could not be checked. Please try again." },
+    { error: await localize((m) => m.admin.emailNotChecked) },
     { status: 500 },
   );
 }
@@ -76,7 +77,10 @@ export async function POST(request: Request) {
   const parsed = actionSchema.safeParse(await request.json().catch(() => null));
 
   if (!parsed.success) {
-    return NextResponse.json({ error: "Unknown action." }, { status: 400 });
+    return NextResponse.json(
+      { error: await localize((m) => m.admin.unknownAction) },
+      { status: 400 },
+    );
   }
 
   try {

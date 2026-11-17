@@ -1,5 +1,6 @@
 import { z } from "zod";
 
+import { type Locale } from "../i18n/locales.ts";
 import {
   emailSchema,
   idSchema,
@@ -9,6 +10,16 @@ import {
 } from "./common.ts";
 
 export const accountClosureConfirmationPhrase = "close my account" as const;
+
+/**
+ * What a person types to confirm closing their account, in each language.
+ * Every one of them is accepted, so a page still open in English goes on
+ * working after the install switches language.
+ */
+export const accountClosureConfirmationPhrases = {
+  en: accountClosureConfirmationPhrase,
+  fr: "fermer mon compte",
+} as const satisfies Record<Locale, string>;
 
 export const signUpSchema = z.object({
   fullName: nameSchema,
@@ -36,7 +47,7 @@ export const updatePasswordSchema = z.object({
 });
 
 export const accountClosureRequestSchema = z.object({
-  confirmation: z.literal(accountClosureConfirmationPhrase),
+  confirmation: z.enum(Object.values(accountClosureConfirmationPhrases)),
 });
 
 export const senderProfileSchema = z.object({

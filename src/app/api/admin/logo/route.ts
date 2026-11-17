@@ -17,13 +17,12 @@ import {
 import { getClientIpAddress, getRequestPathname } from "@/lib/security/request";
 import { isHostedMode } from "@/lib/utils/env";
 import { readLimitedBody } from "@/lib/utils/limited-body";
+import { localize } from "@/lib/i18n/server-locale";
 
 // The install's logo, set from the Organization tab in Settings.
 // Administrators only. The image is the request body itself.
 
 const privateNoStore = { "cache-control": "private, no-store" };
-
-const TOO_LARGE_MESSAGE = "The logo must be 512 KB or smaller.";
 
 async function authorize(request: Request) {
   const sessionResult = await requireAdminSession(request);
@@ -35,7 +34,7 @@ async function authorize(request: Request) {
   // The hosted service runs under its own name and mark.
   if (isHostedMode()) {
     return NextResponse.json(
-      { error: "This site does not use its own logo." },
+      { error: await localize((m) => m.admin.logo.notOwnLogo) },
       { headers: privateNoStore, status: 409 },
     );
   }
@@ -63,7 +62,7 @@ export async function PUT(request: Request) {
 
   if (Number.isFinite(declaredLength) && declaredLength > MAX_LOGO_BYTES) {
     return NextResponse.json(
-      { error: TOO_LARGE_MESSAGE },
+      { error: await localize((m) => m.admin.logo.tooLarge) },
       { headers: privateNoStore, status: 413 },
     );
   }
@@ -73,7 +72,7 @@ export async function PUT(request: Request) {
 
     if (!body) {
       return NextResponse.json(
-        { error: TOO_LARGE_MESSAGE },
+        { error: await localize((m) => m.admin.logo.tooLarge) },
         { headers: privateNoStore, status: 413 },
       );
     }
@@ -94,7 +93,7 @@ export async function PUT(request: Request) {
   } catch (error) {
     if (error instanceof BrandLogoError) {
       return NextResponse.json(
-        { error: error.message },
+        { error: await localize(error) },
         { headers: privateNoStore, status: error.statusCode },
       );
     }
@@ -108,7 +107,7 @@ export async function PUT(request: Request) {
     });
 
     return NextResponse.json(
-      { error: "The logo could not be saved." },
+      { error: await localize((m) => m.admin.logo.notSaved) },
       { headers: privateNoStore, status: 500 },
     );
   }
@@ -141,7 +140,7 @@ export async function DELETE(request: Request) {
     });
 
     return NextResponse.json(
-      { error: "The logo could not be removed." },
+      { error: await localize((m) => m.admin.logo.notRemoved) },
       { headers: privateNoStore, status: 500 },
     );
   }

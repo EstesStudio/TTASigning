@@ -1,4 +1,5 @@
-import { SIGNUDOC_NAME, type Branding } from "../branding.ts";
+import { type Branding } from "../branding.ts";
+import { emailMessages } from "../i18n/email-messages.ts";
 import { getEnv, type EnvSource } from "../utils/env.ts";
 import { escapeHtml } from "../utils/html.ts";
 import { requireConfigValue } from "./service-config.ts";
@@ -16,14 +17,15 @@ type FooterLink = {
 // Links may be pages on this site ("/terms") or the organization's own
 // absolute URLs. Either way the email gets an absolute URL.
 function buildFooterLinks(branding: Branding, env: EnvSource): FooterLink[] {
+  const m = emailMessages(branding.locale).footer;
   const candidates: Array<[label: string, url: string | null]> = [
-    ["Terms of Service", branding.termsUrl],
+    [m.terms, branding.termsUrl],
     // Without the organization's own policy, the notice built from the
     // install's settings.
     branding.privacyUrl || branding.hosted
-      ? ["Privacy Policy", branding.privacyUrl]
-      : ["Privacy notice", getEnv(env).appUrl ? "/signer-privacy" : null],
-    ["Contact", branding.contactUrl],
+      ? [m.privacyPolicy, branding.privacyUrl]
+      : [m.privacyNotice, getEnv(env).appUrl ? "/signer-privacy" : null],
+    [m.contact, branding.contactUrl],
   ];
   const links = candidates.filter((candidate): candidate is [string, string] =>
     Boolean(candidate[1]),
@@ -75,27 +77,31 @@ export function withUserEmailLegalFooter(
   branding: Branding,
   env: EnvSource = process.env,
 ): EmailBodyContent {
+  const messages = emailMessages(branding.locale);
+  const m = messages.footer;
   const links = buildFooterLinks(branding, env);
   const logoHeader = buildLogoHeader(branding, env);
   const textLines: string[] = [];
   const htmlLines: string[] = [];
 
   for (const link of links) {
-    textLines.push("", `${link.label}:`, link.url);
+    textLines.push("", messages.colon(link.label), link.url);
     htmlLines.push(`<a href="${escapeHtml(link.url)}">${link.label}</a>`);
   }
 
   if (!branding.hosted) {
     if (branding.supportAddress) {
-      textLines.push("", `Questions? Contact ${branding.supportAddress}.`);
+      textLines.push("", m.questions(branding.supportAddress));
       htmlLines.push(
-        `Questions? Contact <a href="mailto:${escapeHtml(branding.supportAddress)}">${escapeHtml(branding.supportAddress)}</a>.`,
+        m.questions(
+          `<a href="mailto:${escapeHtml(branding.supportAddress)}">${escapeHtml(branding.supportAddress)}</a>`,
+        ),
       );
     }
 
     const sentBy = branding.organizationName
-      ? `Sent by ${branding.organizationName} using ${SIGNUDOC_NAME}.`
-      : `Sent using ${SIGNUDOC_NAME}.`;
+      ? m.sentBy(branding.organizationName)
+      : m.sentUsing;
 
     textLines.push("", sentBy);
     htmlLines.push(escapeHtml(sentBy));

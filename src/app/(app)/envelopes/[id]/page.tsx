@@ -2,6 +2,7 @@ import { EnvelopeDetailShell } from "@/components/envelopes/envelope-detail-shel
 import { getAuthSession } from "@/lib/auth/server";
 import { getDb } from "@/lib/db/connection";
 import { getEnvelopeDetailDataForUser } from "@/lib/envelopes";
+import { installLocale } from "@/lib/i18n/server-locale";
 
 type EnvelopeDetailPageProps = {
   params: Promise<{
@@ -21,7 +22,12 @@ export default async function EnvelopeDetailPage({
   try {
     const session = await getAuthSession();
     detailRecord = session
-      ? await getEnvelopeDetailDataForUser(session.user.id, id, getDb())
+      ? await getEnvelopeDetailDataForUser(
+          session.user.id,
+          id,
+          getDb(),
+          await installLocale(),
+        )
       : null;
     initialState = detailRecord ? undefined : "not-found";
   } catch {

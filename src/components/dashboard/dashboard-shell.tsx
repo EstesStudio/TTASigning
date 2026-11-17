@@ -13,6 +13,8 @@ import {
 } from "@/components/dashboard/dashboard-documents-surface";
 import { DocumentThumbnail } from "@/components/shared/document-thumbnail";
 import { ShellButton } from "@/components/shared/form-shell";
+import type { EnvelopeMessages } from "@/lib/i18n/envelope-messages";
+import { useEnvelopeMessages } from "@/lib/i18n/use-envelope-messages";
 
 type DashboardShellProps = {
   envelopes?: readonly DashboardEnvelopeListItem[];
@@ -23,6 +25,7 @@ export function DashboardShell({
   envelopes: providedEnvelopes,
   initialState = "default",
 }: DashboardShellProps) {
+  const messages = useEnvelopeMessages().dashboard;
   const [searchValue, setSearchValue] = useState("");
   const [selectedFilter, setSelectedFilter] = useState<DashboardFilter>("All");
 
@@ -66,15 +69,16 @@ export function DashboardShell({
 
   return (
     <div className="space-y-5">
-      <DashboardDocumentsHeader />
+      <DashboardDocumentsHeader messages={messages} />
 
       {initialState === "empty" ? (
-        <EmptyDashboardState />
+        <EmptyDashboardState messages={messages} />
       ) : (
         <DashboardDocumentsPanel
           envelopes={envelopes}
           filteredEnvelopes={filteredEnvelopes}
           isError={isError}
+          messages={messages}
           onFilterChange={handleFilterChange}
           onReset={handleResetFilters}
           onRetry={handleRetry}
@@ -87,7 +91,11 @@ export function DashboardShell({
   );
 }
 
-function EmptyDashboardState() {
+function EmptyDashboardState({
+  messages,
+}: {
+  messages: EnvelopeMessages["dashboard"];
+}) {
   return (
     <section
       className="panel px-6 py-14 sm:py-20"
@@ -100,10 +108,10 @@ function EmptyDashboardState() {
         </span>
         <div className="space-y-2">
           <h2 className="text-2xl font-extrabold tracking-[-0.03em] text-(--fg)">
-            No documents yet
+            {messages.emptyTitle}
           </h2>
           <p className="text-[0.9375rem] leading-6 text-(--secondary)">
-            Upload a PDF and send it for signatures in minutes.
+            {messages.emptyHelp}
           </p>
         </div>
         <ShellButton href="/envelopes/new">
@@ -112,7 +120,7 @@ function EmptyDashboardState() {
             className="size-[1.125rem]"
             strokeWidth={2.4}
           />
-          New envelope
+          {messages.newEnvelope}
         </ShellButton>
       </div>
     </section>

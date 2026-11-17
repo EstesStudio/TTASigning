@@ -3,12 +3,10 @@
 import { useState, type ChangeEvent, type FormEvent } from "react";
 
 import { FieldShell, ShellButton } from "@/components/shared/form-shell";
-import {
-  Field,
-  FieldError,
-  FieldLabel,
-} from "@/components/ui/field";
+import { Field, FieldError, FieldLabel } from "@/components/ui/field";
 import { Textarea } from "@/components/ui/textarea";
+import type { AppMessages } from "@/lib/i18n/app-messages";
+import { useAppMessages } from "@/lib/i18n/use-app-messages";
 import { contactFormSchema } from "@/lib/schemas/contact";
 
 type ContactFormValues = {
@@ -34,15 +32,19 @@ const defaultValues: ContactFormValues = {
   name: "",
 };
 
-function readApiErrorMessage(payload: ContactApiPayload): string {
+function readApiErrorMessage(
+  payload: ContactApiPayload,
+  m: AppMessages,
+): string {
   if (typeof payload?.error === "string" && payload.error.trim()) {
     return payload.error;
   }
 
-  return "Something went wrong. Please try again.";
+  return m.common.somethingWentWrong;
 }
 
 export function ContactForm() {
+  const m = useAppMessages();
   const [values, setValues] = useState<ContactFormValues>(defaultValues);
   const [errors, setErrors] = useState<ContactFormErrors>({});
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -93,18 +95,18 @@ export function ContactForm() {
         const field = issue.path[0];
 
         if (field === "name") {
-          nextErrors.name = "Enter your name";
+          nextErrors.name = m.contact.enterName;
         }
 
         if (field === "email") {
-          nextErrors.email = "Enter a valid email address";
+          nextErrors.email = m.common.enterValidEmail;
         }
 
         if (field === "message") {
           nextErrors.message =
             issue.code === "too_big"
-              ? "Message must be 5000 characters or fewer"
-              : "Enter a message";
+              ? m.contact.messageTooLong
+              : m.contact.enterMessage;
         }
       }
 
@@ -148,17 +150,15 @@ export function ContactForm() {
               ? payload.fieldErrors.name
               : undefined,
         });
-        setSubmitError(readApiErrorMessage(payload));
+        setSubmitError(readApiErrorMessage(payload, m));
         return;
       }
 
       setValues(defaultValues);
       setErrors({});
-      setSuccessMessage(
-        `Your message was sent. We’ll follow up at ${validationResult.data.email} if we need more detail.`,
-      );
+      setSuccessMessage(m.contact.sent(validationResult.data.email));
     } catch {
-      setSubmitError("Something went wrong. Please try again.");
+      setSubmitError(m.common.somethingWentWrong);
     } finally {
       setIsSubmitting(false);
     }
@@ -183,15 +183,11 @@ export function ContactForm() {
         </div>
 
         {successMessage ? (
-          <div className="notice notice-success">
-            {successMessage}
-          </div>
+          <div className="notice notice-success">{successMessage}</div>
         ) : null}
 
         {submitError ? (
-          <div className="notice notice-danger">
-            {submitError}
-          </div>
+          <div className="notice notice-danger">{submitError}</div>
         ) : null}
 
         <div className="grid gap-5 sm:grid-cols-2">
@@ -199,10 +195,10 @@ export function ContactForm() {
             autoComplete="name"
             disabled={isSubmitting}
             error={errors.name}
-            label="Name"
+            label={m.contact.name}
             name="contact-name"
             onChange={handleChange("name")}
-            placeholder="Your name"
+            placeholder={m.contact.namePlaceholder}
             readOnly={false}
             value={values.name}
           />
@@ -210,10 +206,10 @@ export function ContactForm() {
             autoComplete="email"
             disabled={isSubmitting}
             error={errors.email}
-            label="Email"
+            label={m.common.email}
             name="contact-email"
             onChange={handleChange("email")}
-            placeholder="you@example.com"
+            placeholder={m.contact.emailPlaceholder}
             readOnly={false}
             type="email"
             value={values.email}
@@ -225,7 +221,7 @@ export function ContactForm() {
             className="text-[0.8125rem] font-semibold text-(--secondary)"
             htmlFor="contact-message"
           >
-            Message
+            {m.contact.message}
           </FieldLabel>
           <Textarea
             aria-describedby="contact-message-description"
@@ -235,7 +231,7 @@ export function ContactForm() {
             id="contact-message"
             name="contact-message"
             onChange={handleChange("message")}
-            placeholder="Tell us what you need, and include any account email, sender name, document title, or link that helps us identify the request."
+            placeholder={m.contact.messagePlaceholder}
             value={values.message}
           />
           {errors.message ? (
@@ -250,7 +246,7 @@ export function ContactForm() {
 
         <div className="flex pt-1 sm:justify-end">
           <ShellButton loading={isSubmitting} type="submit">
-            {isSubmitting ? "Sending..." : "Send message"}
+            {isSubmitting ? m.common.sending : m.contact.send}
           </ShellButton>
         </div>
       </form>

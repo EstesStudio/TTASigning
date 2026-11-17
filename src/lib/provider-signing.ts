@@ -117,10 +117,7 @@ function returnUrlFor(env: EnvSource): string {
   const appUrl = resolveAppUrl(env);
 
   if (!appUrl) {
-    throw new SigningMutationError(
-      "Signing with a provider needs the install's public address (APP_URL).",
-      503,
-    );
+    throw new SigningMutationError((m) => m.signing.providerNeedsAppUrl, 503);
   }
 
   return new URL(PROVIDER_RETURN_PATH, appUrl).toString();
@@ -164,10 +161,7 @@ export async function startProviderSigning(
   );
 
   if (!provider) {
-    throw new SigningMutationError(
-      "The signing provider this document was sent with is not set up any more. Ask the sender to send it again.",
-      503,
-    );
+    throw new SigningMutationError((m) => m.signing.providerNotSetUp, 503);
   }
 
   const returnUrl = returnUrlFor(env);
@@ -178,7 +172,7 @@ export async function startProviderSigning(
 
     if (sha256Hex(base) !== context.envelope.revisionSha256) {
       throw new SigningMutationError(
-        "The signed document stored for this envelope has changed. Ask the sender for help.",
+        (m) => m.signing.storedSignedDocumentChanged,
         500,
       );
     }
@@ -189,7 +183,7 @@ export async function startProviderSigning(
 
     if (sha256Hex(source) !== context.envelope.sourcePdfHash) {
       throw new SigningMutationError(
-        "The stored document no longer matches the one that was sent for signing.",
+        (m) => m.signing.storedDocumentMismatch,
         500,
       );
     }
@@ -241,7 +235,7 @@ export async function startProviderSigning(
     await storageService.deleteObject(revisionKey).catch(() => undefined);
     console.error(`[signing] ${provider.name} refused to start:`, error);
     throw new SigningMutationError(
-      `${provider.name} could not start the signature. Try again in a moment.`,
+      (m) => m.signing.providerCouldNotStart(provider.name),
       502,
     );
   }

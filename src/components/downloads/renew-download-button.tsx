@@ -3,8 +3,10 @@
 import { useState } from "react";
 
 import { ShellButton } from "@/components/shared/form-shell";
+import { useEnvelopeMessages } from "@/lib/i18n/use-envelope-messages";
 
 export function RenewDownloadButton({ token }: { token: string }) {
+  const { common, download: messages } = useEnvelopeMessages();
   const [state, setState] = useState<
     | { kind: "idle" }
     | { kind: "sending" }
@@ -28,7 +30,7 @@ export function RenewDownloadButton({ token }: { token: string }) {
       if (!response.ok || !payload?.maskedEmail) {
         setState({
           kind: "error",
-          message: payload?.error ?? "New links could not be sent right now.",
+          message: payload?.error ?? messages.couldNotSend,
         });
         return;
       }
@@ -37,7 +39,7 @@ export function RenewDownloadButton({ token }: { token: string }) {
     } catch {
       setState({
         kind: "error",
-        message: "New links could not be sent right now.",
+        message: messages.couldNotSend,
       });
     }
   }
@@ -46,13 +48,11 @@ export function RenewDownloadButton({ token }: { token: string }) {
     <div className="space-y-4">
       {state.kind === "sent" ? (
         <p role="status" className="notice notice-success">
-          New links are on their way to {state.maskedEmail}.
+          {messages.sent(state.maskedEmail)}
         </p>
       ) : (
         <ShellButton loading={state.kind === "sending"} onClick={handleClick}>
-          {state.kind === "sending"
-            ? "Sending..."
-            : "Email me new download links"}
+          {state.kind === "sending" ? common.sending : messages.button}
         </ShellButton>
       )}
       {state.kind === "error" ? (

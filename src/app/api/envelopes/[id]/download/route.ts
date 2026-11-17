@@ -11,6 +11,7 @@ import {
 import { downloadRequestSchema } from "@/lib/schemas/envelope";
 import { logRouteError } from "@/lib/security/logging";
 import { getClientIpAddress, getRequestPathname } from "@/lib/security/request";
+import { localize } from "@/lib/i18n/server-locale";
 
 type EnvelopeDownloadRouteContext = {
   params: Promise<{
@@ -56,14 +57,18 @@ export async function GET(
       const issue = error.issues[0];
 
       return NextResponse.json(
-        { error: issue?.message ?? "Invalid download request." },
+        {
+          error: await localize(
+            issue?.message ?? ((m) => m.envelope.api.invalidDownloadRequest),
+          ),
+        },
         { status: 400 },
       );
     }
 
     if (error instanceof DownloadAccessError) {
       return NextResponse.json(
-        { error: error.message },
+        { error: await localize(error) },
         {
           headers: {
             "cache-control": "private, no-store",
@@ -82,7 +87,7 @@ export async function GET(
     });
 
     return NextResponse.json(
-      { error: "Unable to start this download." },
+      { error: await localize((m) => m.envelope.api.unableToStartDownload) },
       {
         headers: {
           "cache-control": "private, no-store",

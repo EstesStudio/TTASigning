@@ -1,6 +1,12 @@
+"use client";
+
+import { useEnvelopeMessages } from "@/lib/i18n/use-envelope-messages";
+
 export default function AppLoading() {
+  const messages = useEnvelopeMessages().pages;
+
   return (
-    <div aria-label="Loading page" className="space-y-5">
+    <div aria-label={messages.loading} className="space-y-5">
       <section className="panel px-6 py-7 sm:px-8">
         <div className="space-y-3">
           <div className="h-9 w-56 animate-pulse rounded-full bg-[#eeeff4]" />

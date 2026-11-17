@@ -26,6 +26,8 @@ import {
   type StorageService,
 } from "@/lib/services/storage";
 import { isPendingUploadKey } from "@/lib/services/storage-keys";
+import { localize } from "@/lib/i18n/server-locale";
+import { type UserMessage } from "@/lib/i18n/server-messages";
 
 export async function POST(request: Request) {
   const sessionResult = await requireVerifiedSenderSession(request);
@@ -79,7 +81,10 @@ export async function POST(request: Request) {
       error instanceof DocumentImportError ||
       error instanceof PendingUploadError
     ) {
-      return NextResponse.json({ error: error.message }, { status: 400 });
+      return NextResponse.json(
+        { error: await localize(error) },
+        { status: 400 },
+      );
     }
 
     logRouteError(error, {
@@ -91,7 +96,7 @@ export async function POST(request: Request) {
     });
 
     return NextResponse.json(
-      { error: "Unable to create the draft envelope." },
+      { error: await localize((m) => m.envelope.api.unableToCreateDraft) },
       { status: 500 },
     );
   } finally {
@@ -111,8 +116,10 @@ type DraftRequest = {
   title: string;
 };
 
-function invalidRequest(message = "Invalid envelope request.") {
-  return NextResponse.json({ error: message }, { status: 400 });
+async function invalidRequest(
+  message: UserMessage = (m) => m.envelope.api.invalidEnvelopeRequest,
+) {
+  return NextResponse.json({ error: await localize(message) }, { status: 400 });
 }
 
 // The PDF arrives in the request itself. Used with local storage; on Vercel
@@ -129,7 +136,7 @@ async function readFormRequest(
   }
 
   if (!(uploadedFile instanceof File)) {
-    return invalidRequest("A PDF file is required.");
+    return invalidRequest((m) => m.envelope.api.pdfRequired);
   }
 
   return {
@@ -157,7 +164,7 @@ async function readDirectUploadRequest(
   userId: string,
 ): Promise<DraftRequest | Response> {
   if (!supportsDirectUploads()) {
-    return invalidRequest("Direct uploads are not available on this install.");
+    return invalidRequest((m) => m.upload.directUploadsUnavailable);
   }
 
   const parsedRequest = directUploadRequestSchema.safeParse(
@@ -177,7 +184,7 @@ async function readDirectUploadRequest(
   // Checked here as well as on read, so that nothing outside the user's
   // own pending folder can ever be handed to cleanUp.
   if (!isPendingUploadKey(uploadKey, userId)) {
-    return invalidRequest("Invalid upload reference.");
+    return invalidRequest((m) => m.upload.invalidReference);
   }
 
   // Created on first use, inside the caller's error handling.

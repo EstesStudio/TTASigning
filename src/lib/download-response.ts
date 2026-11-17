@@ -50,7 +50,10 @@ export async function createDownloadResponse(
     return new Response(object.stream, { headers, status: 200 });
   } catch (error) {
     if (error instanceof StorageObjectNotFoundError) {
-      throw new DownloadAccessError("This file is no longer available.", 404);
+      throw new DownloadAccessError(
+        (m) => m.download.fileNoLongerAvailable,
+        404,
+      );
     }
 
     throw error;

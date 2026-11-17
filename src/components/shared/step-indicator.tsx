@@ -1,4 +1,8 @@
+"use client";
+
 import { CheckIcon } from "lucide-react";
+
+import { useAppMessages } from "@/lib/i18n/use-app-messages";
 
 type StepIndicatorProps = {
   current: number;
@@ -6,9 +10,11 @@ type StepIndicatorProps = {
 };
 
 export function StepIndicator({ current, steps }: StepIndicatorProps) {
+  const m = useAppMessages();
+
   return (
     <nav
-      aria-label="Progress"
+      aria-label={m.stepIndicator.label}
       className="panel px-3 py-3 sm:px-4"
       data-animate="enter"
       data-animate-delay="1"

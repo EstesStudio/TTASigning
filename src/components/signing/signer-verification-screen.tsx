@@ -6,25 +6,8 @@ import { useState, type FormEvent } from "react";
 import { Brand } from "@/components/layout/brand";
 import { PublicLegalFooter } from "@/components/layout/public-legal-links";
 import { FieldShell, ShellButton } from "@/components/shared/form-shell";
+import { useSigningMessages } from "@/lib/i18n/use-signing-messages";
 import type { SigningVerificationState } from "@/lib/schemas/signing";
-
-type Method = SigningVerificationState["required"][number];
-
-const METHOD_COPY: Record<Method, { helper: string; label: string }> = {
-  access_code: {
-    helper: "The sender gave you this code separately, for example by phone.",
-    label: "Access code",
-  },
-  account: {
-    helper:
-      "This document is signed with your own account here. Enter the password you sign in with.",
-    label: "Password",
-  },
-  email_code: {
-    helper: "We email a 6-digit code to the address this document was sent to.",
-    label: "Code from your email",
-  },
-};
 
 export function SignerVerificationScreen({
   state,
@@ -33,13 +16,15 @@ export function SignerVerificationScreen({
   state: SigningVerificationState;
   token: string;
 }) {
+  const messages = useSigningMessages();
+  const m = messages.verification;
   const method = state.pending[0]!;
   const [code, setCode] = useState("");
   const [email, setEmail] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(
     state.emailCodeSentAt && method === "email_code"
-      ? `A code was sent to ${state.maskedEmail}.`
+      ? m.codeSent(state.maskedEmail)
       : null,
   );
   const [isChecking, setIsChecking] = useState(false);
@@ -60,15 +45,13 @@ export function SignerVerificationScreen({
       } | null;
 
       if (!response.ok) {
-        setError(payload?.error ?? "The code could not be sent right now.");
+        setError(payload?.error ?? m.sendFailed);
         return;
       }
 
-      setNotice(
-        `A code was sent to ${payload?.maskedEmail ?? state.maskedEmail}.`,
-      );
+      setNotice(m.codeSent(payload?.maskedEmail ?? state.maskedEmail));
     } catch {
-      setError("The code could not be sent right now.");
+      setError(m.sendFailed);
     } finally {
       setIsSending(false);
     }
@@ -94,7 +77,7 @@ export function SignerVerificationScreen({
       } | null;
 
       if (!response.ok) {
-        setError(payload?.error ?? "The code could not be checked right now.");
+        setError(payload?.error ?? m.checkFailed);
         return;
       }
 
@@ -102,13 +85,13 @@ export function SignerVerificationScreen({
       // document.
       window.location.reload();
     } catch {
-      setError("The code could not be checked right now.");
+      setError(m.checkFailed);
     } finally {
       setIsChecking(false);
     }
   }
 
-  const copy = METHOD_COPY[method];
+  const copy = m.methods[method];
   const step = state.required.indexOf(method) + 1;
 
   return (
@@ -130,21 +113,20 @@ export function SignerVerificationScreen({
             <ShieldCheckIcon className="size-6" strokeWidth={2.2} />
           </span>
           <h1 className="mt-6 text-[clamp(1.625rem,4vw,2rem)] font-extrabold leading-tight tracking-[-0.03em] text-(--fg)">
-            Confirm it&apos;s you
+            {m.heading}
           </h1>
           <p className="mt-3 text-base leading-7 text-(--secondary)">
-            {state.senderName} asked for a check before you open &ldquo;
-            {state.envelopeTitle}&rdquo;.
+            {m.intro(state.senderName, state.envelopeTitle)}
             {state.required.length > 1
-              ? ` Step ${String(step)} of ${String(state.required.length)}.`
+              ? m.step(step, state.required.length)
               : ""}
           </p>
           <form className="mt-8 grid gap-5" onSubmit={handleSubmit}>
             {method === "account" ? (
               <FieldShell
                 autoComplete="username"
-                helper={`The address this document was sent to (${state.maskedEmail}).`}
-                label="Email address"
+                helper={m.emailHelper(state.maskedEmail)}
+                label={m.emailLabel}
                 name="signer-email"
                 onChange={(event) => setEmail(event.target.value)}
                 readOnly={false}
@@ -183,7 +165,7 @@ export function SignerVerificationScreen({
                 loading={isChecking}
                 type="submit"
               >
-                Continue
+                {m.continue}
               </ShellButton>
               {method === "email_code" ? (
                 <ShellButton
@@ -191,14 +173,14 @@ export function SignerVerificationScreen({
                   onClick={sendCode}
                   variant="secondary"
                 >
-                  {notice ? "Send a new code" : "Email me a code"}
+                  {notice ? m.sendNewCode : m.emailMeCode}
                 </ShellButton>
               ) : null}
             </div>
           </form>
         </section>
       </main>
-      <PublicLegalFooter />
+      <PublicLegalFooter labels={messages.footer} />
     </div>
   );
 }

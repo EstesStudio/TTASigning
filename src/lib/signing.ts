@@ -70,6 +70,12 @@ import {
   storeRecipientEnvelopeCertificatePdf,
 } from "./services/pdf-finalize.ts";
 import { buildSigningInvitationEmail } from "./services/signing-invitation-email.ts";
+import { emailMessages } from "./i18n/email-messages.ts";
+import {
+  inEnglish,
+  type ServerMessages,
+  type UserMessage,
+} from "./i18n/server-messages.ts";
 import {
   issueSigningLink,
   type IssuedSigningLink,
@@ -98,8 +104,8 @@ import {
 import { describeEntryProblem, judgeRadioGroups } from "./field-choices.ts";
 import {
   buildElectronicRecordsDisclosure,
-  CONSENT_STATEMENT,
-  ELECTRONIC_RECORDS_DISCLOSURE_VERSION,
+  consentStatement,
+  disclosureVersion,
 } from "./electronic-records-disclosure.ts";
 import {
   checkAccessCode,
@@ -278,31 +284,34 @@ const signingUnavailableStatusCodeMap: Record<
 export class SigningAccessError extends Error {
   readonly state: SigningUnavailableResponse["state"];
   readonly statusCode: number;
+  readonly userMessage: UserMessage;
 
   constructor(
     state: SigningUnavailableResponse["state"],
-    message = getSigningUnavailableMessage(state),
+    message: UserMessage = (m) => getSigningUnavailableMessage(m, state),
   ) {
-    super(message);
+    super(inEnglish(message));
     this.name = "SigningAccessError";
+    this.userMessage = message;
     this.state = state;
     this.statusCode = signingUnavailableStatusCodeMap[state];
   }
 }
 
 function getSigningUnavailableMessage(
+  m: ServerMessages,
   state: SigningUnavailableResponse["state"],
 ): string {
   switch (state) {
     case "already-signed":
-      return "You've already signed.";
+      return m.signing.alreadySigned;
     case "declined":
-      return "This envelope has been declined.";
+      return m.signing.envelopeDeclined;
     case "voided":
-      return "This envelope has been voided.";
+      return m.signing.envelopeVoided;
     case "expired":
     default:
-      return "This link has expired.";
+      return m.signing.linkExpired;
   }
 }
 
@@ -346,7 +355,7 @@ function getEnvelopeUrl(envelopeId: string): string {
 const RECIPIENT_DOWNLOAD_LINK_TTL_DAYS =
   RECIPIENT_DOWNLOAD_LINK_TTL_SECONDS / (24 * 60 * 60);
 
-function buildCompletionSenderEmail(input: {
+export function buildCompletionSenderEmail(input: {
   branding: Branding;
   envelopeId: string;
   envelopeTitle: string;
@@ -354,21 +363,29 @@ function buildCompletionSenderEmail(input: {
   senderName: string;
 }) {
   const completedUrl = getEnvelopeUrl(input.envelopeId);
-  const subject = `"${input.envelopeTitle}" is fully signed`;
+  const { locale, productName } = input.branding;
+  const m = emailMessages(locale);
+  const subject = m.completion.subject(m.quote(input.envelopeTitle));
   const textBody = [
-    `Hi ${input.senderName},`,
+    m.hi(input.senderName),
     "",
-    `"${input.envelopeTitle}" has been fully signed in ${input.branding.productName}.`,
-    "The final signed PDF and certificate are ready in your dashboard.",
+    m.completion.senderIntro({
+      product: productName,
+      title: m.quote(input.envelopeTitle),
+    }),
+    m.completion.senderFilesReady,
     "",
-    "Review the completed envelope:",
+    m.completion.senderReviewHere,
     completedUrl,
   ].join("\n");
   const htmlBody = [
-    `<p>Hi ${escapeHtml(input.senderName)},</p>`,
-    `<p>&ldquo;${escapeHtml(input.envelopeTitle)}&rdquo; has been fully signed in ${escapeHtml(input.branding.productName)}.</p>`,
-    "<p>The final signed PDF and certificate are ready in your dashboard.</p>",
-    `<p><a href="${escapeHtml(completedUrl)}">Review the completed envelope</a></p>`,
+    `<p>${m.hi(escapeHtml(input.senderName))}</p>`,
+    `<p>${m.completion.senderIntro({
+      product: escapeHtml(productName),
+      title: m.quoteHtml(escapeHtml(input.envelopeTitle)),
+    })}</p>`,
+    `<p>${m.completion.senderFilesReady}</p>`,
+    `<p><a href="${escapeHtml(completedUrl)}">${m.completion.senderReviewLink}</a></p>`,
   ].join("");
   const legalFooter = withUserEmailLegalFooter(
     {
@@ -398,26 +415,41 @@ function buildDeclineNotificationEmail(input: {
   signerName: string;
 }) {
   const envelopeUrl = getEnvelopeUrl(input.envelopeId);
-  const subject = `"${input.envelopeTitle}" was declined by ${input.signerName}`;
+  const { locale, productName } = input.branding;
+  const m = emailMessages(locale);
+  const subject = m.decline.subject({
+    signer: input.signerName,
+    title: m.quote(input.envelopeTitle),
+  });
   const reasonLine = input.declineReason?.trim()
-    ? `Reason provided: ${input.declineReason.trim()}`
+    ? `${m.decline.reasonLabel} ${input.declineReason.trim()}`
     : null;
   const textBody = [
-    `Hi ${input.senderName},`,
+    m.hi(input.senderName),
     "",
-    `${input.signerName} (${input.signerEmail}) declined "${input.envelopeTitle}" in ${input.branding.productName}.`,
+    m.decline.intro({
+      product: productName,
+      signer: input.signerName,
+      signerEmail: input.signerEmail,
+      title: m.quote(input.envelopeTitle),
+    }),
     ...(reasonLine ? ["", reasonLine] : []),
     "",
-    "Review the envelope:",
+    m.decline.reviewHere,
     envelopeUrl,
   ].join("\n");
   const htmlBody = [
-    `<p>Hi ${escapeHtml(input.senderName)},</p>`,
-    `<p>${escapeHtml(input.signerName)} (${escapeHtml(input.signerEmail)}) declined &ldquo;${escapeHtml(input.envelopeTitle)}&rdquo; in ${escapeHtml(input.branding.productName)}.</p>`,
+    `<p>${m.hi(escapeHtml(input.senderName))}</p>`,
+    `<p>${m.decline.intro({
+      product: escapeHtml(productName),
+      signer: escapeHtml(input.signerName),
+      signerEmail: escapeHtml(input.signerEmail),
+      title: m.quoteHtml(escapeHtml(input.envelopeTitle)),
+    })}</p>`,
     reasonLine
-      ? `<p><strong>Reason provided:</strong> ${escapeHtml(input.declineReason!.trim())}</p>`
+      ? `<p><strong>${m.decline.reasonLabel}</strong> ${escapeHtml(input.declineReason!.trim())}</p>`
       : "",
-    `<p><a href="${escapeHtml(envelopeUrl)}">Review the envelope</a></p>`,
+    `<p><a href="${escapeHtml(envelopeUrl)}">${m.decline.reviewLink}</a></p>`,
   ].join("");
   const legalFooter = withUserEmailLegalFooter(
     {
@@ -436,7 +468,7 @@ function buildDeclineNotificationEmail(input: {
   };
 }
 
-function buildCompletionSignerEmail(input: {
+export function buildCompletionSignerEmail(input: {
   attached: boolean;
   branding: Branding;
   /** True for someone who gets a copy without having signed. */
@@ -449,33 +481,37 @@ function buildCompletionSignerEmail(input: {
   signerName: string;
   signedDownloadUrl: string;
 }) {
-  const subject = `"${input.envelopeTitle}" is fully signed`;
+  const { locale, productName } = input.branding;
+  const m = emailMessages(locale);
+  const subject = m.completion.subject(m.quote(input.envelopeTitle));
   const textBody = [
-    `Hi ${input.signerName},`,
+    m.hi(input.signerName),
     "",
-    `"${input.envelopeTitle}" from ${input.senderName} has been fully signed in ${input.branding.productName}.`,
-    ...(input.copyOnly
-      ? [`${input.senderName} asked for you to receive a copy.`]
-      : []),
-    input.attached
-      ? "The completed document and its certificate are attached. Keep them: they are your copy of the agreement."
-      : "The completed document and its certificate are ready.",
+    m.completion.signerIntro({
+      product: productName,
+      sender: input.senderName,
+      title: m.quote(input.envelopeTitle),
+    }),
+    ...(input.copyOnly ? [m.completion.copyOnly(input.senderName)] : []),
+    input.attached ? m.completion.attached : m.completion.ready,
     "",
-    `Download links (available for ${RECIPIENT_DOWNLOAD_LINK_TTL_DAYS} days; an expired link offers to send a new one):`,
-    `Signed PDF: ${input.signedDownloadUrl}`,
-    `Redacted certificate: ${input.evidenceDownloadUrl}`,
+    m.completion.downloadLinksText(RECIPIENT_DOWNLOAD_LINK_TTL_DAYS),
+    m.downloads.signedPdf(input.signedDownloadUrl),
+    m.completion.redactedCertificate(input.evidenceDownloadUrl),
   ].join("\n");
   const htmlBody = [
-    `<p>Hi ${escapeHtml(input.signerName)},</p>`,
-    `<p>&ldquo;${escapeHtml(input.envelopeTitle)}&rdquo; from ${escapeHtml(input.senderName)} has been fully signed in ${escapeHtml(input.branding.productName)}.</p>`,
+    `<p>${m.hi(escapeHtml(input.signerName))}</p>`,
+    `<p>${m.completion.signerIntro({
+      product: escapeHtml(productName),
+      sender: escapeHtml(input.senderName),
+      title: m.quoteHtml(escapeHtml(input.envelopeTitle)),
+    })}</p>`,
     input.copyOnly
-      ? `<p>${escapeHtml(input.senderName)} asked for you to receive a copy.</p>`
+      ? `<p>${m.completion.copyOnly(escapeHtml(input.senderName))}</p>`
       : "",
-    input.attached
-      ? "<p>The completed document and its certificate are attached. Keep them: they are your copy of the agreement.</p>"
-      : "<p>The completed document and its certificate are ready.</p>",
-    `<p>Download links are available for ${RECIPIENT_DOWNLOAD_LINK_TTL_DAYS} days. An expired link offers to send a new one.</p>`,
-    `<p><a href="${escapeHtml(input.signedDownloadUrl)}">Download signed PDF</a><br /><a href="${escapeHtml(input.evidenceDownloadUrl)}">Download redacted certificate</a></p>`,
+    `<p>${input.attached ? m.completion.attached : m.completion.ready}</p>`,
+    `<p>${m.completion.downloadLinksHtml(RECIPIENT_DOWNLOAD_LINK_TTL_DAYS)}</p>`,
+    `<p><a href="${escapeHtml(input.signedDownloadUrl)}">${m.downloads.downloadSignedPdf}</a><br /><a href="${escapeHtml(input.evidenceDownloadUrl)}">${m.completion.downloadRedactedCertificate}</a></p>`,
   ].join("");
   const legalFooter = withUserEmailLegalFooter(
     {
@@ -760,10 +796,7 @@ async function lockSentEnvelope(
 
   if (locked.rowCount !== 1) {
     // Voided, declined or deleted since the page was opened.
-    throw new SigningMutationError(
-      "This signing link is no longer active.",
-      409,
-    );
+    throw new SigningMutationError((m) => m.signing.linkNoLongerActive, 409);
   }
 }
 
@@ -800,10 +833,7 @@ async function lockSignerForPresentedToken(
   );
 
   if (!locked) {
-    throw new SigningMutationError(
-      "This signing link is no longer active.",
-      409,
-    );
+    throw new SigningMutationError((m) => m.signing.linkNoLongerActive, 409);
   }
 }
 
@@ -884,10 +914,7 @@ function parsePngDataUrl(dataUrl: string): Uint8Array {
     .match(/^data:image\/png;base64,([a-z0-9+/=\s]+)$/i);
 
   if (!match?.[1]) {
-    throw new SigningMutationError(
-      "Drawn signatures must be submitted as PNG images.",
-      400,
-    );
+    throw new SigningMutationError((m) => m.signing.drawnSignatureNotPng, 400);
   }
 
   const base64Body = match[1].replace(/\s+/g, "");
@@ -901,7 +928,7 @@ function parsePngDataUrl(dataUrl: string): Uint8Array {
 
   if (decodedByteLength > MAX_DRAWN_SIGNATURE_BYTES) {
     throw new SigningMutationError(
-      "Drawn signature image data is too large.",
+      (m) => m.signing.drawnSignatureTooLarge,
       400,
     );
   }
@@ -909,12 +936,12 @@ function parsePngDataUrl(dataUrl: string): Uint8Array {
   const imageBody = Buffer.from(base64Body, "base64");
 
   if (imageBody.byteLength === 0) {
-    throw new SigningMutationError("Drawn signature image data is empty.", 400);
+    throw new SigningMutationError((m) => m.signing.drawnSignatureEmpty, 400);
   }
 
   if (imageBody.byteLength > MAX_DRAWN_SIGNATURE_BYTES) {
     throw new SigningMutationError(
-      "Drawn signature image data is too large.",
+      (m) => m.signing.drawnSignatureTooLarge,
       400,
     );
   }
@@ -965,15 +992,12 @@ function assertRadioGroupsAnswered(
   );
 
   if (verdict === "too_many") {
-    throw new SigningMutationError(
-      "Choose only one option in each group of radio buttons.",
-      400,
-    );
+    throw new SigningMutationError((m) => m.signing.oneRadioPerGroup, 400);
   }
 
   if (verdict === "missing") {
     throw new SigningMutationError(
-      "Complete all required fields before finishing.",
+      (m) => m.signing.completeRequiredFields,
       400,
     );
   }
@@ -1138,22 +1162,23 @@ async function sendCompletionEmails(input: {
   const fileNameStem =
     sanitizeFileNameSegment(input.envelopeTitle) ||
     `envelope-${input.envelopeId}`;
+  const branding = await getBranding();
+  const fileNames = emailMessages(branding.locale).completion;
   const attachments: EmailAttachment[] = [
     {
       content: input.attachments.signedPdf,
       contentType: "application/pdf",
-      filename: `${fileNameStem} - signed.pdf`,
+      filename: `${fileNameStem} - ${fileNames.signedFileSuffix}.pdf`,
     },
     {
       content: input.attachments.recipientCertificate,
       contentType: "application/pdf",
-      filename: `${fileNameStem} - certificate.pdf`,
+      filename: `${fileNameStem} - ${fileNames.certificateFileSuffix}.pdf`,
     },
   ];
   const attach = fitsAsAttachments(attachments);
   const senderName = normalizeSenderName(input.sender);
   const issuedAt = Math.floor(Date.now() / 1000);
-  const branding = await getBranding();
   // Signers first, then the people who only get a copy: the place in this
   // list is part of each message's idempotency key.
   const recipients = [
@@ -1167,7 +1192,7 @@ async function sendCompletionEmails(input: {
     recipients.map(async (signer) => {
       if (!signer.id) {
         throw new SigningMutationError(
-          "Completed signer records must include an id.",
+          (m) => m.signing.completedSignerWithoutId,
           500,
         );
       }
@@ -1265,10 +1290,12 @@ async function sendCompletionEmails(input: {
 
 export class SigningMutationError extends Error {
   readonly statusCode: number;
+  readonly userMessage: UserMessage;
 
-  constructor(message: string, statusCode: number) {
-    super(message);
+  constructor(message: UserMessage, statusCode: number) {
+    super(inEnglish(message));
     this.name = "SigningMutationError";
+    this.userMessage = message;
     this.statusCode = statusCode;
   }
 }
@@ -1277,9 +1304,10 @@ export class SigningMutationError extends Error {
 export class SigningVerificationRequiredError extends Error {
   readonly details: SigningVerificationState;
   readonly statusCode = 401;
+  readonly userMessage: UserMessage = (m) => m.signing.confirmIdentity;
 
   constructor(details: SigningVerificationState) {
-    super("Confirm your identity to open this document.");
+    super(inEnglish((m) => m.signing.confirmIdentity));
     this.name = "SigningVerificationRequiredError";
     this.details = details;
   }
@@ -1332,7 +1360,7 @@ export async function sendSignerEmailCode(
   const now = Math.floor(Date.now() / 1000);
 
   if (!state.requireEmailCode) {
-    throw new SigningMutationError("No code is needed for this link.", 400);
+    throw new SigningMutationError((m) => m.signing.noCodeNeeded, 400);
   }
 
   if (
@@ -1389,10 +1417,7 @@ export async function sendSignerEmailCode(
     );
 
     if (!stillThisLink) {
-      throw new SigningMutationError(
-        "This signing link is no longer active.",
-        409,
-      );
+      throw new SigningMutationError((m) => m.signing.linkNoLongerActive, 409);
     }
 
     const current = await getSignerCheckState(context.signer.id!, database);
@@ -1404,20 +1429,27 @@ export async function sendSignerEmailCode(
   }
 
   const minutes = Math.round(EMAIL_CODE_TTL_SECONDS / 60);
+  const m = emailMessages(branding.locale);
   const textBody = [
-    `Hi ${context.signer.name},`,
+    m.hi(context.signer.name),
     "",
-    `Your code to open "${context.envelope.title}" in ${branding.productName} is:`,
+    m.signingCode.intro({
+      product: branding.productName,
+      title: m.quote(context.envelope.title),
+    }),
     "",
     issued.code,
     "",
-    `It works for ${String(minutes)} minutes. If you did not just open a signing link, ignore this email.`,
+    m.signingCode.validity(minutes),
   ].join("\n");
   const htmlBody = [
-    `<p>Hi ${escapeHtml(context.signer.name)},</p>`,
-    `<p>Your code to open &ldquo;${escapeHtml(context.envelope.title)}&rdquo; in ${escapeHtml(branding.productName)} is:</p>`,
+    `<p>${m.hi(escapeHtml(context.signer.name))}</p>`,
+    `<p>${m.signingCode.intro({
+      product: escapeHtml(branding.productName),
+      title: m.quoteHtml(escapeHtml(context.envelope.title)),
+    })}</p>`,
     `<p style="font-size:24px;font-weight:700;letter-spacing:4px">${issued.code}</p>`,
-    `<p>It works for ${String(minutes)} minutes. If you did not just open a signing link, ignore this email.</p>`,
+    `<p>${m.signingCode.validity(minutes)}</p>`,
   ].join("");
   const body = withUserEmailLegalFooter({ htmlBody, textBody }, branding);
   let delivery: Awaited<ReturnType<EmailService["send"]>>;
@@ -1425,7 +1457,7 @@ export async function sendSignerEmailCode(
   try {
     delivery = await emailService.send({
       htmlBody: body.htmlBody,
-      subject: `Your code for "${context.envelope.title}"`,
+      subject: m.signingCode.subject(m.quote(context.envelope.title)),
       template: "signing_code",
       textBody: body.textBody,
       to: context.signer.email,
@@ -1472,16 +1504,16 @@ function describeCredentialFailure(result: {
   attemptsLeft: number;
   identityNotConfirmed?: true;
   locked: boolean;
-}): string {
+}): UserMessage {
   if (result.identityNotConfirmed) {
-    return "Your account cannot sign this document right now: an administrator has to confirm your identity, and your email address must be confirmed. Ask the sender or an administrator.";
+    return (m) => m.signing.identityNotConfirmed;
   }
 
   if (result.locked) {
-    return `This account is locked for signing after ${MAX_SIGNING_PASSWORD_ATTEMPTS} wrong passwords. Ask an administrator to unlock it.`;
+    return (m) => m.signing.accountLocked(MAX_SIGNING_PASSWORD_ATTEMPTS);
   }
 
-  return `That email address or password is not right. ${result.attemptsLeft} ${result.attemptsLeft === 1 ? "try is" : "tries are"} left before the account is locked for signing.`;
+  return (m) => m.signing.wrongCredentials(result.attemptsLeft);
 }
 
 export async function verifySignerCheck(
@@ -1502,7 +1534,7 @@ export async function verifySignerCheck(
   let passed = false;
 
   if (!requiredSignerChecks(state).includes(parsed.method)) {
-    throw new SigningMutationError("This check is not needed.", 400);
+    throw new SigningMutationError((m) => m.signing.checkNotNeeded, 400);
   }
 
   if (parsed.method === "account") {
@@ -1563,10 +1595,7 @@ export async function verifySignerCheck(
     const current = attempt.rows[0];
 
     if (!current) {
-      throw new SigningMutationError(
-        "That code has expired. Send a new one.",
-        410,
-      );
+      throw new SigningMutationError((m) => m.signing.codeExpired, 410);
     }
 
     if (checkEmailCode(parsed.code, current.hash)) {
@@ -1607,7 +1636,7 @@ export async function verifySignerCheck(
   );
 
   if (!passed) {
-    throw new SigningMutationError("That code is not right.", 400);
+    throw new SigningMutationError((m) => m.signing.codeWrong, 400);
   }
 
   return [...new Set([...verifiedMethods, parsed.method])];
@@ -1631,11 +1660,13 @@ export async function recordSignerConsent(
     database,
   );
 
-  if (parsed.disclosureVersion !== ELECTRONIC_RECORDS_DISCLOSURE_VERSION) {
-    throw new SigningMutationError(
-      "The disclosure has changed. Reload the page to read the current one.",
-      409,
-    );
+  // The language is read when the agreement is given: the version names
+  // both the words and their language, so an install that changed language
+  // since the page was loaded asks the signer to read the new words.
+  const { locale } = await getBranding();
+
+  if (parsed.disclosureVersion !== disclosureVersion(locale)) {
+    throw new SigningMutationError((m) => m.signing.disclosureChanged, 409);
   }
 
   if (state.consentedAt !== null) {
@@ -1676,7 +1707,7 @@ export async function recordSignerConsent(
 
       if (!current || current.signingTokenHash !== presentedTokenHash) {
         throw new SigningMutationError(
-          "This signing link is no longer active.",
+          (m) => m.signing.linkNoLongerActive,
           409,
         );
       }
@@ -1694,8 +1725,8 @@ export async function recordSignerConsent(
         ipAddress: requestMeta.ipAddress ?? null,
         metadata: {
           ...signerAuditMetadata(context),
-          disclosureVersion: ELECTRONIC_RECORDS_DISCLOSURE_VERSION,
-          statement: CONSENT_STATEMENT,
+          disclosureVersion: disclosureVersion(locale),
+          statement: consentStatement(locale),
         },
         userAgent: requestMeta.userAgent ?? null,
       },
@@ -1872,12 +1903,15 @@ export async function getSigningPayloadForToken(
     consentedAt: checkState.consentedAt,
     currentSignerFields,
     disclosure: {
-      sections: buildElectronicRecordsDisclosure({
-        contactAddress: branding.supportAddress ?? context.sender.email,
-        senderName: normalizeSenderName(context.sender),
-      }),
-      statement: CONSENT_STATEMENT,
-      version: ELECTRONIC_RECORDS_DISCLOSURE_VERSION,
+      sections: buildElectronicRecordsDisclosure(
+        {
+          contactAddress: branding.supportAddress ?? context.sender.email,
+          senderName: normalizeSenderName(context.sender),
+        },
+        branding.locale,
+      ),
+      statement: consentStatement(branding.locale),
+      version: disclosureVersion(branding.locale),
     },
     declineUrl: getSigningDeclineUrl(token),
     documentUrl: getSigningDocumentUrl(token),
@@ -1949,17 +1983,11 @@ async function reauthenticatePart11Signer(
   const meaning = context.signer.signatureMeaning;
 
   if (!state.accountUserId || !meaning) {
-    throw new SigningMutationError(
-      "This document was sent for Part 11 signatures but has no account or meaning for you. Ask the sender to send it again.",
-      409,
-    );
+    throw new SigningMutationError((m) => m.signing.part11NoAccount, 409);
   }
 
   if (!reauthentication) {
-    throw new SigningMutationError(
-      "Enter your email address and password to sign.",
-      400,
-    );
+    throw new SigningMutationError((m) => m.signing.enterCredentials, 400);
   }
 
   const result = await checkSigningCredentials(
@@ -2029,10 +2057,7 @@ async function commitProviderRevision(
   );
 
   if (!current) {
-    throw new SigningMutationError(
-      "The document changed while you were signing. Open your signing link again.",
-      409,
-    );
+    throw new SigningMutationError((m) => m.signing.documentChanged, 409);
   }
 
   await tx.query(
@@ -2054,7 +2079,7 @@ async function commitProviderRevision(
   );
 
   if (session.rowCount !== 1) {
-    throw new SigningMutationError("This signing session has ended.", 409);
+    throw new SigningMutationError((m) => m.signing.sessionEnded, 409);
   }
 
   return current.revisionKey === completion.revision.key
@@ -2093,10 +2118,7 @@ async function assertStillSignersTurn(
   );
 
   if (turn.rowCount !== 1) {
-    throw new SigningMutationError(
-      "This signing link is no longer active.",
-      409,
-    );
+    throw new SigningMutationError((m) => m.signing.linkNoLongerActive, 409);
   }
 }
 
@@ -2114,10 +2136,7 @@ function buildSignerSubmission(
   const currentSignerId = context.signer.id;
 
   if (!currentSignerId) {
-    throw new SigningMutationError(
-      "This signing link is no longer active.",
-      409,
-    );
+    throw new SigningMutationError((m) => m.signing.linkNoLongerActive, 409);
   }
 
   const currentSignerFields = context.fields.filter(
@@ -2128,10 +2147,7 @@ function buildSignerSubmission(
   );
 
   if (currentSignerFields.length === 0) {
-    throw new SigningMutationError(
-      "No signable fields are assigned to this signer.",
-      400,
-    );
+    throw new SigningMutationError((m) => m.signing.noSignableFields, 400);
   }
 
   const currentSignerFieldsById = new Map(
@@ -2147,10 +2163,7 @@ function buildSignerSubmission(
     }
 
     if (relevantSubmissions.has(submission.fieldId)) {
-      throw new SigningMutationError(
-        "Each field can only be submitted once.",
-        400,
-      );
+      throw new SigningMutationError((m) => m.signing.fieldSubmittedTwice, 400);
     }
 
     relevantSubmissions.set(submission.fieldId, submission);
@@ -2286,7 +2299,7 @@ function buildSignerSubmission(
 
   if (missingRequiredField) {
     throw new SigningMutationError(
-      "Complete all required fields before finishing.",
+      (m) => m.signing.completeRequiredFields,
       400,
     );
   }
@@ -2321,16 +2334,10 @@ export async function submitSigningForToken(
   // signer's provider, never by a plain submit, and the other way round.
   if ((context.envelope.signatureLevel ?? "simple") === "simple") {
     if (providerSignature) {
-      throw new SigningMutationError(
-        "This document is not signed through a signing provider.",
-        409,
-      );
+      throw new SigningMutationError((m) => m.signing.notProviderSigned, 409);
     }
   } else if (!providerSignature) {
-    throw new SigningMutationError(
-      "This document is signed with a certificate in your own name. Continue from the signing page.",
-      409,
-    );
+    throw new SigningMutationError((m) => m.signing.ownCertificate, 409);
   }
 
   const signerChecks = await assertSignerChecksPassed(
@@ -2340,10 +2347,7 @@ export async function submitSigningForToken(
   );
 
   if (signerChecks.state.consentedAt === null) {
-    throw new SigningMutationError(
-      "Agree to use electronic records and signatures before signing.",
-      409,
-    );
+    throw new SigningMutationError((m) => m.signing.consentRequired, 409);
   }
 
   const emailService = givenEmailService ?? createEmailService();
@@ -2386,17 +2390,11 @@ export async function submitSigningForToken(
 
     if (nextSigner) {
       if (nextSigner.status !== "pending") {
-        throw new SigningMutationError(
-          "Envelope routing is out of sync for the next signer.",
-          409,
-        );
+        throw new SigningMutationError((m) => m.signing.routingOutOfSync, 409);
       }
 
       if (!nextSignerId) {
-        throw new SigningMutationError(
-          "Envelope routing is out of sync for the next signer.",
-          500,
-        );
+        throw new SigningMutationError((m) => m.signing.routingOutOfSync, 500);
       }
 
       // Only the link itself. When it ends is settled further down, from
@@ -2442,10 +2440,7 @@ export async function submitSigningForToken(
 
     if (nextSigner && nextSignerLink) {
       if (!nextSignerId) {
-        throw new SigningMutationError(
-          "Envelope routing is out of sync for the next signer.",
-          500,
-        );
+        throw new SigningMutationError((m) => m.signing.routingOutOfSync, 500);
       }
 
       // The deadline the next signer is given. The sender can move it while
@@ -2470,7 +2465,7 @@ export async function submitSigningForToken(
         if (!lockedEnvelope) {
           // Voided or declined since the page was opened.
           throw new SigningMutationError(
-            "This signing link is no longer active.",
+            (m) => m.signing.linkNoLongerActive,
             409,
           );
         }
@@ -2522,7 +2517,7 @@ export async function submitSigningForToken(
 
           if (result.rowCount !== 1) {
             throw new SigningMutationError(
-              "Unable to save one or more field values.",
+              (m) => m.signing.unableToSaveFieldValues,
               500,
             );
           }
@@ -2553,7 +2548,7 @@ export async function submitSigningForToken(
 
         if (signedSignerResult.rowCount !== 1) {
           throw new SigningMutationError(
-            "This signing link is no longer active.",
+            (m) => m.signing.linkNoLongerActive,
             409,
           );
         }
@@ -2590,7 +2585,7 @@ export async function submitSigningForToken(
 
         if (!activatedNextSigner) {
           throw new SigningMutationError(
-            "Unable to activate the next signer for this envelope.",
+            (m) => m.signing.unableToActivateNextSigner,
             500,
           );
         }
@@ -2621,7 +2616,7 @@ export async function submitSigningForToken(
 
       if (!nextSignerDelivery) {
         throw new SigningMutationError(
-          "Unable to activate the next signer for this envelope.",
+          (m) => m.signing.unableToActivateNextSigner,
           500,
         );
       }
@@ -2679,7 +2674,7 @@ export async function submitSigningForToken(
 
     if (!sourcePdfHead.exists) {
       throw new SigningMutationError(
-        "The source document for this envelope could not be found.",
+        (m) => m.signing.sourceDocumentMissing,
         500,
       );
     }
@@ -2787,7 +2782,7 @@ export async function submitSigningForToken(
 
           if (result.rowCount !== 1) {
             throw new SigningMutationError(
-              "Unable to save one or more field values.",
+              (m) => m.signing.unableToSaveFieldValues,
               500,
             );
           }
@@ -2818,7 +2813,7 @@ export async function submitSigningForToken(
 
         if (signedSignerResult.rowCount !== 1) {
           throw new SigningMutationError(
-            "This signing link is no longer active.",
+            (m) => m.signing.linkNoLongerActive,
             409,
           );
         }
@@ -2852,7 +2847,7 @@ export async function submitSigningForToken(
 
         if (completedEnvelopeResult.rowCount !== 1) {
           throw new SigningMutationError(
-            "Unable to finalize this completed envelope.",
+            (m) => m.signing.unableToFinalize,
             500,
           );
         }
@@ -2972,10 +2967,7 @@ export async function prepareSignerSubmission(
   const context = await resolveSigningContext(token, { database });
 
   if ((context.envelope.signatureLevel ?? "simple") === "simple") {
-    throw new SigningMutationError(
-      "This document is not signed through a signing provider.",
-      409,
-    );
+    throw new SigningMutationError((m) => m.signing.notProviderSigned, 409);
   }
 
   const signerChecks = await assertSignerChecksPassed(
@@ -2985,10 +2977,7 @@ export async function prepareSignerSubmission(
   );
 
   if (signerChecks.state.consentedAt === null) {
-    throw new SigningMutationError(
-      "Agree to use electronic records and signatures before signing.",
-      409,
-    );
+    throw new SigningMutationError((m) => m.signing.consentRequired, 409);
   }
 
   const { currentSignerId, drawnSignatureUploads, fieldUpdates } =
@@ -3030,10 +3019,7 @@ export async function declineSigningForToken(
   const presentedTokenHash = hashOpaqueToken(token);
 
   if (!currentSignerId) {
-    throw new SigningMutationError(
-      "This signing link is no longer active.",
-      409,
-    );
+    throw new SigningMutationError((m) => m.signing.linkNoLongerActive, 409);
   }
 
   const declinedAt = Math.floor(Date.now() / 1000);
@@ -3043,10 +3029,7 @@ export async function declineSigningForToken(
   );
 
   if (!sourcePdfHead.exists) {
-    throw new SigningMutationError(
-      "The source document for this envelope could not be found.",
-      500,
-    );
+    throw new SigningMutationError((m) => m.signing.sourceDocumentMissing, 500);
   }
 
   const declinedAuditEvent = buildDeclinedAuditEvent({
@@ -3165,7 +3148,7 @@ export async function declineSigningForToken(
 
       if (recipientsChanged) {
         throw new SigningMutationError(
-          "This envelope changed while you were declining. Open your signing link again.",
+          (m) => m.signing.changedWhileDeclining,
           409,
         );
       }
@@ -3197,7 +3180,7 @@ export async function declineSigningForToken(
 
       if (declinedSignerResult.rowCount !== 1) {
         throw new SigningMutationError(
-          "This signing link is no longer active.",
+          (m) => m.signing.linkNoLongerActive,
           409,
         );
       }
@@ -3227,7 +3210,7 @@ export async function declineSigningForToken(
 
       if (declinedEnvelopeResult.rowCount !== 1) {
         throw new SigningMutationError(
-          "This signing link is no longer active.",
+          (m) => m.signing.linkNoLongerActive,
           409,
         );
       }

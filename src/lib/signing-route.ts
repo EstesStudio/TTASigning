@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 
+import { localize } from "./i18n/server-locale.ts";
 import {
   readCookie,
   verifiedMethodsFromCookies,
@@ -19,13 +20,13 @@ export function verifiedMethodsForRequest(
   );
 }
 
-export function verificationRequiredResponse(
+export async function verificationRequiredResponse(
   error: SigningVerificationRequiredError,
 ) {
   return NextResponse.json(
     {
       ...error.details,
-      error: error.message,
+      error: await localize(error),
       state: "verification-required",
     },
     {

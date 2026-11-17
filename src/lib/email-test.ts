@@ -1,4 +1,5 @@
 import { isResendTestSender } from "./services/email-addresses.ts";
+import { emailMessages } from "./i18n/email-messages.ts";
 import {
   createEmailService,
   resolveEmailAddresses,
@@ -33,14 +34,11 @@ export async function sendTestEmail({
   try {
     const branding = await getBranding(env);
     const { productName } = branding;
-    const textBody = [
-      `Hi ${name},`,
-      "",
-      `This is a test message from ${productName}. If you are reading it, email is working.`,
-    ].join("\n");
+    const m = emailMessages(branding.locale);
+    const textBody = [m.hi(name), "", m.testEmail.body(productName)].join("\n");
     const htmlBody = [
-      `<p>Hi ${escapeHtml(name)},</p>`,
-      `<p>This is a test message from ${escapeHtml(productName)}. If you are reading it, email is working.</p>`,
+      `<p>${m.hi(escapeHtml(name))}</p>`,
+      `<p>${m.testEmail.body(escapeHtml(productName))}</p>`,
     ].join("");
     const content = withUserEmailLegalFooter(
       { htmlBody, textBody },
@@ -55,7 +53,7 @@ export async function sendTestEmail({
 
     await (emailService ?? createEmailService({ env })).send({
       htmlBody: content.htmlBody,
-      subject: `Test email from ${productName}`,
+      subject: m.testEmail.subject(productName),
       template: "test_email",
       textBody: content.textBody,
       to,

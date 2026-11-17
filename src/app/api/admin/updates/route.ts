@@ -8,6 +8,7 @@ import {
 } from "@/lib/security/route-controls";
 import { getClientIpAddress, getRequestPathname } from "@/lib/security/request";
 import { checkForUpdate, getUpdateStatus } from "@/lib/software-update";
+import { localize } from "@/lib/i18n/server-locale";
 
 // "Check for updates" in the SignuDoc section of Settings: whether a newer
 // release than the running version has been published. The page itself
@@ -47,7 +48,7 @@ export async function POST(request: Request) {
     });
 
     return NextResponse.json(
-      { error: "Updates could not be checked. Please try again." },
+      { error: await localize((m) => m.admin.updatesNotChecked) },
       { status: 500 },
     );
   }

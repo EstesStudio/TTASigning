@@ -1,17 +1,23 @@
 import { Brand } from "@/components/layout/brand";
 import { PublicLegalFooter } from "@/components/layout/public-legal-links";
-
-const fallbackEnvelopeTitle = "this document";
+import type { Locale } from "@/lib/i18n/locales";
+import { signingMessages } from "@/lib/i18n/signing-messages";
 
 type SigningDoneShellProps = {
   envelopeTitle?: string | null;
+  locale: Locale;
 };
 
-export function SigningDoneShell({ envelopeTitle }: SigningDoneShellProps) {
+export function SigningDoneShell({
+  envelopeTitle,
+  locale,
+}: SigningDoneShellProps) {
+  const messages = signingMessages(locale);
+  const copy = messages.done;
   const resolvedEnvelopeTitle =
     envelopeTitle && envelopeTitle.trim().length > 0
       ? envelopeTitle.trim()
-      : fallbackEnvelopeTitle;
+      : copy.fallbackTitle;
 
   return (
     <div className="flex min-h-screen flex-col">
@@ -47,26 +53,25 @@ export function SigningDoneShell({ envelopeTitle }: SigningDoneShellProps) {
           </div>
 
           <h1 className="mt-7 text-[clamp(1.875rem,4.5vw,2.375rem)] font-extrabold tracking-[-0.035em] text-(--fg)">
-            You&apos;re all done.
+            {copy.heading}
           </h1>
           <p className="mx-auto mt-4 max-w-[480px] text-base leading-7 text-(--secondary)">
-            Your signature has been recorded for{" "}
+            {copy.recordedPrefix}{" "}
             <span className="font-bold text-(--fg)">
-              &quot;{resolvedEnvelopeTitle}&quot;
+              {copy.quotedTitle(resolvedEnvelopeTitle)}
             </span>
-            .
+            {copy.recordedSuffix}
           </p>
           <p className="mx-auto mt-3 max-w-[480px] text-base leading-7 text-(--secondary)">
-            You&apos;ll receive an email with the signed document once all
-            parties have signed.
+            {copy.emailNotice}
           </p>
           <p className="mt-8 inline-flex rounded-full bg-(--surface) px-4 py-2 text-sm font-semibold text-(--secondary)">
-            You can close this tab.
+            {copy.closeTab}
           </p>
         </section>
       </main>
 
-      <PublicLegalFooter />
+      <PublicLegalFooter labels={messages.footer} />
     </div>
   );
 }

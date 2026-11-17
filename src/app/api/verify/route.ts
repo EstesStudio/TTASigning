@@ -11,6 +11,7 @@ import {
   getRequestUserAgent,
 } from "@/lib/security/request";
 import { verifyDocumentHash, verifyRequestSchema } from "@/lib/verify";
+import { localize } from "@/lib/i18n/server-locale";
 
 export async function POST(request: Request) {
   const rateLimitResponse = await applyRateLimit({
@@ -36,7 +37,7 @@ export async function POST(request: Request) {
 
   if (!parsed.success) {
     return NextResponse.json(
-      { error: "Send the file's SHA-256 value." },
+      { error: await localize((m) => m.verify.sendHash) },
       { status: 400 },
     );
   }
@@ -53,7 +54,7 @@ export async function POST(request: Request) {
       path: getRequestPathname(request),
     });
     return NextResponse.json(
-      { error: "The file could not be checked right now." },
+      { error: await localize((m) => m.verify.notChecked) },
       { status: 500 },
     );
   }

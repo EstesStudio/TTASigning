@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 
 import { getDb } from "@/lib/db/connection";
+import { localize } from "@/lib/i18n/server-locale";
 import { logRouteError } from "@/lib/security/logging";
 import {
   applyRateLimit,
@@ -27,7 +28,7 @@ export async function POST(request: Request, context: EmailCodeRouteContext) {
     category: "signing_email_code",
     key: buildRateLimitKey(["signing-email-code", token]),
     limit: 5,
-    message: "Several codes were sent already. Check your email.",
+    message: (m) => m.signing.tooManyCodes,
     request,
     windowMs: 60 * 60 * 1000,
   });
@@ -44,14 +45,14 @@ export async function POST(request: Request, context: EmailCodeRouteContext) {
   } catch (error) {
     if (error instanceof SigningMutationError) {
       return NextResponse.json(
-        { error: error.message },
+        { error: await localize(error) },
         { headers: NO_STORE, status: error.statusCode },
       );
     }
 
     if (error instanceof SigningAccessError) {
       return NextResponse.json(
-        { error: error.message, state: error.state },
+        { error: await localize(error), state: error.state },
         { headers: NO_STORE, status: error.statusCode },
       );
     }
@@ -64,7 +65,7 @@ export async function POST(request: Request, context: EmailCodeRouteContext) {
     });
 
     return NextResponse.json(
-      { error: "The code could not be sent right now." },
+      { error: await localize((m) => m.signing.codeNotSent) },
       { headers: NO_STORE, status: 500 },
     );
   }

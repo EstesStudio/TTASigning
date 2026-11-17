@@ -18,6 +18,8 @@ import {
   replaceDraftEnvelopeSigners,
 } from "./envelopes.ts";
 import { countAnswerableFields } from "./field-choices.ts";
+import { envelopeMessages } from "./i18n/envelope-messages.ts";
+import { DEFAULT_LOCALE, intlLocale, type Locale } from "./i18n/locales.ts";
 import { fieldPlacementListSchema } from "./schemas/field.ts";
 import {
   saveTemplateSchema,
@@ -31,6 +33,7 @@ import {
   StorageObjectNotFoundError,
   type StorageService,
 } from "./services/storage.ts";
+import { inEnglish, type UserMessage } from "./i18n/server-messages.ts";
 
 // A template is a document, the fields placed on it and its signing order,
 // kept so the same thing can be sent again. It names no one: each place in
@@ -41,14 +44,15 @@ import {
 /** A guard on storage, not a product limit anyone should run into. */
 export const MAX_TEMPLATES_PER_USER = 100;
 
-const UNUSABLE_TEMPLATE_MESSAGE =
-  "This template can no longer be used. Delete it, then save the document as a template again.";
+const UNUSABLE_TEMPLATE_MESSAGE: UserMessage = (m) => m.template.unusable;
 
 export class TemplateError extends Error {
   readonly statusCode: number;
+  readonly userMessage: UserMessage;
 
-  constructor(message: string, statusCode: number) {
-    super(message);
+  constructor(message: UserMessage, statusCode: number) {
+    super(inEnglish(message));
+    this.userMessage = message;
     this.name = "TemplateError";
     this.statusCode = statusCode;
   }
@@ -72,7 +76,7 @@ async function assertRoomForTemplate(
 
   if ((existing?.total ?? 0) >= MAX_TEMPLATES_PER_USER) {
     throw new TemplateError(
-      `You have ${String(MAX_TEMPLATES_PER_USER)} templates, which is the most an account can keep. Delete one to save another.`,
+      (m) => m.template.limitReached(MAX_TEMPLATES_PER_USER),
       409,
     );
   }
@@ -129,15 +133,13 @@ const TEMPLATE_COLUMNS = `
   created_at AS "createdAt"
 `;
 
-const dateFormatter = new Intl.DateTimeFormat("en-US", {
-  day: "numeric",
-  month: "short",
-  timeZone: "UTC",
-  year: "numeric",
-});
-
-function countLabel(count: number, singular: string): string {
-  return `${String(count)} ${count === 1 ? singular : `${singular}s`}`;
+function formatSavedDate(timestamp: number, locale: Locale): string {
+  return new Intl.DateTimeFormat(intlLocale(locale), {
+    day: "numeric",
+    month: "short",
+    timeZone: "UTC",
+    year: "numeric",
+  }).format(new Date(timestamp * 1000));
 }
 
 // A list must still open when one template's stored contents cannot be
@@ -196,7 +198,10 @@ async function getTemplateRow(
 export async function listTemplatesForUser(
   userId: string,
   database: DbExecutor = getDb(),
+  /** The language of the labels; the install's, read by the page. */
+  locale: Locale = DEFAULT_LOCALE,
 ): Promise<TemplateListItem[]> {
+  const labels = envelopeMessages(locale).labels;
   const rows = await queryMany<TemplateRow>(
     database,
     `
@@ -209,11 +214,11 @@ export async function listTemplatesForUser(
   );
 
   return rows.map((row) => ({
-    createdAtLabel: dateFormatter.format(new Date(row.createdAt * 1000)),
-    fieldCountLabel: countLabel(countFields(row.fields), "field"),
+    createdAtLabel: formatSavedDate(row.createdAt, locale),
+    fieldCountLabel: labels.fieldCount(countFields(row.fields)),
     id: row.id,
     name: row.name,
-    pageCountLabel: countLabel(row.pageCount, "page"),
+    pageCountLabel: labels.pageCount(row.pageCount),
     roleNames: readRoleNames(row.roles),
   }));
 }
@@ -222,7 +227,10 @@ export async function getUseTemplateDataForUser(
   userId: string,
   templateId: string,
   database: DbExecutor = getDb(),
+  /** The language of the labels; the install's, read by the page. */
+  locale: Locale = DEFAULT_LOCALE,
 ): Promise<UseTemplateData | null> {
+  const labels = envelopeMessages(locale).labels;
   const row = await getTemplateRow(userId, templateId, database);
 
   if (!row) {
@@ -236,10 +244,10 @@ export async function getUseTemplateDataForUser(
   }
 
   return {
-    fieldCountLabel: countLabel(countFields(row.fields), "field"),
+    fieldCountLabel: labels.fieldCount(countFields(row.fields)),
     id: row.id,
     name: row.name,
-    pageCountLabel: countLabel(row.pageCount, "page"),
+    pageCountLabel: labels.pageCount(row.pageCount),
     roles: roles.data,
   };
 }
@@ -265,7 +273,7 @@ export async function saveEnvelopeAsTemplate(
   });
 
   if (!envelope) {
-    throw new TemplateError("Envelope not found.", 404);
+    throw new TemplateError((m) => m.envelope.notFound, 404);
   }
 
   const signers = [...envelope.signers].sort(
@@ -273,10 +281,7 @@ export async function saveEnvelopeAsTemplate(
   );
 
   if (signers.length === 0) {
-    throw new TemplateError(
-      "Add at least one signer before saving this as a template.",
-      400,
-    );
+    throw new TemplateError((m) => m.template.addSigner, 400);
   }
 
   const roleNames =
@@ -284,10 +289,7 @@ export async function saveEnvelopeAsTemplate(
     signers.map((_, index) => `Signer ${String(index + 1)}`);
 
   if (roleNames.length !== signers.length) {
-    throw new TemplateError(
-      "The signers of this envelope have changed. Reload the page and try again.",
-      409,
-    );
+    throw new TemplateError((m) => m.template.signersChanged, 409);
   }
 
   const roles = templateRolesSchema.parse(
@@ -335,10 +337,7 @@ export async function saveEnvelopeAsTemplate(
     });
   } catch (error) {
     if (error instanceof EnvelopeDocumentAccessError) {
-      throw new TemplateError(
-        "This envelope's document is no longer available, so it cannot be saved as a template.",
-        error.statusCode,
-      );
+      throw new TemplateError((m) => m.template.documentGone, error.statusCode);
     }
 
     throw error;
@@ -420,7 +419,7 @@ export async function createDraftFromTemplate(
   const template = await getTemplateRow(userId, templateId, database);
 
   if (!template) {
-    throw new TemplateError("Template not found.", 404);
+    throw new TemplateError((m) => m.template.notFound, 404);
   }
 
   const roles = templateRolesSchema.safeParse(template.roles);
@@ -437,10 +436,7 @@ export async function createDraftFromTemplate(
   }
 
   if (parsedInput.signers.length !== roles.data.length) {
-    throw new TemplateError(
-      "Name one person for each signer in this template.",
-      400,
-    );
+    throw new TemplateError((m) => m.template.namePeople, 400);
   }
 
   let sourcePdf: Uint8Array;
@@ -534,7 +530,7 @@ export async function deleteTemplate(
   );
 
   if (!template) {
-    throw new TemplateError("Template not found.", 404);
+    throw new TemplateError((m) => m.template.notFound, 404);
   }
 
   // The document goes first and the template only once it is gone. If
@@ -550,10 +546,7 @@ export async function deleteTemplate(
       error,
     );
 
-    throw new TemplateError(
-      "The template's document could not be deleted, so the template was kept. Try again in a moment.",
-      503,
-    );
+    throw new TemplateError((m) => m.template.documentNotDeleted, 503);
   }
 
   await database.query(`DELETE FROM templates WHERE id = $1 AND user_id = $2`, [

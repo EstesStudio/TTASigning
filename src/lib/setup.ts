@@ -15,6 +15,11 @@ import {
 } from "./settings.ts";
 import { suggestSignupPolicy } from "./signup-policy.ts";
 import { getEnv, isHostedMode, type EnvSource } from "./utils/env.ts";
+import {
+  fieldErrorsInEnglish,
+  type UserFieldErrors,
+} from "./i18n/field-errors.ts";
+import { inEnglish, type UserMessage } from "./i18n/server-messages.ts";
 
 // First-run setup: the step that turns a deployment into someone's install.
 //
@@ -50,15 +55,19 @@ export type SetupFieldName =
 export class SetupError extends Error {
   readonly fieldErrors: Partial<Record<SetupFieldName, string>>;
   readonly statusCode: number;
+  readonly userFieldErrors: UserFieldErrors<SetupFieldName>;
+  readonly userMessage: UserMessage;
 
   constructor(
-    message: string,
+    message: UserMessage,
     statusCode: number,
-    fieldErrors: Partial<Record<SetupFieldName, string>> = {},
+    fieldErrors: UserFieldErrors<SetupFieldName> = {},
   ) {
-    super(message);
+    super(inEnglish(message));
     this.name = "SetupError";
-    this.fieldErrors = fieldErrors;
+    this.fieldErrors = fieldErrorsInEnglish(fieldErrors);
+    this.userFieldErrors = fieldErrors;
+    this.userMessage = message;
     this.statusCode = statusCode;
   }
 }
@@ -132,22 +141,23 @@ const createAccountSchema = z.object({
   password: z.string().min(15).max(128),
 });
 
-const FIELD_MESSAGES: Record<SetupFieldName, string> = {
-  email: "Enter a valid email address",
-  fullName: "Enter your full name",
-  organizationName: "Enter the name of your organization",
-  password: "Password must be at least 15 characters",
-  senderAddress: "Enter a valid email address, or leave this empty",
-  setupToken: "Enter the setup token",
-  supportAddress: "Enter an email address people can write to for help",
+const FIELD_MESSAGES: Record<SetupFieldName, UserMessage> = {
+  email: (m) => m.setup.fields.email,
+  fullName: (m) => m.setup.fields.fullName,
+  organizationName: (m) => m.setup.fields.organizationName,
+  password: (m) => m.setup.fields.password,
+  senderAddress: (m) => m.setup.fields.senderAddress,
+  setupToken: (m) => m.setup.fields.setupToken,
+  supportAddress: (m) => m.setup.fields.supportAddress,
 };
 
 // A password over the limit is refused, never shortened: the account must
 // be made with exactly what was typed (issue #56).
-const PASSWORD_TOO_LONG_MESSAGE = "Password must be at most 128 characters";
+const PASSWORD_TOO_LONG_MESSAGE: UserMessage = (m) =>
+  m.setup.fields.passwordTooLong;
 
 function toFieldErrors(error: z.ZodError) {
-  const fieldErrors: Partial<Record<SetupFieldName, string>> = {};
+  const fieldErrors: UserFieldErrors<SetupFieldName> = {};
 
   for (const issue of error.issues) {
     const field = issue.path[0];
@@ -173,7 +183,7 @@ const ACCOUNT_FIELDS = ["email", "fullName", "password"] as const;
  */
 function accountFieldErrors(
   rawInput: unknown,
-): Partial<Record<SetupFieldName, string>> {
+): UserFieldErrors<SetupFieldName> {
   if (typeof rawInput !== "object" || rawInput === null) {
     return {};
   }
@@ -266,18 +276,15 @@ function assertSetupToken(
   const expectedToken = getEnv(env).setup.token;
 
   if (state.status === "unclaimed" && expectedToken === undefined) {
-    throw new SetupError(
-      "This site already has accounts. Set the SETUP_TOKEN environment variable and redeploy to choose its administrator.",
-      403,
-    );
+    throw new SetupError((m) => m.setup.alreadyHasAccounts, 403);
   }
 
   if (
     expectedToken !== undefined &&
     !tokensMatch(providedToken, expectedToken)
   ) {
-    throw new SetupError("The setup token is not correct.", 403, {
-      setupToken: "This is not the setup token for this site",
+    throw new SetupError((m) => m.setup.wrongToken, 403, {
+      setupToken: (m) => m.setup.wrongTokenField,
     });
   }
 }
@@ -302,7 +309,7 @@ export async function completeSetup(
   if (!parsedBase.success) {
     // One answer names every field that needs attention, the account's
     // among them, so nobody fixes one field only to be told about the next.
-    throw new SetupError("Check the highlighted fields.", 400, {
+    throw new SetupError((m) => m.setup.checkFields, 400, {
       ...accountFieldErrors(rawInput),
       ...toFieldErrors(parsedBase.error),
     });
@@ -324,23 +331,17 @@ export async function completeSetup(
       );
 
       if (lock.rows[0]?.locked !== true) {
-        throw new SetupError(
-          "Setup is already running. Try again in a moment.",
-          409,
-        );
+        throw new SetupError((m) => m.setup.alreadyRunning, 409);
       }
 
       const state = await readSetupState(tx);
 
       if (state.status === "complete") {
-        throw new SetupError("This site has already been set up.", 409);
+        throw new SetupError((m) => m.setup.alreadySetUp, 409);
       }
 
       if (state.status === "unmigrated") {
-        throw new SetupError(
-          "The database is not ready yet. Deploy again so the tables can be created.",
-          503,
-        );
+        throw new SetupError((m) => m.setup.databaseNotReady, 503);
       }
 
       assertSetupToken(state, base.setupToken, env);
@@ -361,7 +362,7 @@ export async function completeSetup(
       // written into the code.
       const supportAddress =
         base.supportAddress?.toLowerCase() ?? stored?.supportAddress ?? null;
-      const supportAddressErrors: Partial<Record<SetupFieldName, string>> =
+      const supportAddressErrors: UserFieldErrors<SetupFieldName> =
         needsSupportAddress(supportAddress, env)
           ? { supportAddress: FIELD_MESSAGES.supportAddress }
           : {};
@@ -371,7 +372,7 @@ export async function completeSetup(
 
         // Refused here, before any account exists.
         if (!parsedAccount.success || supportAddressErrors.supportAddress) {
-          throw new SetupError("Check the highlighted fields.", 400, {
+          throw new SetupError((m) => m.setup.checkFields, 400, {
             ...(parsedAccount.success
               ? {}
               : toFieldErrors(parsedAccount.error)),
@@ -408,10 +409,7 @@ export async function completeSetup(
         );
 
         if (promoted.rowCount !== 1) {
-          throw new SetupError(
-            "The administrator account was not created.",
-            500,
-          );
+          throw new SetupError((m) => m.setup.administratorNotCreated, 500);
         }
 
         // A hosted service takes sign-ups from anyone. Any other install
@@ -435,22 +433,16 @@ export async function completeSetup(
       }
 
       if (!sessionUser) {
-        throw new SetupError(
-          "Sign in with the account that should become the administrator, then open this page again.",
-          401,
-        );
+        throw new SetupError((m) => m.setup.signInFirst, 401);
       }
 
       if (!sessionUser.emailVerified) {
-        throw new SetupError(
-          "Verify your email address before becoming the administrator.",
-          403,
-        );
+        throw new SetupError((m) => m.setup.verifyEmailFirst, 403);
       }
 
       if (supportAddressErrors.supportAddress) {
         throw new SetupError(
-          "Check the highlighted fields.",
+          (m) => m.setup.checkFields,
           400,
           supportAddressErrors,
         );
@@ -462,7 +454,7 @@ export async function completeSetup(
       );
 
       if (promoted.rowCount !== 1) {
-        throw new SetupError("Your account was not found.", 404);
+        throw new SetupError((m) => m.setup.accountNotFound, 404);
       }
 
       // An install that already has accounts keeps the sign-up rule it has

@@ -7,6 +7,7 @@ import {
   withTransaction,
 } from "./db/connection.ts";
 import { recordSystemAuditEvent } from "./services/system-audit.ts";
+import { inEnglish, type UserMessage } from "./i18n/server-messages.ts";
 
 // The accounts on this install and who among them is an administrator.
 //
@@ -56,10 +57,12 @@ export type PeopleList = {
 
 export class PeopleError extends Error {
   readonly statusCode: number;
+  readonly userMessage: UserMessage;
 
-  constructor(message: string, statusCode: number) {
-    super(message);
+  constructor(message: UserMessage, statusCode: number) {
+    super(inEnglish(message));
     this.name = "PeopleError";
+    this.userMessage = message;
     this.statusCode = statusCode;
   }
 }
@@ -233,7 +236,7 @@ export async function setPersonRole(
     );
 
     if (actor?.role !== "admin") {
-      throw new PeopleError("Only an administrator can do this.", 403);
+      throw new PeopleError((m) => m.admin.onlyAdministrator, 403);
     }
 
     const target = await queryOne<PersonRow>(
@@ -243,7 +246,7 @@ export async function setPersonRole(
     );
 
     if (!target) {
-      throw new PeopleError("That account no longer exists.", 404);
+      throw new PeopleError((m) => m.admin.accountNoLongerExists, 404);
     }
 
     if (target.role === role) {
@@ -255,26 +258,20 @@ export async function setPersonRole(
     if (role === "admin") {
       if (!target.emailVerified) {
         throw new PeopleError(
-          "This person has not confirmed their email address yet. They can be made an administrator once they have.",
+          (m) => m.admin.people.emailNotConfirmedForAdmin,
           409,
         );
       }
 
       if (target.closing) {
-        throw new PeopleError(
-          "This account is being closed, so it cannot become an administrator.",
-          409,
-        );
+        throw new PeopleError((m) => m.admin.people.closingCannotBeAdmin, 409);
       }
     } else {
       // The administrator who stays, and who takes over the records.
       keeperId = await findRecordKeeper(targetUserId, tx);
 
       if (!keeperId) {
-        throw new PeopleError(
-          "There has to be at least one administrator. Make someone else an administrator first.",
-          409,
-        );
+        throw new PeopleError((m) => m.admin.people.needOneAdministrator, 409);
       }
     }
 

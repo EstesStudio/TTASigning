@@ -7,12 +7,17 @@ import {
   sendManualEnvelopeNudge,
 } from "@/lib/reminders";
 import { logRouteError } from "@/lib/security/logging";
-import { applyRateLimit, buildRateLimitKey } from "@/lib/security/route-controls";
+import {
+  applyRateLimit,
+  buildRateLimitKey,
+} from "@/lib/security/route-controls";
 import {
   getClientIpAddress,
   getRequestPathname,
   getRequestUserAgent,
 } from "@/lib/security/request";
+import { installLocale, localize } from "@/lib/i18n/server-locale";
+import { formatReminderAvailableAt } from "@/lib/services/reminders";
 
 type EnvelopeNudgeRouteContext = {
   params: Promise<{
@@ -65,19 +70,34 @@ export async function POST(
       },
     );
 
-    return NextResponse.json(result, {
-      headers: {
-        "cache-control": "private, no-store",
+    return NextResponse.json(
+      {
+        ...result,
+        nextAvailableAtLabel: formatReminderAvailableAt(
+          result.nextAvailableAt,
+          await installLocale(),
+        ),
       },
-      status: 200,
-    });
+      {
+        headers: {
+          "cache-control": "private, no-store",
+        },
+        status: 200,
+      },
+    );
   } catch (error) {
     if (error instanceof ReminderMutationError) {
       return NextResponse.json(
         {
-          error: error.message,
+          error: await localize(error),
           nextAvailableAt: error.nextAvailableAt,
-          nextAvailableAtLabel: error.nextAvailableAtLabel,
+          nextAvailableAtLabel:
+            error.nextAvailableAt === null
+              ? error.nextAvailableAtLabel
+              : formatReminderAvailableAt(
+                  error.nextAvailableAt,
+                  await installLocale(),
+                ),
         },
         {
           headers: {
@@ -97,7 +117,7 @@ export async function POST(
     });
 
     return NextResponse.json(
-      { error: "Unable to send a reminder." },
+      { error: await localize((m) => m.envelope.api.unableToSendReminder) },
       {
         headers: {
           "cache-control": "private, no-store",

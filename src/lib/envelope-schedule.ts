@@ -5,6 +5,9 @@ import {
   withTransaction,
 } from "./db/connection.ts";
 import { formatDeadline } from "./envelope-deadline.ts";
+import { readEmailLocale } from "./i18n/email-locale.ts";
+import { emailMessages } from "./i18n/email-messages.ts";
+import { DEFAULT_LOCALE, type Locale } from "./i18n/locales.ts";
 import { sendAutomaticEnvelopeReminder } from "./reminders.ts";
 import { recordAuditEvent } from "./services/audit.ts";
 import { createEmailService, type EmailService } from "./services/email.ts";
@@ -162,23 +165,34 @@ async function noteExpiryNoticeSent(
   }, database);
 }
 
-function buildExpiryNotice(envelope: ExpiredEnvelopeRow) {
+function buildExpiryNotice(
+  envelope: ExpiredEnvelopeRow,
+  locale: Locale = DEFAULT_LOCALE,
+) {
+  const m = emailMessages(locale);
   const appUrl = resolveAppUrl();
   const link = appUrl ? `${appUrl}/envelopes/${envelope.id}` : null;
   const waitingOn =
     envelope.signerName && envelope.signerEmail
-      ? ` It was still waiting on ${envelope.signerName} (${envelope.signerEmail}).`
+      ? m.expiry.waitingOn({
+          email: envelope.signerEmail,
+          name: envelope.signerName,
+        })
       : "";
 
   return {
-    subject: `"${envelope.title}" expired before everyone signed`,
+    subject: m.expiry.subject(m.quote(envelope.title)),
     template: "expiry_notice" as const,
     textBody: [
-      `Hello ${envelope.ownerName?.trim() || envelope.ownerEmail},`,
+      m.hello(envelope.ownerName?.trim() || envelope.ownerEmail),
       "",
-      `The deadline for "${envelope.title}" passed on ${formatDeadline(envelope.expiresAt)}.${waitingOn} Nobody can sign it now.`,
+      m.expiry.passed({
+        date: formatDeadline(envelope.expiresAt, locale),
+        title: m.quote(envelope.title),
+        waitingOn,
+      }),
       "",
-      "To give signers more time, open the envelope and set a new deadline. The signing link that was already sent will work again. If the document is no longer needed, void it.",
+      m.expiry.whatToDo,
       ...(link ? ["", link] : []),
     ].join("\n"),
     to: envelope.ownerEmail,
@@ -193,6 +207,8 @@ async function sendExpiryNotices({
   summary,
 }: ScheduleRun): Promise<void> {
   const expired = await listExpiredEnvelopesToNotify(now, database);
+  const locale =
+    expired.length > 0 ? await readEmailLocale(database) : DEFAULT_LOCALE;
 
   for (const envelope of expired) {
     if (outOfTime()) {
@@ -205,7 +221,7 @@ async function sendExpiryNotices({
         continue;
       }
 
-      await emailService().send(buildExpiryNotice(envelope), {
+      await emailService().send(buildExpiryNotice(envelope, locale), {
         idempotencyKey: `expiry-notice/${envelope.id}/${envelope.expiresAt}`,
       });
       await noteExpiryNoticeSent(envelope, now, database);

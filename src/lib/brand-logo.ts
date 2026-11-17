@@ -3,6 +3,7 @@ import { createHash } from "node:crypto";
 import { MAX_LOGO_BYTES, type LogoContentType } from "./branding.ts";
 import { getDb, queryOne, type DbExecutor } from "./db/connection.ts";
 import { invalidateSettingsCache, isMissingSchemaError } from "./settings.ts";
+import { inEnglish, type UserMessage } from "./i18n/server-messages.ts";
 
 // The install's logo: one small image, kept in the settings row.
 //
@@ -21,10 +22,12 @@ export type BrandLogo = {
 
 export class BrandLogoError extends Error {
   readonly statusCode: number;
+  readonly userMessage: UserMessage;
 
-  constructor(message: string, statusCode = 400) {
-    super(message);
+  constructor(message: UserMessage, statusCode = 400) {
+    super(inEnglish(message));
     this.name = "BrandLogoError";
+    this.userMessage = message;
     this.statusCode = statusCode;
   }
 }
@@ -62,17 +65,17 @@ export function sniffLogoContentType(
 /** Checks an upload and says what it is. Throws when it cannot be a logo. */
 export function checkLogoUpload(bytes: Uint8Array): LogoContentType {
   if (bytes.length === 0) {
-    throw new BrandLogoError("Choose an image to upload.");
+    throw new BrandLogoError((m) => m.admin.logo.chooseImage);
   }
 
   if (bytes.length > MAX_LOGO_BYTES) {
-    throw new BrandLogoError("The logo must be 512 KB or smaller.", 413);
+    throw new BrandLogoError((m) => m.admin.logo.tooLarge, 413);
   }
 
   const contentType = sniffLogoContentType(bytes);
 
   if (!contentType) {
-    throw new BrandLogoError("The logo must be a PNG, JPEG or WebP image.");
+    throw new BrandLogoError((m) => m.admin.logo.wrongType);
   }
 
   return contentType;

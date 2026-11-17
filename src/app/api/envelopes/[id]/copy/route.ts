@@ -10,6 +10,7 @@ import {
   buildRateLimitKey,
 } from "@/lib/security/route-controls";
 import { getClientIpAddress, getRequestPathname } from "@/lib/security/request";
+import { localize } from "@/lib/i18n/server-locale";
 
 type EnvelopeCopyRouteContext = {
   params: Promise<{
@@ -62,14 +63,19 @@ export async function POST(
   } catch (error) {
     if (error instanceof ZodError) {
       return NextResponse.json(
-        { error: error.issues[0]?.message ?? "Invalid copy request." },
+        {
+          error: await localize(
+            error.issues[0]?.message ??
+              ((m) => m.envelope.api.invalidCopyRequest),
+          ),
+        },
         { headers: noStore, status: 400 },
       );
     }
 
     if (error instanceof EnvelopeMutationError) {
       return NextResponse.json(
-        { error: error.message },
+        { error: await localize(error) },
         { headers: noStore, status: error.statusCode },
       );
     }
@@ -83,7 +89,7 @@ export async function POST(
     });
 
     return NextResponse.json(
-      { error: "Unable to copy this envelope." },
+      { error: await localize((m) => m.envelope.api.unableToCopy) },
       { headers: noStore, status: 500 },
     );
   }

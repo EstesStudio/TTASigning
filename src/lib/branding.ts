@@ -1,4 +1,5 @@
 import { normalizeBrandColor } from "./brand-color.ts";
+import { DEFAULT_LOCALE, type Locale } from "./i18n/locales.ts";
 import type { ResolvedSettings } from "./settings.ts";
 
 // What an install calls itself.
@@ -38,6 +39,8 @@ export type Branding = {
   /** Where "Contact" should point: a page on this site, or null. */
   contactUrl: string | null;
   hosted: boolean;
+  /** The language signers are spoken to in. Hosted mode speaks English. */
+  locale: Locale;
   /**
    * The install's logo, as a path on this site, or null when it has none.
    * The path changes whenever the logo does, so it can be cached for good.
@@ -59,6 +62,7 @@ export const HOSTED_BRANDING: Branding = {
   brandColor: null,
   contactUrl: "/contact",
   hosted: true,
+  locale: DEFAULT_LOCALE,
   logoUrl: null,
   organizationName: null,
   privacyUrl: "/privacy",
@@ -88,6 +92,7 @@ export function buildBranding(settings: ResolvedSettings): Branding {
     brandColor: normalizeBrandColor(settings.brandColor),
     contactUrl: null,
     hosted: false,
+    locale: settings.locale,
     logoUrl:
       settings.logoVersion === null
         ? null

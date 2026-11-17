@@ -1,3 +1,6 @@
+import { DEFAULT_LOCALE, type Locale } from "./i18n/locales.ts";
+import { serverMessages } from "./i18n/server-messages.ts";
+
 // Who may create an account on this install. Signers never need an account,
 // so none of this affects people who are only sent a document to sign.
 
@@ -112,34 +115,33 @@ export function suggestSignupPolicy(adminEmail: string): SignupPolicy {
   return { allowedEmailDomains: [domain], signupMode: "domains" };
 }
 
-export function describeSignupPolicy(policy: SignupPolicy): string {
+export function describeSignupPolicy(
+  policy: SignupPolicy,
+  locale: Locale = DEFAULT_LOCALE,
+): string {
+  const messages = serverMessages(locale).auth.signup;
+
   if (policy.signupMode === "open") {
-    return "Anyone can create an account.";
+    return messages.open;
   }
 
   if (
     policy.signupMode === "domains" &&
     policy.allowedEmailDomains.length > 0
   ) {
-    return `Accounts can be created with an email address at ${formatDomainList(policy.allowedEmailDomains)}.`;
+    return messages.domains(
+      policy.allowedEmailDomains.map((domain) => `@${domain}`),
+    );
   }
 
-  return "New accounts are not being accepted.";
+  return messages.closed;
 }
 
-function formatDomainList(domains: readonly string[]): string {
-  const labels = domains.map((domain) => `@${domain}`);
-
-  if (labels.length <= 1) {
-    return labels[0] ?? "";
-  }
-
-  return `${labels.slice(0, -1).join(", ")} or ${labels[labels.length - 1]}`;
-}
-
+/** The decision's message is in `locale` (English by default). */
 export function evaluateSignup(
   email: string,
   policy: SignupPolicy,
+  locale: Locale = DEFAULT_LOCALE,
 ): SignupDecision {
   if (policy.signupMode === "open") {
     return { allowed: true };
@@ -156,7 +158,7 @@ export function evaluateSignup(
       return {
         allowed: false,
         code: "signup_domain_not_allowed",
-        message: describeSignupPolicy(policy),
+        message: describeSignupPolicy(policy, locale),
       };
     }
   }
@@ -164,6 +166,6 @@ export function evaluateSignup(
   return {
     allowed: false,
     code: "signup_closed",
-    message: "New accounts are not being accepted.",
+    message: serverMessages(locale).auth.signup.closed,
   };
 }

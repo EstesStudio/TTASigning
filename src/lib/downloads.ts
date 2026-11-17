@@ -29,6 +29,7 @@ import {
 } from "./services/storage.ts";
 import { getRecipientCertificateKey } from "./services/storage-keys.ts";
 import { type DownloadFileType } from "./types/domain.ts";
+import { inEnglish, type UserMessage } from "./i18n/server-messages.ts";
 
 type EnvelopeRow = {
   completedAt: number | null;
@@ -121,10 +122,12 @@ export type EnvelopeDownloadResult = ResolvedDownload | SenderEnvelopeDownload;
 
 export class DownloadAccessError extends Error {
   readonly statusCode: number;
+  readonly userMessage: UserMessage;
 
-  constructor(message: string, statusCode: number) {
-    super(message);
+  constructor(message: UserMessage, statusCode: number) {
+    super(inEnglish(message));
     this.name = "DownloadAccessError";
+    this.userMessage = message;
     this.statusCode = statusCode;
   }
 }
@@ -132,7 +135,7 @@ export class DownloadAccessError extends Error {
 /** A link this site issued whose time is up. A new one can be sent. */
 export class ExpiredDownloadLinkError extends DownloadAccessError {
   constructor() {
-    super("This download link has expired.", 410);
+    super((m) => m.download.linkExpired, 410);
     this.name = "ExpiredDownloadLinkError";
   }
 }
@@ -530,13 +533,13 @@ async function buildSignedPdfDownload(
 ): Promise<EnvelopeDownloadResult> {
   if (envelope.status !== "completed") {
     throw new DownloadAccessError(
-      "Signed PDF downloads are available only for completed envelopes.",
+      (m) => m.download.signedPdfCompletedOnly,
       409,
     );
   }
 
   if (typeof envelope.completedAt !== "number") {
-    throw new DownloadAccessError("Signed PDF is unavailable.", 404);
+    throw new DownloadAccessError((m) => m.download.signedPdfUnavailable, 404);
   }
 
   if (envelope.signedPdfKey) {
@@ -558,7 +561,7 @@ async function buildSignedPdfDownload(
   // A file whose fingerprint was recorded cannot be made again: a rebuilt
   // copy would not match it, and handing one out would undo the point.
   if (envelope.signedPdfSha256) {
-    throw new DownloadAccessError("This file is no longer available.", 404);
+    throw new DownloadAccessError((m) => m.download.fileNoLongerAvailable, 404);
   }
 
   const [auditEvents, fields, signers] = await Promise.all([
@@ -587,7 +590,10 @@ async function buildSignedPdfDownload(
     // for example after the retention period removed both.
     // The same words as when any other stored file turns out to be gone.
     if (error instanceof StorageObjectNotFoundError) {
-      throw new DownloadAccessError("This file is no longer available.", 404);
+      throw new DownloadAccessError(
+        (m) => m.download.fileNoLongerAvailable,
+        404,
+      );
     }
 
     throw error;
@@ -636,7 +642,7 @@ async function buildCertificateDownload(
     envelope.status !== "voided"
   ) {
     throw new DownloadAccessError(
-      "Certificate downloads are available only after completion, decline, or void.",
+      (m) => m.download.certificateAfterFinish,
       409,
     );
   }
@@ -666,7 +672,7 @@ async function buildCertificateDownload(
       ? envelope.recipientEvidenceSha256
       : envelope.evidenceSha256
   ) {
-    throw new DownloadAccessError("This file is no longer available.", 404);
+    throw new DownloadAccessError((m) => m.download.fileNoLongerAvailable, 404);
   }
 
   const [auditEvents, signers, copyRecipients] = await Promise.all([
@@ -735,7 +741,7 @@ export async function getSenderEnvelopeDownload(
   const storageService = createStorageService();
 
   if (!envelope) {
-    throw new DownloadAccessError("Envelope not found.", 404);
+    throw new DownloadAccessError((m) => m.download.envelopeNotFound, 404);
   }
 
   if (parsedFileType === "signed") {
@@ -761,10 +767,7 @@ export async function getPublicEnvelopeDownloadForToken(
   const now = Math.floor(Date.now() / 1000);
 
   if (!tokenRow) {
-    throw new DownloadAccessError(
-      "This download link is invalid or has expired.",
-      410,
-    );
+    throw new DownloadAccessError((m) => m.download.linkInvalidOrExpired, 410);
   }
 
   if (tokenRow.expiresAt <= now) {
@@ -774,10 +777,7 @@ export async function getPublicEnvelopeDownloadForToken(
   const envelope = await getEnvelopeById(tokenRow.envelopeId, database);
 
   if (!envelope) {
-    throw new DownloadAccessError(
-      "This download link is invalid or has expired.",
-      410,
-    );
+    throw new DownloadAccessError((m) => m.download.linkInvalidOrExpired, 410);
   }
 
   if (
@@ -787,10 +787,7 @@ export async function getPublicEnvelopeDownloadForToken(
       database,
     ))
   ) {
-    throw new DownloadAccessError(
-      "This download link is invalid or has expired.",
-      410,
-    );
+    throw new DownloadAccessError((m) => m.download.linkInvalidOrExpired, 410);
   }
 
   const fileType = downloadFileTypeSchema.parse(tokenRow.fileType);
@@ -868,10 +865,7 @@ async function replaceRecipientDownloadLinks(
   // request came with, and its email carries the pair that works. Sending
   // a second pair would leave that email with dead links.
   if (!previousTokens.some((row) => row.tokenHash === presentedTokenHash)) {
-    throw new DownloadAccessError(
-      "This download link is invalid or has expired.",
-      410,
-    );
+    throw new DownloadAccessError((m) => m.download.linkInvalidOrExpired, 410);
   }
 
   const issuedAt = Math.floor(Date.now() / 1000);
@@ -941,10 +935,7 @@ export async function renewRecipientDownloadLinks(
       envelope.status !== "declined" &&
       envelope.status !== "voided")
   ) {
-    throw new DownloadAccessError(
-      "This download link is invalid or has expired.",
-      410,
-    );
+    throw new DownloadAccessError((m) => m.download.linkInvalidOrExpired, 410);
   }
 
   const signerId = signer.id;

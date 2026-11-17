@@ -14,6 +14,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { authClient } from "@/lib/auth/client";
 import { cn } from "@/lib/cn";
+import { useAppMessages } from "@/lib/i18n/use-app-messages";
 
 type PublicSessionMenuProps = {
   align?: "center" | "end" | "start";
@@ -29,6 +30,7 @@ export function PublicSessionMenu({
   contentClassName,
 }: PublicSessionMenuProps) {
   const { data: session } = authClient.useSession();
+  const m = useAppMessages();
   const [isSigningOut, setIsSigningOut] = useState(false);
 
   if (!session) {
@@ -55,7 +57,7 @@ export function PublicSessionMenu({
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
         <button
-          aria-label="Open account menu"
+          aria-label={m.publicSession.openMenu}
           className={cn(
             "inline-flex size-10 shrink-0 items-center justify-center rounded-full bg-[#ffd9c2] text-[0.8125rem] font-bold text-[#7a3412] transition hover:ring-4 hover:ring-[rgba(28,29,43,0.06)]",
             buttonClassName,
@@ -81,7 +83,7 @@ export function PublicSessionMenu({
         <DropdownMenuItem asChild>
           <Link href="/dashboard" prefetch>
             <LayoutDashboard className="size-4" />
-            Dashboard
+            {m.publicSession.dashboard}
           </Link>
         </DropdownMenuItem>
         <DropdownMenuItem
@@ -93,7 +95,7 @@ export function PublicSessionMenu({
           variant="destructive"
         >
           <LogOut className="size-4" />
-          {isSigningOut ? "Signing out..." : "Log out"}
+          {isSigningOut ? m.common.signingOut : m.publicSession.logOut}
         </DropdownMenuItem>
       </DropdownMenuContent>
     </DropdownMenu>

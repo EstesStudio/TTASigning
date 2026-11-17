@@ -9,6 +9,7 @@ import {
   buildRateLimitKey,
 } from "@/lib/security/route-controls";
 import { getClientIpAddress } from "@/lib/security/request";
+import { localize } from "@/lib/i18n/server-locale";
 
 type RenewRouteContext = {
   params: Promise<{
@@ -25,7 +26,7 @@ export async function POST(request: Request, context: RenewRouteContext) {
     // Per link, not per address: each request sends an email.
     key: buildRateLimitKey(["download-renew", token]),
     limit: 3,
-    message: "A new link was sent recently. Check your email.",
+    message: (m) => m.download.linkSentRecently,
     request,
     windowMs: 60 * 60 * 1000,
   });
@@ -41,7 +42,7 @@ export async function POST(request: Request, context: RenewRouteContext) {
   } catch (error) {
     if (error instanceof DownloadAccessError) {
       return NextResponse.json(
-        { error: error.message },
+        { error: await localize(error) },
         { headers: NO_STORE, status: error.statusCode },
       );
     }
@@ -54,7 +55,7 @@ export async function POST(request: Request, context: RenewRouteContext) {
     });
 
     return NextResponse.json(
-      { error: "New links could not be sent right now." },
+      { error: await localize((m) => m.download.newLinksNotSent) },
       { headers: NO_STORE, status: 500 },
     );
   }

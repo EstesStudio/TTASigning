@@ -9,6 +9,7 @@ import {
 } from "@/lib/envelopes";
 import { logRouteError } from "@/lib/security/logging";
 import { getClientIpAddress, getRequestPathname } from "@/lib/security/request";
+import { localize } from "@/lib/i18n/server-locale";
 
 type EnvelopeSignersRouteContext = {
   params: Promise<{
@@ -44,14 +45,18 @@ export async function PUT(
       const issue = error.issues[0];
 
       return NextResponse.json(
-        { error: issue?.message ?? "Invalid signer update request." },
+        {
+          error: await localize(
+            issue?.message ?? ((m) => m.envelope.api.invalidSignerUpdate),
+          ),
+        },
         { status: 400 },
       );
     }
 
     if (error instanceof EnvelopeMutationError) {
       return NextResponse.json(
-        { error: error.message },
+        { error: await localize(error) },
         { status: error.statusCode },
       );
     }
@@ -65,7 +70,7 @@ export async function PUT(
     });
 
     return NextResponse.json(
-      { error: "Unable to update this draft signer list." },
+      { error: await localize((m) => m.envelope.api.unableToUpdateSigners) },
       { status: 500 },
     );
   }

@@ -12,6 +12,7 @@ import {
   SigningMutationError,
   declineSigningForToken,
 } from "@/lib/signing";
+import { localize } from "@/lib/i18n/server-locale";
 import { logRouteError } from "@/lib/security/logging";
 import {
   applyRateLimit,
@@ -72,7 +73,9 @@ export async function POST(
 
       return NextResponse.json(
         {
-          error: issue?.message ?? "Invalid decline request.",
+          error: await localize(
+            issue?.message ?? ((m) => m.signing.invalidDecline),
+          ),
         },
         {
           headers: {
@@ -90,7 +93,7 @@ export async function POST(
     if (error instanceof SigningAccessError) {
       return NextResponse.json(
         {
-          error: error.message,
+          error: await localize(error),
           state: error.state,
         },
         {
@@ -105,7 +108,7 @@ export async function POST(
     if (error instanceof SigningMutationError) {
       return NextResponse.json(
         {
-          error: error.message,
+          error: await localize(error),
         },
         {
           headers: {
@@ -125,7 +128,7 @@ export async function POST(
 
     return NextResponse.json(
       {
-        error: "Unable to decline this document.",
+        error: await localize((m) => m.signing.unableToDecline),
       },
       {
         headers: {

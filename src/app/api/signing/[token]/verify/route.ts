@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { ZodError } from "zod";
 
 import { getDb } from "@/lib/db/connection";
+import { localize } from "@/lib/i18n/server-locale";
 import { logRouteError } from "@/lib/security/logging";
 import {
   applyRateLimit,
@@ -39,7 +40,7 @@ export async function POST(request: Request, context: VerifyRouteContext) {
     category: "signing_verify",
     key: buildRateLimitKey(["signing-verify", token]),
     limit: 10,
-    message: "Too many tries. Wait a few minutes and try again.",
+    message: (m) => m.signing.tooManyTries,
     request,
     windowMs: 15 * 60 * 1000,
   });
@@ -80,21 +81,21 @@ export async function POST(request: Request, context: VerifyRouteContext) {
   } catch (error) {
     if (error instanceof ZodError) {
       return NextResponse.json(
-        { error: "Enter the code." },
+        { error: await localize((m) => m.signing.enterCode) },
         { headers: NO_STORE, status: 400 },
       );
     }
 
     if (error instanceof SigningMutationError) {
       return NextResponse.json(
-        { error: error.message },
+        { error: await localize(error) },
         { headers: NO_STORE, status: error.statusCode },
       );
     }
 
     if (error instanceof SigningAccessError) {
       return NextResponse.json(
-        { error: error.message, state: error.state },
+        { error: await localize(error), state: error.state },
         { headers: NO_STORE, status: error.statusCode },
       );
     }
@@ -107,7 +108,7 @@ export async function POST(request: Request, context: VerifyRouteContext) {
     });
 
     return NextResponse.json(
-      { error: "The code could not be checked right now." },
+      { error: await localize((m) => m.signing.codeNotChecked) },
       { headers: NO_STORE, status: 500 },
     );
   }

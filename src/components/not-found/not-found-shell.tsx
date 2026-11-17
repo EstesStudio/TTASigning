@@ -2,6 +2,7 @@
 
 import { ShellButton } from "@/components/shared/form-shell";
 import { resolveShellState } from "@/components/shared/shell-state";
+import { useAppMessages } from "@/lib/i18n/use-app-messages";
 
 export const notFoundShellStates = ["default", "authenticated"] as const;
 
@@ -20,10 +21,13 @@ export function resolveNotFoundShellState(
 export function NotFoundShell({
   initialState = "default",
 }: NotFoundShellProps) {
+  const m = useAppMessages();
   const resolvedInitialState = resolveNotFoundShellState(initialState);
   const authenticated = resolvedInitialState === "authenticated";
   const ctaHref = authenticated ? "/dashboard" : "/";
-  const ctaLabel = authenticated ? "Go to Dashboard" : "Go to Home";
+  const ctaLabel = authenticated
+    ? m.notFound.goToDashboard
+    : m.notFound.goToHome;
 
   return (
     <main className="flex min-h-screen items-center justify-center px-4 py-10">
@@ -35,10 +39,10 @@ export function NotFoundShell({
           404
         </p>
         <h1 className="mt-4 text-[clamp(1.875rem,5vw,2.5rem)] font-extrabold leading-[1.08] tracking-[-0.035em] text-(--fg)">
-          Page not found
+          {m.notFound.title}
         </h1>
         <p className="mx-auto mt-3 max-w-md text-base leading-7 text-(--secondary)">
-          The page you&apos;re looking for doesn&apos;t exist or has been moved.
+          {m.notFound.description}
         </p>
 
         <div className="mt-8 flex justify-center">

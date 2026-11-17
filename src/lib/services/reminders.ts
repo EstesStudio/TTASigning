@@ -1,3 +1,4 @@
+import { DEFAULT_LOCALE, intlLocale, type Locale } from "../i18n/locales.ts";
 import { MANUAL_NUDGE_COOLDOWN_SECONDS } from "../types/domain.ts";
 
 export function getManualNudgeAvailableAt(lastNudgedAt: number): number {
@@ -15,12 +16,21 @@ export function isManualNudgeAvailable(
   return getManualNudgeAvailableAt(lastNudgedAt) <= nowUnixTimestamp;
 }
 
-const reminderAvailabilityFormatter = new Intl.DateTimeFormat("en-US", {
-  day: "numeric",
-  hour: "numeric",
-  minute: "2-digit",
-  month: "long",
-});
+const reminderAvailabilityFormatters: Record<Locale, Intl.DateTimeFormat> = {
+  en: new Intl.DateTimeFormat(intlLocale("en"), {
+    day: "numeric",
+    hour: "numeric",
+    minute: "2-digit",
+    month: "long",
+  }),
+  // French writes hours on 24 hours with two digits: "08:00".
+  fr: new Intl.DateTimeFormat(intlLocale("fr"), {
+    day: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+    month: "long",
+  }),
+};
 
 const SECONDS_PER_DAY = 24 * 60 * 60;
 
@@ -87,6 +97,11 @@ export function isAutomaticReminderDue(
   );
 }
 
-export function formatReminderAvailableAt(unixTimestamp: number): string {
-  return reminderAvailabilityFormatter.format(new Date(unixTimestamp * 1000));
+export function formatReminderAvailableAt(
+  unixTimestamp: number,
+  locale: Locale = DEFAULT_LOCALE,
+): string {
+  return reminderAvailabilityFormatters[locale].format(
+    new Date(unixTimestamp * 1000),
+  );
 }

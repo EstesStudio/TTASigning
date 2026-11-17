@@ -1,3 +1,5 @@
+import { DEFAULT_LOCALE, intlLocale, type Locale } from "./i18n/locales.ts";
+import { inEnglish, type UserMessage } from "./i18n/server-messages.ts";
 import {
   DEFAULT_ENVELOPE_DEADLINE_DAYS,
   MAX_ENVELOPE_DEADLINE_DAYS,
@@ -16,11 +18,14 @@ const SECONDS_PER_DAY = 24 * 60 * 60;
 
 export class EnvelopeDeadlinePassedError extends Error {
   readonly expiresAt: number;
+  readonly userMessage: UserMessage;
 
   constructor(expiresAt: number) {
-    super(
-      `This request expired on ${formatDeadline(expiresAt)}. Set a new deadline first.`,
-    );
+    const message: UserMessage = (m, locale) =>
+      m.envelope.deadlinePassed(formatDeadline(expiresAt, locale));
+
+    super(inEnglish(message));
+    this.userMessage = message;
     this.name = "EnvelopeDeadlinePassedError";
     this.expiresAt = expiresAt;
   }
@@ -93,18 +98,32 @@ export function nextSignerLinkExpiresAt(
     : turnStartsAt + SIGNING_LINK_TTL_SECONDS;
 }
 
-const deadlineFormatter = new Intl.DateTimeFormat("en-US", {
-  day: "numeric",
-  hour: "numeric",
-  minute: "2-digit",
-  month: "long",
-  timeZone: "UTC",
-  year: "numeric",
-});
+const deadlineFormatters: Record<Locale, Intl.DateTimeFormat> = {
+  en: new Intl.DateTimeFormat(intlLocale("en"), {
+    day: "numeric",
+    hour: "numeric",
+    minute: "2-digit",
+    month: "long",
+    timeZone: "UTC",
+    year: "numeric",
+  }),
+  // French writes hours on 24 hours with two digits: "08:00".
+  fr: new Intl.DateTimeFormat(intlLocale("fr"), {
+    day: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+    month: "long",
+    timeZone: "UTC",
+    year: "numeric",
+  }),
+};
 
-/** "December 12, 2026 at 9:20 PM UTC" */
-export function formatDeadline(unixTimestamp: number): string {
-  return `${deadlineFormatter
+/** "December 12, 2026 at 9:20 PM UTC", or "12 décembre 2026 à 21:20 UTC" */
+export function formatDeadline(
+  unixTimestamp: number,
+  locale: Locale = DEFAULT_LOCALE,
+): string {
+  return `${deadlineFormatters[locale]
     .format(new Date(unixTimestamp * 1000))
     .replace(/[  ]/g, " ")} UTC`;
 }

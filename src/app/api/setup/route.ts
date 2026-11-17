@@ -12,6 +12,9 @@ import {
 } from "@/lib/security/route-controls";
 import { getClientIpAddress, getRequestPathname } from "@/lib/security/request";
 import { completeSetup, SetupError } from "@/lib/setup";
+import { localizeFieldErrors } from "@/lib/i18n/field-errors";
+import { localize } from "@/lib/i18n/server-locale";
+import { type UserMessage } from "@/lib/i18n/server-messages";
 
 // First-run setup. Open to anyone who reaches it while the install has no
 // administrator, which is the point: there is nobody to sign in as yet.
@@ -44,12 +47,13 @@ async function createAdminAccount(input: {
   } catch (error) {
     if (error instanceof APIError) {
       const code = String(error.body?.code ?? "");
-      const message =
-        error.body?.message ?? "The account could not be created.";
+      // Better Auth's own words, in English, when it gives any.
+      const message: UserMessage =
+        error.body?.message ?? ((m) => m.setup.accountNotCreated);
 
       if (code === "PASSWORD_COMPROMISED") {
-        throw new SetupError("Choose a different password.", 400, {
-          password: "This password has appeared in a breach. Choose another.",
+        throw new SetupError((m) => m.setup.chooseDifferentPassword, 400, {
+          password: (m) => m.setup.passwordBreached,
         });
       }
 
@@ -117,7 +121,7 @@ export async function POST(request: Request) {
   // JSON keeps a stranger's page from running setup in a visitor's browser.
   if (!isJsonRequest(request)) {
     return NextResponse.json(
-      { error: "Send this request as JSON." },
+      { error: await localize((m) => m.setup.sendAsJson) },
       { status: 415 },
     );
   }
@@ -190,7 +194,10 @@ export async function POST(request: Request) {
       }
 
       return NextResponse.json(
-        { error: error.message, fieldErrors: error.fieldErrors },
+        {
+          error: await localize(error),
+          fieldErrors: await localizeFieldErrors(error.userFieldErrors),
+        },
         { status: error.statusCode },
       );
     }
@@ -203,7 +210,7 @@ export async function POST(request: Request) {
     });
 
     return NextResponse.json(
-      { error: "Setup could not be completed. Please try again." },
+      { error: await localize((m) => m.setup.notCompleted) },
       { status: 500 },
     );
   }

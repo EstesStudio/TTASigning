@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 
 import { getAuthSessionFromHeaders } from "./server.ts";
+import { localize } from "../i18n/server-locale.ts";
 import { logSecurityEvent } from "../security/logging.ts";
 import { getSettings } from "../settings.ts";
 import { needsTwoFactorSetup } from "../sign-in-security.ts";
@@ -10,13 +11,16 @@ export async function requireVerifiedSenderSession(request: Request) {
   const session = await getAuthSessionFromHeaders(request.headers);
 
   if (!session) {
-    return NextResponse.json({ error: "Unauthorized." }, { status: 401 });
+    return NextResponse.json(
+      { error: await localize((m) => m.account.unauthorized) },
+      { status: 401 },
+    );
   }
 
   if (session.user.emailVerified === true) {
     if (await needsTwoFactorSetup(await getSettings(), session.user)) {
       return NextResponse.json(
-        { error: "Set up two-step sign-in before continuing." },
+        { error: await localize((m) => m.auth.setUpTwoFactorFirst) },
         { status: 403 },
       );
     }
@@ -34,7 +38,7 @@ export async function requireVerifiedSenderSession(request: Request) {
 
   return NextResponse.json(
     {
-      error: "Verify your email address before continuing.",
+      error: await localize((m) => m.auth.verifyEmailFirst),
     },
     { status: 403 },
   );

@@ -12,6 +12,7 @@ const stored: AppSettings = {
   allowedEmailDomains: ["acme.com"],
   brandColor: null,
   emailReadyAt: null,
+  locale: "en",
   logoVersion: null,
   organizationName: "Acme Corp",
   part11Mode: false,

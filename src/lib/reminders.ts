@@ -24,12 +24,12 @@ import {
 } from "./services/audit.ts";
 import {
   createEmailService,
-  EMAIL_NOT_CONNECTED_MESSAGE,
   isEmailNotConnectedError,
   type EmailService,
 } from "./services/email.ts";
 import { buildDeadlineLine } from "./services/signing-invitation-email.ts";
 import { withUserEmailLegalFooter } from "./services/email-legal-footer.ts";
+import { emailMessages } from "./i18n/email-messages.ts";
 import {
   formatReminderAvailableAt,
   getManualNudgeAvailableAt,
@@ -40,6 +40,7 @@ import {
   type IssuedSigningLink,
 } from "./services/signing-links.ts";
 import { escapeHtml } from "./utils/html.ts";
+import { inEnglish, type UserMessage } from "./i18n/server-messages.ts";
 
 type ReminderEnvelopeRow = {
   expiresAt: number | null;
@@ -116,9 +117,10 @@ export class ReminderMutationError extends Error {
   readonly nextAvailableAt: number | null;
   readonly nextAvailableAtLabel: string | null;
   readonly statusCode: number;
+  readonly userMessage: UserMessage;
 
   constructor(
-    message: string,
+    message: UserMessage,
     statusCode: number,
     {
       nextAvailableAt = null,
@@ -128,7 +130,8 @@ export class ReminderMutationError extends Error {
       nextAvailableAtLabel?: string | null;
     } = {},
   ) {
-    super(message);
+    super(inEnglish(message));
+    this.userMessage = message;
     this.name = "ReminderMutationError";
     this.nextAvailableAt = nextAvailableAt;
     this.nextAvailableAtLabel = nextAvailableAtLabel;
@@ -217,32 +220,38 @@ function buildReminderEmail(input: {
   signingUrl: string;
 }) {
   const automatic = input.kind === "automatic";
-  const subject = automatic
-    ? `Reminder: ${input.senderName} is waiting for your signature on "${input.envelopeTitle}"`
-    : `${input.senderName} sent you a reminder to sign "${input.envelopeTitle}"`;
-  const introLine = automatic
-    ? `${input.senderName} is still waiting for your signature on "${input.envelopeTitle}", sent through ${input.branding.productName}.`
-    : `${input.senderName} sent you a reminder to sign "${input.envelopeTitle}" through ${input.branding.productName}.`;
-  const deadlineLine = buildDeadlineLine(input.expiresAt);
+  const { locale, productName } = input.branding;
+  const m = emailMessages(locale);
+  const subject = (
+    automatic ? m.reminder.automaticSubject : m.reminder.manualSubject
+  )({ sender: input.senderName, title: m.quote(input.envelopeTitle) });
+  const introLine = (
+    automatic ? m.reminder.automaticIntro : m.reminder.manualIntro
+  )({
+    product: productName,
+    sender: input.senderName,
+    title: m.quote(input.envelopeTitle),
+  });
+  const deadlineLine = buildDeadlineLine(input.expiresAt, locale);
   const textBody = [
-    `Hi ${input.signerName},`,
+    m.hi(input.signerName),
     "",
     introLine,
     "",
-    "Review and sign the document here:",
+    m.signing.reviewAndSignHere,
     input.signingUrl,
     ...(deadlineLine ? ["", deadlineLine] : []),
     "",
-    `You do not need a ${input.branding.productName} account to sign.`,
-    "If you receive a newer invitation or reminder link, use the newest one.",
+    m.signing.noAccountNeeded(productName),
+    m.signing.useNewestLink,
   ].join("\n");
   const htmlBody = [
-    `<p>Hi ${escapeHtml(input.signerName)},</p>`,
+    `<p>${m.hi(escapeHtml(input.signerName))}</p>`,
     `<p>${escapeHtml(introLine)}</p>`,
-    `<p><a href="${escapeHtml(input.signingUrl)}">Review and sign the document</a></p>`,
+    `<p><a href="${escapeHtml(input.signingUrl)}">${m.signing.reviewAndSignLink}</a></p>`,
     deadlineLine ? `<p>${escapeHtml(deadlineLine)}</p>` : "",
-    `<p>You do not need a ${escapeHtml(input.branding.productName)} account to sign.</p>`,
-    "<p>If you receive a newer invitation or reminder link, use the newest one.</p>",
+    `<p>${m.signing.noAccountNeeded(escapeHtml(productName))}</p>`,
+    `<p>${m.signing.useNewestLink}</p>`,
   ].join("");
   const legalFooter = withUserEmailLegalFooter(
     {
@@ -268,9 +277,9 @@ function getAutomaticReminderObstacle(
   envelope: ReminderEnvelopeRow,
   signer: ReminderSignerRow,
   now: number,
-): string | null {
+): UserMessage | null {
   if (envelope.reminderIntervalDays === null) {
-    return "Automatic reminders are off for this envelope.";
+    return (m) => m.envelope.reminder.automaticOff;
   }
 
   return isAutomaticReminderDue(
@@ -282,7 +291,7 @@ function getAutomaticReminderObstacle(
     now,
   )
     ? null
-    : "This envelope's next reminder is not due yet.";
+    : (m) => m.envelope.reminder.notDueYet;
 }
 
 async function persistReminder(
@@ -295,28 +304,28 @@ async function persistReminder(
   const envelope = await getReminderEnvelope(envelopeId, userId, database);
 
   if (!envelope) {
-    throw new ReminderMutationError("This envelope is unavailable.", 404);
+    throw new ReminderMutationError(
+      (m) => m.envelope.reminder.unavailable,
+      404,
+    );
   }
 
   if (envelope.status !== "sent") {
-    throw new ReminderMutationError(
-      "Only sent envelopes can receive reminders.",
-      409,
-    );
+    throw new ReminderMutationError((m) => m.envelope.reminder.onlySent, 409);
   }
 
   const signer = await getCurrentSignerForEnvelope(envelopeId, database);
 
   if (!signer) {
-    throw new ReminderMutationError(
-      "This envelope is no longer waiting on a signer.",
-      409,
-    );
+    throw new ReminderMutationError((m) => m.envelope.reminder.notWaiting, 409);
   }
 
   if (isEnvelopeExpired(envelope, dispatchedAt)) {
     throw new ReminderMutationError(
-      `This request expired on ${formatDeadline(envelope.expiresAt!)}. Set a new deadline before sending a reminder.`,
+      (m, locale) =>
+        m.envelope.reminder.expired(
+          formatDeadline(envelope.expiresAt!, locale),
+        ),
       409,
     );
   }
@@ -338,21 +347,21 @@ async function persistReminder(
     );
 
     if (!persistedEnvelope) {
-      throw new ReminderMutationError("This envelope is unavailable.", 404);
+      throw new ReminderMutationError(
+        (m) => m.envelope.reminder.unavailable,
+        404,
+      );
     }
 
     if (persistedEnvelope.status !== "sent") {
-      throw new ReminderMutationError(
-        "Only sent envelopes can receive reminders.",
-        409,
-      );
+      throw new ReminderMutationError((m) => m.envelope.reminder.onlySent, 409);
     }
 
     // The deadline may have been moved since the link was issued. From
     // here on it cannot be: the envelope's row is locked.
     if (persistedEnvelope.expiresAt !== envelope.expiresAt) {
       throw new ReminderMutationError(
-        "This envelope's deadline just changed. Try again.",
+        (m) => m.envelope.reminder.deadlineJustChanged,
         409,
       );
     }
@@ -361,7 +370,7 @@ async function persistReminder(
 
     if (!persistedSigner) {
       throw new ReminderMutationError(
-        "This envelope is no longer waiting on a signer.",
+        (m) => m.envelope.reminder.notWaiting,
         409,
       );
     }
@@ -383,7 +392,10 @@ async function persistReminder(
 
       if (nextAvailableAt > dispatchedAt) {
         throw new ReminderMutationError(
-          `You can send another reminder after ${formatReminderAvailableAt(nextAvailableAt)}.`,
+          (m, locale) =>
+            m.envelope.reminder.availableAfter(
+              formatReminderAvailableAt(nextAvailableAt, locale),
+            ),
           429,
           {
             nextAvailableAt,
@@ -429,7 +441,7 @@ async function persistReminder(
 
     if (signerUpdate.rowCount !== 1) {
       throw new ReminderMutationError(
-        "This envelope is no longer waiting on a signer.",
+        (m) => m.envelope.reminder.notWaiting,
         409,
       );
     }
@@ -631,7 +643,7 @@ export async function sendManualEnvelopeNudge(
     service = emailService ?? createEmailService();
   } catch (error) {
     if (isEmailNotConnectedError(error)) {
-      throw new ReminderMutationError(EMAIL_NOT_CONNECTED_MESSAGE, 503);
+      throw new ReminderMutationError((m) => m.envelope.emailNotConnected, 503);
     }
 
     throw error;

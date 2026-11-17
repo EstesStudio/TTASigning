@@ -9,6 +9,8 @@ import {
 } from "@/components/setup/setup-shell";
 import { getAuthSession } from "@/lib/auth/server";
 import { buildBranding } from "@/lib/branding";
+import { appMessages } from "@/lib/i18n/app-messages";
+import { DEFAULT_LOCALE, type Locale } from "@/lib/i18n/locales";
 import { ServiceConfigurationError } from "@/lib/services/service-config";
 import {
   getSetupState,
@@ -28,12 +30,29 @@ function readSiteHost(): string | null {
   }
 }
 
-export const metadata: Metadata = {
-  description: "Create the administrator account for this site.",
-  title: "Set up",
-};
+// The language a database prepared ahead of setup already chose. Before
+// anything is saved, or with no database at all, the page speaks English.
+async function readSetupLocale(): Promise<Locale> {
+  try {
+    return (await readStoredSettings())?.locale ?? DEFAULT_LOCALE;
+  } catch {
+    return DEFAULT_LOCALE;
+  }
+}
+
+export async function generateMetadata(): Promise<Metadata> {
+  await connection();
+
+  const m = appMessages(await readSetupLocale());
+
+  return {
+    description: m.setup.metaDescription,
+    title: m.setup.metaTitle,
+  };
+}
 
 async function loadView(): Promise<{
+  locale: Locale;
   storedSupportAddress: string | null;
   view: SetupShellView;
 }> {
@@ -62,11 +81,19 @@ async function loadView(): Promise<{
         : null,
     });
 
-    return { storedSupportAddress, view };
+    return {
+      locale: stored?.locale ?? DEFAULT_LOCALE,
+      storedSupportAddress,
+      view,
+    };
   } catch (error) {
     // No database connected at all. The page can still say so.
     if (error instanceof ServiceConfigurationError) {
-      return { storedSupportAddress: null, view: { view: "no_database" } };
+      return {
+        locale: DEFAULT_LOCALE,
+        storedSupportAddress: null,
+        view: { view: "no_database" },
+      };
     }
 
     throw error;
@@ -78,15 +105,18 @@ async function loadView(): Promise<{
 export default async function SetupPage() {
   await connection();
 
-  const { storedSupportAddress, view } = await loadView();
+  const { locale, storedSupportAddress, view } = await loadView();
 
   if (view.view === "complete") {
     redirect("/login");
   }
 
   return (
-    // There is no organization yet, so the page goes by the product's name.
-    <BrandingProvider branding={buildBranding(resolveSettings(null))}>
+    // There is no organization yet, so the page goes by the product's name,
+    // in the language already saved, if any.
+    <BrandingProvider
+      branding={{ ...buildBranding(resolveSettings(null)), locale }}
+    >
       <SetupShell
         hosted={isHostedMode()}
         onVercel={process.env.VERCEL === "1"}
