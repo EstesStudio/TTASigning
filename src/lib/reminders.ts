@@ -552,6 +552,11 @@ async function deliverReminder(
           WHERE id = $6
             AND envelope_id = $7
             AND status = 'notified'
+            -- Only while the link is still this reminder's. If the sender
+            -- corrected the signer while the email was failing, the row now
+            -- holds the corrected person's link, and the old one must stay
+            -- dead.
+            AND signing_token_hash = $9
         `,
         [
           persisted.previousSigner.signingTokenHash,
@@ -562,6 +567,7 @@ async function deliverReminder(
           persisted.previousSigner.id,
           persisted.envelopeId,
           persisted.issuedLink.exp,
+          persisted.issuedLink.tokenHash,
         ],
       );
 
