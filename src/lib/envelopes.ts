@@ -21,6 +21,10 @@ import {
   describeChoiceFieldProblem,
   findChoiceFieldProblem,
 } from "./field-choices.ts";
+import {
+  buildEnvelopeDetailFieldViews,
+  type EnvelopeDetailFieldView,
+} from "./envelope-detail-fields.ts";
 import { idSchema } from "./schemas/common.ts";
 import {
   changeDeadlineResponseSchema,
@@ -420,6 +424,13 @@ export type EnvelopeDetailData = {
   createdAtLabel: string;
   /** Set while the envelope is out for signature. */
   deadline: EnvelopeDetailDeadline | null;
+  /**
+   * Where each field sits, whose it is and whether it is filled in, for the
+   * document viewer. Never what was written.
+   */
+  fields?: readonly EnvelopeDetailFieldView[];
+  /** How many pages the document has. */
+  pageCount?: number;
   /** Days between automatic reminders while it is out. Null when off. */
   reminderIntervalDays: number | null;
   envelopeId: string;
@@ -2074,6 +2085,8 @@ export async function getEnvelopeDetailDataForUser(
           }
         : null,
     envelopeId,
+    fields: buildEnvelopeDetailFieldViews(fields, signers),
+    pageCount: envelope.pageCount,
     reminderIntervalDays:
       envelope.status === "sent"
         ? (envelope.reminderIntervalDays ?? null)
