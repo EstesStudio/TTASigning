@@ -1429,7 +1429,9 @@ test("two-step sign-in: an administrator sets it up and requires it of everyone"
   });
 
   await test.step("the administrator sets up an authenticator app", async () => {
-    await page.getByRole("button", { name: "Set up two-step sign-in" }).click();
+    await page
+      .getByRole("button", { name: "Use an authenticator app" })
+      .click();
     await page.getByLabel("Your password").fill(PASSWORD);
     await page.getByRole("button", { name: "Continue" }).click();
     await expect(
