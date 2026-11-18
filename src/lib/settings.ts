@@ -6,6 +6,7 @@ import {
   queryOne,
   withTransaction,
 } from "./db/connection.ts";
+import { type SignerLocale } from "./i18n.ts";
 import {
   evaluateSignup,
   type SignupDecision,
@@ -40,6 +41,12 @@ export type AppSettings = {
    */
   part11Mode: boolean;
   privacyUrl: string | null;
+  /**
+   * The language signers see: the signing pages, the notices a signer is
+   * shown and the emails a signer receives. The dashboard is not affected.
+   * See i18n.ts.
+   */
+  signerLanguage: SignerLocale;
   /**
    * Everyone must set up two-step sign-in (an authenticator app) before
    * they can use the app. See sign-in-security.ts.
@@ -102,6 +109,7 @@ type AppSettingsRow = {
   organization_name: string | null;
   part11_mode: boolean;
   privacy_url: string | null;
+  signer_language: SignerLocale;
   require_two_factor: boolean;
   retention_days: number | null;
   sender_address: string | null;
@@ -137,6 +145,7 @@ const LATER_SETTINGS_COLUMNS = [
   ["part11_mode"], // 20261115090000_part11_mode
   ["require_two_factor"], // 20261117090000_sign_in_security
   ["session_idle_minutes", "session_max_hours"], // 20261117100000_session_controls
+  ["signer_language"], // 20261119090000_signer_language
 ] as const;
 
 type LaterSettingsColumn = (typeof LATER_SETTINGS_COLUMNS)[number][number];
@@ -172,6 +181,7 @@ const UNSET_SETTINGS: AppSettings = {
   sessionIdleMinutes: null,
   sessionMaxHours: null,
   setupCompletedAt: null,
+  signerLanguage: "en",
   signupMode: "open",
   supportAddress: null,
   termsUrl: null,
@@ -235,6 +245,7 @@ function mapSettingsRow(row: StoredSettingsRow): AppSettings {
     organizationName: row.organization_name,
     part11Mode: row.part11_mode ?? false,
     privacyUrl: row.privacy_url,
+    signerLanguage: row.signer_language ?? "en",
     requireTwoFactor: row.require_two_factor ?? false,
     retentionDays: row.retention_days ?? null,
     senderAddress: row.sender_address,
@@ -405,10 +416,11 @@ async function saveSettingsLocked(
         require_two_factor,
         session_idle_minutes,
         session_max_hours,
+        signer_language,
         created_at,
         updated_at
       )
-      values (true, $1, $2, $3, $4, $5, $6, $7, $8, $9, $11, $12, $13, $14, $15, $16, $10, $10)
+      values (true, $1, $2, $3, $4, $5, $6, $7, $8, $9, $11, $12, $13, $14, $15, $16, $17, $10, $10)
       on conflict (id) do update set
         allowed_email_domains = excluded.allowed_email_domains,
         email_ready_at = excluded.email_ready_at,
@@ -425,6 +437,7 @@ async function saveSettingsLocked(
         require_two_factor = excluded.require_two_factor,
         session_idle_minutes = excluded.session_idle_minutes,
         session_max_hours = excluded.session_max_hours,
+        signer_language = excluded.signer_language,
         updated_at = excluded.updated_at
       returning ${SETTINGS_COLUMNS}
     `,
@@ -445,6 +458,7 @@ async function saveSettingsLocked(
       next.requireTwoFactor,
       next.sessionIdleMinutes,
       next.sessionMaxHours,
+      next.signerLanguage,
     ],
   );
 

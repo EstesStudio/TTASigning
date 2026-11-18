@@ -25,6 +25,7 @@ const stored: AppSettings = {
   retentionDays: null,
   senderAddress: "sign@acme.com",
   setupCompletedAt: 1_800_000_000,
+  signerLanguage: "en",
   signupMode: "domains",
   supportAddress: null,
   termsUrl: null,

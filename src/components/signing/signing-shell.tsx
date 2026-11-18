@@ -1,5 +1,6 @@
 "use client";
 
+import { type SignerLocale, t, type SignerMessageKey } from "@/lib/i18n";
 import type {
   SigningPayload,
   SigningVerificationState,
@@ -16,6 +17,8 @@ type SigningUnavailableState =
 
 type SigningShellProps = {
   initialState?: SigningUnavailableState;
+  /** The language the organization chose for its signers. */
+  locale?: SignerLocale;
   record?: SigningPayload;
   /** Set when the signer came back from a signing provider without signing. */
   signatureProblem?: ProviderSignatureProblem | null;
@@ -25,35 +28,33 @@ type SigningShellProps = {
 
 const tokenStateCopy: Record<
   SigningUnavailableState,
-  { description: string; title: string }
+  { description: SignerMessageKey; title: SignerMessageKey }
 > = {
   error: {
-    title: "Something went wrong. Please try again.",
-    description:
-      "We couldn't load this document right now. Reload the page or request a fresh signing link from the sender.",
+    title: "state.error.title",
+    description: "state.error.description",
   },
   expired: {
-    title: "This link has expired",
-    description: "Request a new signing link from the sender.",
+    title: "state.expired.title",
+    description: "state.expired.description",
   },
   "already-signed": {
-    title: "You've already signed",
-    description: "You already completed your signature for this document.",
+    title: "state.alreadySigned.title",
+    description: "state.alreadySigned.description",
   },
   voided: {
-    title: "This envelope has been voided",
-    description:
-      "The sender cancelled this document. No further action is needed.",
+    title: "state.voided.title",
+    description: "state.voided.description",
   },
   declined: {
-    title: "This envelope has been declined",
-    description:
-      "A signer declined this document. No further action is needed.",
+    title: "state.declined.title",
+    description: "state.declined.description",
   },
 };
 
 export function SigningShell({
   initialState,
+  locale = "en",
   record,
   signatureProblem,
   token,
@@ -61,20 +62,31 @@ export function SigningShell({
 }: SigningShellProps) {
   if (record) {
     return (
-      <SigningLiveShell record={record} signatureProblem={signatureProblem} />
+      <SigningLiveShell
+        locale={locale}
+        record={record}
+        signatureProblem={signatureProblem}
+      />
     );
   }
 
   if (verification) {
-    return <SignerVerificationScreen state={verification} token={token} />;
+    return (
+      <SignerVerificationScreen
+        locale={locale}
+        state={verification}
+        token={token}
+      />
+    );
   }
 
   const tokenState = tokenStateCopy[initialState ?? "error"];
 
   return (
     <SigningStateScreen
-      description={tokenState.description}
-      title={tokenState.title}
+      description={t(locale, tokenState.description)}
+      locale={locale}
+      title={t(locale, tokenState.title)}
     />
   );
 }
