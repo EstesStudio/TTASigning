@@ -41,6 +41,7 @@ const TWO_FACTOR_COOKIE_NAME = "two_factor";
 const SECOND_STEP_PATHS = new Set([
   "/two-factor/verify-backup-code",
   "/two-factor/verify-otp",
+  "/two-factor/send-otp",
   "/two-factor/verify-totp",
 ]);
 
@@ -50,6 +51,7 @@ const SESSION_FIRST_PATHS = new Set([
   "/revoke-sessions",
   "/sign-out",
   "/two-factor/disable",
+  "/two-factor/enable",
   "/two-factor/generate-backup-codes",
 ]);
 
@@ -381,10 +383,23 @@ export function signInEvents() {
               return;
             }
 
+            // The authenticator's enable only starts the setup; its finish
+            // is recorded with the second step above. The email method is
+            // on for good once this endpoint answers.
+            if (
+              path === "/two-factor/enable" &&
+              (returned as { method?: string } | null)?.method !== "otp"
+            ) {
+              return;
+            }
+
             await record(ctx, {
               actorEmail: actor.email,
               actorUserId: actor.userId,
               event: SESSION_FIRST_EVENTS[path] ?? "signed_out",
+              ...(path === "/two-factor/enable"
+                ? { metadata: { method: "email_code" } }
+                : {}),
               targetUserId: actor.userId,
             });
           }),
@@ -542,7 +557,10 @@ async function afterSecondStep(
   const method =
     ctx.path === "/two-factor/verify-backup-code"
       ? "backup_code"
-      : "authenticator";
+      : ctx.path === "/two-factor/send-otp" ||
+          ctx.path === "/two-factor/verify-otp"
+        ? "email_code"
+        : "authenticator";
 
   // A signed-in person confirming the authenticator they are setting up.
   // Better Auth treats any check made with a session that way, whatever

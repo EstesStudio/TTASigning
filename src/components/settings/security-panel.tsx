@@ -52,8 +52,9 @@ const SIGN_IN_FAILURE_REASONS: Record<string, string> = {
   ACCOUNT_TEMPORARILY_LOCKED: "second step locked after wrong codes",
   EMAIL_NOT_VERIFIED: "email address not confirmed yet",
   INVALID_BACKUP_CODE: "wrong backup code",
-  INVALID_CODE: "wrong authenticator code",
+  INVALID_CODE: "wrong code",
   INVALID_EMAIL_OR_PASSWORD: "wrong email or password",
+  OTP_HAS_EXPIRED: "emailed code expired",
   TOO_MANY_ATTEMPTS_REQUEST_NEW_CODE: "too many wrong codes, signed out",
 };
 
@@ -88,9 +89,13 @@ function describeEvent(event: SystemAuditEvent): string {
     case "sign_in_succeeded":
       return metadata.secondStep === "backup_code"
         ? "with a backup code"
-        : metadata.secondStep === "authenticator"
-          ? "with an authenticator code"
-          : "";
+        : metadata.secondStep === "email_code"
+          ? "with an emailed code"
+          : metadata.secondStep === "authenticator"
+            ? "with an authenticator code"
+            : "";
+    case "two_factor_enabled":
+      return metadata.method === "email_code" ? "with emailed codes" : "";
     case "logo_changed":
       return metadata.action === "removed" ? "Removed" : "Replaced";
     case "email_domain_changed":
@@ -251,11 +256,13 @@ export function SecurityPanel({
           Sign-in security
         </h3>
         <p className="max-w-2xl text-sm leading-6 text-(--secondary)">
-          Two-step sign-in asks for a code from an authenticator app (such as
-          1Password, Google Authenticator or Microsoft Authenticator) after the
-          password. When you require it, anyone who has not set it up is asked
-          to do so the next time they open the app, and can do nothing else
-          until they have. Ten wrong passwords for one email address stop
+          Two-step sign-in asks for a 6-digit code after the password: from an
+          authenticator app (such as 1Password, Google Authenticator or
+          Microsoft Authenticator) or emailed to the person&apos;s own address.
+          Each person picks their way when they set it up, and either one counts
+          when you require it. When you require it, anyone who has not set it up
+          is asked to do so the next time they open the app, and can do nothing
+          else until they have. Ten wrong passwords for one email address stop
           sign-in for it for 15 minutes either way.
         </p>
       </div>
