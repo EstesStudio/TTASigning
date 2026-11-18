@@ -1,6 +1,6 @@
 "use client";
 
-import { FileTextIcon, UploadIcon } from "lucide-react";
+import { AnimatePresence, motion } from "motion/react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import {
@@ -10,14 +10,16 @@ import {
   useState,
   type ChangeEvent,
   type DragEvent,
-  type KeyboardEvent,
 } from "react";
 
-import { FieldShell, ShellButton } from "@/components/shared/form-shell";
-import { PageHeader } from "@/components/shared/page-header";
-import { StepIndicator } from "@/components/shared/step-indicator";
+import { rememberSendTo, useSendTo } from "@/components/contacts/contact-data";
+import { ContactAvatar } from "@/components/contacts/contact-parts";
 import { Button } from "@/components/ui/button";
-import { cn } from "@/lib/cn";
+import { IconButton } from "@/components/ui/icon-button";
+import { XIcon } from "@/components/ui/icons";
+import { DUR, EASE, exitDuration } from "@/components/ui/motion-tokens";
+import { FormField } from "@/components/ui/field";
+import { Input } from "@/components/ui/input";
 import { cacheDraftPdfBlob } from "@/lib/draft-pdf-cache";
 import {
   renderPdfThumbnail,
@@ -30,21 +32,23 @@ import {
 import { assertPdfPreviewRenderable } from "@/lib/pdfjs-client";
 import { type CreateEnvelopeResponse } from "@/lib/schemas/envelope";
 
-const envelopeSteps = ["Upload", "Signers", "Place fields", "Review"];
+import { FlowActions, FlowFrame, NextLabel } from "./flow/flow-frame";
+import {
+  InlineTitle,
+  UploadDropSheet,
+  type DropSheetPhase,
+  type UploadSummary,
+} from "./flow/upload-drop-sheet";
+
 const MAX_FILE_SIZE_BYTES = 20 * 1024 * 1024;
 
 type UploadErrorCode = "invalid-type" | "preview-unavailable" | "too-large";
 
-type UploadSummary = {
-  file: File;
-  fileName: string;
-  sizeLabel: string;
-};
-
 const errorMessageMap: Record<UploadErrorCode, string> = {
-  "invalid-type": "Only PDF files are supported. Please upload a valid PDF.",
+  "invalid-type": "That kind of file can't be used. Add a PDF.",
   "preview-unavailable": PREVIEW_UNAVAILABLE_MESSAGE,
-  "too-large": "This file exceeds the 20 MB limit.",
+  "too-large":
+    "That file is over the 20 MB limit. Compress it or split it into smaller PDFs, then try again.",
 };
 
 const knownTitleSuggestions: Record<string, string> = {
@@ -89,195 +93,6 @@ function isClientVisiblePdf(file: File): boolean {
   return (
     normalizedName.endsWith(".pdf") &&
     (file.type.length === 0 || file.type === "application/pdf")
-  );
-}
-
-function UploadShellLayout({
-  canContinue,
-  errorMessage,
-  isBusy,
-  isDragActive,
-  isSubmitting = false,
-  onDropzoneKeyDown,
-  onOpenFilePicker,
-  onRemoveFile,
-  onTitleChange,
-  onContinue,
-  previewUrl,
-  summary,
-  title,
-}: {
-  canContinue: boolean;
-  errorMessage: string | null;
-  isBusy: boolean;
-  isDragActive: boolean;
-  isSubmitting?: boolean;
-  onContinue?: () => void;
-  onDropzoneKeyDown: (event: KeyboardEvent<HTMLDivElement>) => void;
-  onOpenFilePicker: () => void;
-  onRemoveFile: () => void;
-  onTitleChange: (event: ChangeEvent<HTMLInputElement>) => void;
-  previewUrl: string | null;
-  summary: UploadSummary | null;
-  title: string;
-}) {
-  const dropzoneClasses = isBusy
-    ? "border-(--accent) bg-(--accent-softer)"
-    : errorMessage
-      ? "border-[rgba(180,35,24,0.4)] bg-(--danger-soft)"
-      : isDragActive
-        ? "border-(--accent) bg-(--accent-softer)"
-        : "border-(--border-strong) bg-(--surface) hover:border-(--accent) hover:bg-(--accent-softer)";
-
-  return (
-    <div className="space-y-5">
-      <PageHeader
-        action={
-          <Link className="btn-quiet min-h-11 px-4" href="/templates">
-            Start from a template
-          </Link>
-        }
-        description="Step 1 of 4 - Upload document"
-        title="New envelope"
-      />
-
-      <StepIndicator current={1} steps={envelopeSteps} />
-
-      <section
-        className="panel p-5 sm:p-8"
-        data-animate="enter"
-        data-animate-delay="2"
-      >
-        <div className="space-y-6">
-          <FieldShell
-            label="Envelope title"
-            onChange={onTitleChange}
-            placeholder="e.g., NDA - Client Bravo"
-            readOnly={false}
-            value={title}
-          />
-
-          <div
-            aria-busy={isBusy}
-            aria-label="Document upload dropzone"
-            className={cn(
-              "cursor-pointer rounded-[1.25rem] border-2 border-dashed px-6 py-10 text-center transition sm:px-10 sm:py-12",
-              dropzoneClasses,
-            )}
-            onClick={onOpenFilePicker}
-            onDragLeave={isBusy ? undefined : () => undefined}
-            onDragOver={undefined}
-            onDrop={undefined}
-            onKeyDown={onDropzoneKeyDown}
-            role="button"
-            tabIndex={0}
-          >
-            <div className="mx-auto flex max-w-xl flex-col items-center gap-4">
-              {isBusy ? (
-                <>
-                  <div
-                    aria-label="Upload progress"
-                    className="h-2 w-full max-w-sm overflow-hidden rounded-full bg-white"
-                    role="progressbar"
-                  >
-                    <div className="h-full w-2/3 animate-pulse rounded-full bg-(--accent)" />
-                  </div>
-                  <div className="space-y-1.5">
-                    <p className="text-lg font-bold tracking-[-0.02em] text-(--fg)">
-                      Uploading...
-                    </p>
-                    <p className="text-sm leading-6 text-(--secondary)">
-                      Validating the PDF before you continue to signer setup.
-                    </p>
-                  </div>
-                </>
-              ) : (
-                <>
-                  <span className="inline-flex size-12 items-center justify-center rounded-2xl bg-(--accent-soft) text-(--accent)">
-                    <UploadIcon
-                      aria-hidden="true"
-                      className="size-5"
-                      strokeWidth={2.2}
-                    />
-                  </span>
-                  <div className="space-y-1.5">
-                    <p className="text-lg font-bold tracking-[-0.02em] text-(--fg)">
-                      Drag and drop your PDF here
-                    </p>
-                    <p className="text-sm text-(--secondary)">
-                      or{" "}
-                      <span className="font-bold text-(--accent-ink) underline decoration-[rgb(var(--accent-rgb)/0.35)] underline-offset-4">
-                        click to browse
-                      </span>
-                    </p>
-                  </div>
-                  <p className="text-[0.8125rem] font-medium text-(--tertiary)">
-                    PDF only - 20 MB max
-                  </p>
-                </>
-              )}
-            </div>
-          </div>
-
-          {errorMessage ? (
-            <div
-              className="rounded-2xl bg-(--danger-soft) px-5 py-4"
-              role="alert"
-            >
-              <p className="text-sm font-semibold text-(--danger)">
-                {errorMessage}
-              </p>
-            </div>
-          ) : null}
-
-          {summary ? (
-            <section className="well flex items-center gap-4 p-3.5 pr-4">
-              <span className="flex h-[4.5rem] w-14 shrink-0 items-center justify-center">
-                {previewUrl ? (
-                  // A blob: URL drawn in this browser from the chosen file.
-                  // eslint-disable-next-line @next/next/no-img-element
-                  <img
-                    alt=""
-                    className="max-h-full max-w-full rounded-[0.375rem] bg-white shadow-[0_1px_2px_rgba(28,29,43,0.08),0_4px_10px_rgba(28,29,43,0.10)] ring-1 ring-[rgba(28,29,43,0.06)]"
-                    src={previewUrl}
-                  />
-                ) : (
-                  <span className="inline-flex size-11 items-center justify-center rounded-xl bg-white text-(--accent)">
-                    <FileTextIcon aria-hidden="true" className="size-5" />
-                  </span>
-                )}
-              </span>
-              <div className="min-w-0 flex-1 space-y-0.5">
-                <p className="truncate text-sm font-bold text-(--fg)">
-                  {summary.fileName}
-                </p>
-                <p className="text-[0.8125rem] text-(--tertiary)">
-                  {summary.sizeLabel}
-                </p>
-              </div>
-              <Button
-                onClick={onRemoveFile}
-                size="sm"
-                type="button"
-                variant="outline"
-              >
-                Remove
-              </Button>
-            </section>
-          ) : null}
-
-          <div className="flex justify-end">
-            <ShellButton
-              disabled={!canContinue}
-              loading={isSubmitting}
-              onClick={onContinue}
-            >
-              Next -&gt;
-            </ShellButton>
-          </div>
-        </div>
-      </section>
-    </div>
   );
 }
 
@@ -337,7 +152,19 @@ export function UploadShell({ directUploadPrefix = null }: UploadShellProps) {
   const [autoFilledTitle, setAutoFilledTitle] = useState<string | null>(null);
   const [isDragActive, setIsDragActive] = useState(false);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+  const [phase, setPhase] = useState<DropSheetPhase>("idle");
+  const [refusals, setRefusals] = useState(0);
+  // Started from a contact's "Send them a document".
+  const sendTo = useSendTo();
+  // dragenter and dragleave fire for every child the pointer crosses; count
+  // them so the sheet only lets go when the file really leaves the page.
+  const dragDepthRef = useRef(0);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
+  // The title field moves beside the page once there is a file; if it had
+  // focus, the inline one takes it so typing carries on.
+  const titleFieldRef = useRef<HTMLInputElement | null>(null);
+  const inlineTitleRef = useRef<HTMLInputElement | null>(null);
+  const titleHadFocusRef = useRef(false);
   // The first page of the chosen file as a small picture: shown beside the
   // file name here, then saved as the envelope's dashboard thumbnail.
   const thumbnailRef = useRef<Promise<Blob | null> | null>(null);
@@ -377,6 +204,7 @@ export function UploadShell({ directUploadPrefix = null }: UploadShellProps) {
     setSummary(null);
     setErrorMessage(null);
     setIsCreatingDraft(false);
+    setPhase("idle");
 
     if (clearTitle) {
       setTitle((currentTitle) =>
@@ -412,6 +240,7 @@ export function UploadShell({ directUploadPrefix = null }: UploadShellProps) {
   function beginUpload(file: File) {
     if (!isClientVisiblePdf(file)) {
       setErrorMessage(errorMessageMap["invalid-type"]);
+      setRefusals((count) => count + 1);
       setSummary(null);
       startThumbnail(null);
       return;
@@ -419,11 +248,15 @@ export function UploadShell({ directUploadPrefix = null }: UploadShellProps) {
 
     if (file.size > MAX_FILE_SIZE_BYTES) {
       setErrorMessage(errorMessageMap["too-large"]);
+      setRefusals((count) => count + 1);
       setSummary(null);
       startThumbnail(null);
       return;
     }
 
+    titleHadFocusRef.current =
+      document.activeElement !== null &&
+      document.activeElement === titleFieldRef.current;
     startThumbnail(file);
 
     const titleSuggestion = getTitleSuggestion(file.name);
@@ -442,6 +275,7 @@ export function UploadShell({ directUploadPrefix = null }: UploadShellProps) {
   }
 
   function handleFileSelection(file: File | null) {
+    dragDepthRef.current = 0;
     setIsDragActive(false);
 
     if (!file) {
@@ -461,8 +295,14 @@ export function UploadShell({ directUploadPrefix = null }: UploadShellProps) {
     resetSelection(true);
   }
 
-  function handleTitleChange(event: ChangeEvent<HTMLInputElement>) {
-    const nextTitle = event.target.value;
+  useEffect(() => {
+    if (summary && titleHadFocusRef.current) {
+      titleHadFocusRef.current = false;
+      inlineTitleRef.current?.focus();
+    }
+  }, [summary]);
+
+  function handleTitleChange(nextTitle: string) {
     setTitle(nextTitle);
 
     if (autoFilledTitle && nextTitle !== autoFilledTitle) {
@@ -478,19 +318,13 @@ export function UploadShell({ directUploadPrefix = null }: UploadShellProps) {
     fileInputRef.current?.click();
   }
 
-  function handleDropzoneKeyDown(event: KeyboardEvent<HTMLDivElement>) {
-    if (event.key === "Enter" || event.key === " ") {
-      event.preventDefault();
-      openFilePicker();
-    }
-  }
-
   async function handleContinue() {
     if (isCreatingDraft || !summary || title.trim().length === 0) {
       return;
     }
 
     setIsCreatingDraft(true);
+    setPhase("uploading");
     setErrorMessage(null);
 
     // Taken now, with the file. The file can still be removed and another
@@ -507,7 +341,9 @@ export function UploadShell({ directUploadPrefix = null }: UploadShellProps) {
           error,
         );
         setErrorMessage(describePdfPreviewFailure(error));
+        setRefusals((count) => count + 1);
         setIsCreatingDraft(false);
+        setPhase("idle");
         return;
       }
 
@@ -528,9 +364,11 @@ export function UploadShell({ directUploadPrefix = null }: UploadShellProps) {
         if (response.status === 400) {
           setSummary(null);
           startThumbnail(null);
+          setRefusals((count) => count + 1);
         }
 
         setIsCreatingDraft(false);
+        setPhase("idle");
         return;
       }
 
@@ -554,31 +392,56 @@ export function UploadShell({ directUploadPrefix = null }: UploadShellProps) {
 
       const redirectPath = payload.data.redirectPath;
 
+      setPhase("done");
+
       startTransition(() => {
         router.push(redirectPath);
       });
     } catch {
-      setErrorMessage("Something went wrong. Please try again.");
+      setErrorMessage(
+        "The upload did not go through. Check your connection and try again.",
+      );
       setIsCreatingDraft(false);
+      setPhase("idle");
     }
   }
 
   const canContinue =
     !isCreatingDraft && summary != null && title.trim().length > 0;
+  const hint = !summary
+    ? "Add a document to continue"
+    : title.trim().length === 0
+      ? "Give it a title to continue"
+      : phase === "idle"
+        ? "Next, choose who signs"
+        : null;
 
   return (
     <div
-      onDragLeave={() => setIsDragActive(false)}
-      onDragOver={(event) => {
+      onDragEnter={(event) => {
         event.preventDefault();
+        dragDepthRef.current += 1;
+
         if (!isCreatingDraft) {
           setIsDragActive(true);
         }
+      }}
+      onDragLeave={() => {
+        dragDepthRef.current = Math.max(0, dragDepthRef.current - 1);
+
+        if (dragDepthRef.current === 0) {
+          setIsDragActive(false);
+        }
+      }}
+      onDragOver={(event) => {
+        event.preventDefault();
       }}
       onDrop={(event: DragEvent<HTMLDivElement>) => {
         event.preventDefault();
 
         if (isCreatingDraft) {
+          dragDepthRef.current = 0;
+          setIsDragActive(false);
           return;
         }
 
@@ -591,23 +454,120 @@ export function UploadShell({ directUploadPrefix = null }: UploadShellProps) {
         className="sr-only"
         onChange={handleInputChange}
         ref={fileInputRef}
+        tabIndex={-1}
         type="file"
       />
-      <UploadShellLayout
-        canContinue={canContinue}
-        errorMessage={errorMessage}
-        isBusy={isCreatingDraft}
-        isDragActive={isDragActive}
-        isSubmitting={isCreatingDraft}
-        onContinue={handleContinue}
-        onDropzoneKeyDown={handleDropzoneKeyDown}
-        onOpenFilePicker={openFilePicker}
-        onRemoveFile={handleRemoveFile}
-        onTitleChange={handleTitleChange}
-        previewUrl={previewUrl}
-        summary={summary}
-        title={title}
-      />
+      <FlowFrame
+        description="Add the PDF to be signed. You'll choose who signs it next."
+        footer={
+          <FlowActions
+            back={{ href: "/dashboard", label: "Cancel" }}
+            hint={hint}
+            onShortcut={canContinue ? handleContinue : undefined}
+            primary={
+              <Button
+                className="max-sm:min-h-12 max-sm:px-6"
+                disabled={!canContinue && !isCreatingDraft}
+                loading={isCreatingDraft}
+                onClick={handleContinue}
+                type="button"
+              >
+                <NextLabel arrow="->" />
+              </Button>
+            }
+          />
+        }
+        step={1}
+        title="What needs signing?"
+      >
+        <AnimatePresence initial={false}>
+          {sendTo ? (
+            <motion.div
+              animate={{ height: "auto", opacity: 1 }}
+              className="-mt-1 overflow-hidden"
+              exit={{
+                height: 0,
+                opacity: 0,
+                transition: {
+                  duration: exitDuration(DUR.move),
+                  ease: EASE.exit,
+                },
+              }}
+              initial={{ height: 0, opacity: 0 }}
+              key="send-to"
+              transition={{ duration: DUR.panel, ease: EASE.out }}
+            >
+              <div className="mb-1 flex items-center gap-3 rounded-(--radius-well) bg-(--paper) py-2 pr-2 pl-2.5 shadow-(--shadow-card-flat)">
+                <ContactAvatar
+                  email={sendTo.email}
+                  name={sendTo.name}
+                  size="md"
+                />
+                <p className="min-w-0 flex-1 truncate text-sm leading-5 text-(--secondary)">
+                  For{" "}
+                  <span className="font-medium text-(--fg)">{sendTo.name}</span>
+                  <span className="max-sm:hidden">
+                    , who will be the first to sign
+                  </span>
+                </p>
+                <IconButton
+                  aria-label={`Don’t send this to ${sendTo.name}`}
+                  onClick={() => rememberSendTo(null)}
+                  size="sm"
+                  tooltip="Not for them"
+                >
+                  <XIcon />
+                </IconButton>
+              </div>
+            </motion.div>
+          ) : null}
+        </AnimatePresence>
+        <UploadDropSheet
+          errorMessage={errorMessage}
+          isDragActive={isDragActive}
+          onOpenFilePicker={openFilePicker}
+          onRemoveFile={handleRemoveFile}
+          phase={phase}
+          previewUrl={previewUrl}
+          refusals={refusals}
+          summary={summary}
+          titleField={
+            <FormField
+              hint="Signers see it in their email. Leave it empty to use the file name."
+              label="Envelope title"
+            >
+              <Input
+                autoComplete="off"
+                disabled={isCreatingDraft}
+                onChange={(event: ChangeEvent<HTMLInputElement>) =>
+                  handleTitleChange(event.target.value)
+                }
+                placeholder="e.g., NDA - Client Bravo"
+                ref={titleFieldRef}
+                value={title}
+              />
+            </FormField>
+          }
+          titleInline={
+            <InlineTitle
+              disabled={isCreatingDraft}
+              inputRef={inlineTitleRef}
+              onChange={handleTitleChange}
+              onEnter={() => void handleContinue()}
+              value={title}
+            />
+          }
+        />
+        <p className="text-center text-[0.8125rem] leading-5 text-(--secondary)">
+          Sending the same document again?{" "}
+          <Link
+            className="rounded-sm font-medium text-(--accent-ink) underline decoration-[rgb(var(--accent-rgb)/0.3)] underline-offset-4 outline-none transition-[text-decoration-color] duration-(--dur-hover) hover:decoration-(--accent-ink) focus-visible:shadow-(--focus-ring)"
+            href="/templates"
+          >
+            Start from a template
+          </Link>
+        </p>
+      </FlowFrame>
     </div>
   );
 }
