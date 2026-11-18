@@ -7,15 +7,20 @@ import { useBranding } from "@/components/layout/branding-provider";
 import { FieldShell, ShellButton } from "@/components/shared/form-shell";
 
 // Two-step sign-in for the signed-in person: set it up with an
-// authenticator app, make new backup codes, or turn it off. The work is
-// done by Better Auth's two-factor endpoints under /api/auth/two-factor.
+// authenticator app or with codes emailed to their own address, make new
+// backup codes, or turn it off. The work is done by Better Auth's
+// two-factor endpoints under /api/auth/two-factor.
 
 const GENERIC_ERROR_MESSAGE = "Something went wrong. Please try again.";
 
 type Step =
   | { kind: "idle" }
-  | { kind: "confirm-password"; purpose: "disable" | "enable" | "codes" }
+  | {
+      kind: "confirm-password";
+      purpose: "codes" | "disable" | "enable-app" | "enable-email";
+    }
   | { backupCodes: string[]; kind: "scan"; totpURI: string }
+  | { backupCodes: string[]; kind: "email-ready" }
   | { backupCodes: string[]; kind: "new-codes" };
 
 type Feedback = { message: string; tone: "error" | "success" } | null;
@@ -24,6 +29,7 @@ type ApiPayload = {
   backupCodes?: string[];
   code?: string;
   message?: string;
+  method?: string;
   totpURI?: string;
 } | null;
 
@@ -137,9 +143,12 @@ function BackupCodes({
 }
 
 export function TwoFactorPanel({
+  authenticatorSet,
   enabled,
   required,
 }: {
+  /** Whether the person's second step already includes an authenticator app. */
+  authenticatorSet: boolean;
   enabled: boolean;
   required: boolean;
 }) {
@@ -150,7 +159,7 @@ export function TwoFactorPanel({
   const [feedback, setFeedback] = useState<Feedback>(null);
   const [isBusy, setIsBusy] = useState(false);
 
-  function start(purpose: "disable" | "enable" | "codes") {
+  function start(purpose: "codes" | "disable" | "enable-app" | "enable-email") {
     setPassword("");
     setFeedback(null);
     setStep({ kind: "confirm-password", purpose });
@@ -161,6 +170,12 @@ export function TwoFactorPanel({
     setCode("");
     setFeedback(null);
     setStep({ kind: "idle" });
+  }
+
+  // Enabling the email method replaced the session; reload so every part
+  // of the page agrees, like the authenticator's last step does.
+  function done() {
+    window.location.reload();
   }
 
   async function handlePassword(event: FormEvent<HTMLFormElement>) {
@@ -179,9 +194,10 @@ export function TwoFactorPanel({
     setFeedback(null);
 
     try {
-      if (step.purpose === "enable") {
+      if (step.purpose === "enable-app") {
         const { ok, payload } = await postAuth("/two-factor/enable", {
           issuer: productName,
+          method: "totp",
           password,
         });
 
@@ -196,6 +212,47 @@ export function TwoFactorPanel({
           backupCodes: payload.backupCodes,
           kind: "scan",
           totpURI: payload.totpURI,
+        });
+        return;
+      }
+
+      if (step.purpose === "enable-email") {
+        // The emailed-code method needs a two-factor row for the backup
+        // codes to live in: enabling the authenticator method makes one
+        // (its key is never shown and stays unconfirmed, so no app code is
+        // ever asked for), and enabling the email method then turns the
+        // second step on outright.
+        const created = await postAuth("/two-factor/enable", {
+          method: "totp",
+          password,
+        });
+
+        if (!created.ok || !created.payload?.backupCodes) {
+          setFeedback({
+            message: describeAuthError(created.payload),
+            tone: "error",
+          });
+          return;
+        }
+
+        const enabledEmail = await postAuth("/two-factor/enable", {
+          method: "otp",
+          password,
+        });
+
+        if (!enabledEmail.ok) {
+          setFeedback({
+            message: describeAuthError(enabledEmail.payload),
+            tone: "error",
+          });
+          return;
+        }
+
+        setPassword("");
+        setCode("");
+        setStep({
+          backupCodes: created.payload.backupCodes,
+          kind: "email-ready",
         });
         return;
       }
@@ -284,10 +341,10 @@ export function TwoFactorPanel({
           </span>
         </div>
         <p className="max-w-2xl text-sm leading-6 text-(--secondary)">
-          After your password, {productName} asks for a 6-digit code from an
+          After your password, {productName} asks for a 6-digit code: from an
           authenticator app on your phone, such as 1Password, Google
-          Authenticator or Microsoft Authenticator. Someone who learns your
-          password still cannot sign in.
+          Authenticator or Microsoft Authenticator, or emailed to your address.
+          Someone who learns your password still cannot sign in.
           {required ? " Your organization requires it." : ""}
         </p>
 
@@ -307,6 +364,14 @@ export function TwoFactorPanel({
                 <ShellButton onClick={() => start("codes")} variant="secondary">
                   Make new backup codes
                 </ShellButton>
+                {authenticatorSet ? null : (
+                  <ShellButton
+                    onClick={() => start("enable-app")}
+                    variant="secondary"
+                  >
+                    Set up an authenticator app too
+                  </ShellButton>
+                )}
                 {required ? null : (
                   <ShellButton
                     onClick={() => start("disable")}
@@ -317,15 +382,32 @@ export function TwoFactorPanel({
                 )}
               </>
             ) : (
-              <ShellButton className="w-fit" onClick={() => start("enable")}>
-                Set up two-step sign-in
-              </ShellButton>
+              <>
+                <ShellButton onClick={() => start("enable-app")}>
+                  Use an authenticator app
+                </ShellButton>
+                <ShellButton
+                  onClick={() => start("enable-email")}
+                  variant="secondary"
+                >
+                  Email me codes instead
+                </ShellButton>
+              </>
             )}
           </div>
         ) : null}
 
         {step.kind === "confirm-password" ? (
           <form className="space-y-4" noValidate onSubmit={handlePassword}>
+            <p className="max-w-md text-sm leading-6 text-(--secondary)">
+              {step.purpose === "enable-app"
+                ? "Confirm it is you, then scan a code with your authenticator app."
+                : step.purpose === "enable-email"
+                  ? `Confirm it is you, and ${productName} will email a 6-digit code to your address after each password.`
+                  : step.purpose === "codes"
+                    ? "Confirm it is you, and a fresh set of backup codes will be made."
+                    : "Confirm it is you, and two-step sign-in will be turned off."}
+            </p>
             <div className="max-w-sm">
               <FieldShell
                 autoComplete="current-password"
@@ -343,11 +425,11 @@ export function TwoFactorPanel({
             </div>
             <div className="flex flex-col gap-3 sm:flex-row">
               <ShellButton loading={isBusy} type="submit">
-                {step.purpose === "enable"
-                  ? "Continue"
-                  : step.purpose === "codes"
-                    ? "Make new codes"
-                    : "Turn off"}
+                {step.purpose === "codes"
+                  ? "Make new codes"
+                  : step.purpose === "disable"
+                    ? "Turn off"
+                    : "Continue"}
               </ShellButton>
               <ShellButton
                 disabled={isBusy}
@@ -414,6 +496,24 @@ export function TwoFactorPanel({
                 </ShellButton>
               </div>
             </form>
+          </div>
+        ) : null}
+
+        {step.kind === "email-ready" ? (
+          <div className="space-y-4">
+            <p className="notice notice-success" role="status">
+              Two-step sign-in is on. After your password, {productName} emails
+              a 6-digit code to your address.
+            </p>
+            <div className="space-y-2">
+              <p className="text-sm font-semibold text-(--fg)">
+                Save your backup codes
+              </p>
+              <BackupCodes codes={step.backupCodes} productName={productName} />
+            </div>
+            <ShellButton className="w-fit" onClick={done} variant="secondary">
+              Done
+            </ShellButton>
           </div>
         ) : null}
 

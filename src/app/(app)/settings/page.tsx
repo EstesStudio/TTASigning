@@ -9,13 +9,20 @@ import {
   readStoredSettings,
   resolveSettings,
 } from "@/lib/settings";
-import { usesTwoFactor } from "@/lib/sign-in-security";
+import { hasAuthenticatorApp, usesTwoFactor } from "@/lib/sign-in-security";
 import { getUpdateStatus } from "@/lib/software-update";
 
 export default async function SettingsPage() {
   const session = await getAuthSession();
   const isAdmin = session ? await isAdminUser(session.user.id) : false;
   const settings = await getSettings();
+  // Read from the database, not the few-minutes-old session: the panel
+  // needs to know whether the app or emailed codes are the person's second
+  // step right after they set it up.
+  const authenticatorSet =
+    session && usesTwoFactor(session.user)
+      ? await hasAuthenticatorApp(session.user.id)
+      : false;
 
   return (
     <div className="space-y-8">
@@ -25,6 +32,7 @@ export default async function SettingsPage() {
           fullName: session?.user.name ?? "",
         }}
         twoFactor={{
+          authenticatorSet,
           enabled: session ? usesTwoFactor(session.user) : false,
           required: settings.requireTwoFactor,
         }}

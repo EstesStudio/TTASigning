@@ -22,7 +22,11 @@ const GENERIC_ERROR_MESSAGE = "Something went wrong. Please try again.";
 
 type SettingsShellProps = {
   initialProfile?: ProfileValues;
-  twoFactor?: { enabled: boolean; required: boolean };
+  twoFactor?: {
+    authenticatorSet: boolean;
+    enabled: boolean;
+    required: boolean;
+  };
 };
 
 type FeedbackTone = "error" | "success";
@@ -163,7 +167,7 @@ function isNoOpEmailChangeMessage(message: string) {
 
 export function SettingsShell({
   initialProfile = defaultProfileValues,
-  twoFactor = { enabled: false, required: false },
+  twoFactor = { authenticatorSet: false, enabled: false, required: false },
 }: SettingsShellProps) {
   const closureCopy = useClosureCopy();
   const [profileValues, setProfileValues] = useState(initialProfile);
@@ -661,6 +665,7 @@ export function SettingsShell({
           </div>
 
           <TwoFactorPanel
+            authenticatorSet={twoFactor.authenticatorSet}
             enabled={twoFactor.enabled}
             required={twoFactor.required}
           />
