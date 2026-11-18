@@ -92,6 +92,13 @@ import {
   type EmailService,
 } from "./services/email.ts";
 import { withUserEmailLegalFooter } from "./services/email-legal-footer.ts";
+import {
+  emailDocumentCard,
+  emailHeading,
+  emailNote,
+  emailParagraph,
+  emailTheme,
+} from "./services/email-layout.ts";
 import { buildSigningInvitationEmail } from "./services/signing-invitation-email.ts";
 import {
   loadInstallSealer,
@@ -132,7 +139,6 @@ import {
 import { formatEnvelopeOwner } from "./envelope-access.ts";
 import { PERMITTED_USE_VERSION } from "./permitted-uses.ts";
 import { hashAccessCode } from "./signer-checks.ts";
-import { escapeHtml } from "./utils/html.ts";
 
 type CreateDraftEnvelopeOptions = {
   database?: DbPool;
@@ -1577,17 +1583,27 @@ function buildVoidNotificationEmail(input: {
   const textBody = [
     `Hi ${input.signerName},`,
     "",
-    `${input.senderName} voided "${input.envelopeTitle}" in ${input.branding.productName}.`,
-    "The signing process has been canceled. No further action is needed.",
+    `${input.senderName} voided "${input.envelopeTitle}" in ${input.branding.productName}, so it no longer needs your signature.`,
+    "You don't need to do anything. Earlier signing links for it no longer work.",
   ].join("\n");
   const htmlBody = [
-    `<p>Hi ${escapeHtml(input.signerName)},</p>`,
-    `<p>${escapeHtml(input.senderName)} voided &ldquo;${escapeHtml(input.envelopeTitle)}&rdquo; in ${escapeHtml(input.branding.productName)}.</p>`,
-    "<p>The signing process has been canceled. No further action is needed.</p>",
+    emailHeading(`${input.senderName} canceled this signing request`),
+    emailParagraph(
+      `Hi ${input.signerName}, “${input.envelopeTitle}” no longer needs your signature.`,
+    ),
+    emailDocumentCard({
+      lines: [`From ${input.senderName}`, "Voided"],
+      theme: emailTheme(input.branding),
+      title: input.envelopeTitle,
+    }),
+    emailNote(
+      "You don’t need to do anything. Earlier signing links for this document no longer work.",
+    ),
   ].join("");
   const legalFooter = withUserEmailLegalFooter(
     {
       htmlBody,
+      preheader: `“${input.envelopeTitle}” no longer needs your signature.`,
       textBody,
     },
     input.branding,
