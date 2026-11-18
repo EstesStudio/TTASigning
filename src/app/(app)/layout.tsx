@@ -41,6 +41,7 @@ export default async function AuthenticatedAppLayout({
   return (
     <BrandingProvider branding={buildBranding(settings)}>
       <AppShell
+        isAdmin={isAdmin}
         // Only the administrator can do anything about email, so only the
         // administrator is told when it still needs setting up.
         showEmailSetupNotice={isAdmin && emailNeedsAttention(settings)}
