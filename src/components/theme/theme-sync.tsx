@@ -3,9 +3,8 @@
 import { useLayoutEffect } from "react";
 
 import {
-  applyThemePreference,
-  readThemePreference,
-  subscribeToThemePreference,
+  applyStoredThemePreference,
+  followStoredThemePreference,
 } from "@/lib/theme";
 
 /**
@@ -16,9 +15,9 @@ import {
  */
 export function ThemeSync() {
   useLayoutEffect(() => {
-    applyThemePreference(readThemePreference());
+    applyStoredThemePreference();
 
-    return subscribeToThemePreference(() => {});
+    return followStoredThemePreference();
   }, []);
 
   return null;

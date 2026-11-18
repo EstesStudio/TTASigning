@@ -10,8 +10,6 @@ export type ThemePreference = "dark" | "light" | "system";
 
 export const THEME_STORAGE_KEY = "signudoc-theme";
 
-const THEME_CHANGE_EVENT = "signudoc-theme-change";
-
 export function parseThemePreference(value: unknown): ThemePreference {
   return value === "light" || value === "dark" ? value : "system";
 }
@@ -25,7 +23,18 @@ export const THEME_SCRIPT = `(function(){try{var t=localStorage.getItem(${JSON.s
   THEME_STORAGE_KEY,
 )});if(t==="light"||t==="dark")document.documentElement.setAttribute("data-theme",t)}catch(e){}})()`;
 
+/**
+ * The theme the page is showing: what the head script or a pick put on
+ * <html>. The menu reads this rather than storage, so it stays right when
+ * the browser blocks storage and the pick lives only on the page.
+ */
 export function readThemePreference(): ThemePreference {
+  return parseThemePreference(
+    document.documentElement.getAttribute("data-theme"),
+  );
+}
+
+function readStoredThemePreference(): ThemePreference {
   try {
     return parseThemePreference(window.localStorage.getItem(THEME_STORAGE_KEY));
   } catch {
@@ -33,7 +42,7 @@ export function readThemePreference(): ThemePreference {
   }
 }
 
-export function applyThemePreference(preference: ThemePreference) {
+function applyThemePreference(preference: ThemePreference) {
   const root = document.documentElement;
 
   if (preference === "system") {
@@ -41,6 +50,11 @@ export function applyThemePreference(preference: ThemePreference) {
   } else {
     root.setAttribute("data-theme", preference);
   }
+}
+
+/** Puts the stored choice back on <html>, as the head script does. */
+export function applyStoredThemePreference() {
+  applyThemePreference(readStoredThemePreference());
 }
 
 export function setThemePreference(preference: ThemePreference) {
@@ -55,23 +69,29 @@ export function setThemePreference(preference: ThemePreference) {
   }
 
   applyThemePreference(preference);
-  window.dispatchEvent(new Event(THEME_CHANGE_EVENT));
 }
 
-/** For useSyncExternalStore: this tab's changes and other tabs'. */
+/** For useSyncExternalStore: any change to the theme on <html>. */
 export function subscribeToThemePreference(onChange: () => void) {
+  const observer = new MutationObserver(onChange);
+
+  observer.observe(document.documentElement, {
+    attributeFilter: ["data-theme"],
+    attributes: true,
+  });
+
+  return () => observer.disconnect();
+}
+
+/** Applies a choice made in another tab. */
+export function followStoredThemePreference() {
   function handleStorage(event: StorageEvent) {
     if (event.key === null || event.key === THEME_STORAGE_KEY) {
-      applyThemePreference(readThemePreference());
-      onChange();
+      applyStoredThemePreference();
     }
   }
 
-  window.addEventListener(THEME_CHANGE_EVENT, onChange);
   window.addEventListener("storage", handleStorage);
 
-  return () => {
-    window.removeEventListener(THEME_CHANGE_EVENT, onChange);
-    window.removeEventListener("storage", handleStorage);
-  };
+  return () => window.removeEventListener("storage", handleStorage);
 }

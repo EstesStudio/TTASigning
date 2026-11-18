@@ -3,6 +3,8 @@ import test from "node:test";
 
 import {
   parseThemePreference,
+  readThemePreference,
+  setThemePreference,
   THEME_SCRIPT,
   THEME_STORAGE_KEY,
 } from "./theme.ts";
@@ -50,4 +52,44 @@ test("the head script sets a stored theme and nothing else", () => {
   assert.equal(run(null), null);
   assert.equal(run('"><script>'), null);
   assert.equal(run("dark", true), null);
+});
+
+test("a pick shows in the menu even when the browser blocks storage", () => {
+  const attributes = new Map<string, string>();
+  const blocked = () => {
+    throw new Error("blocked");
+  };
+  const globals = globalThis as Record<string, unknown>;
+  const saved = { document: globals.document, window: globals.window };
+
+  globals.document = {
+    documentElement: {
+      getAttribute: (name: string) => attributes.get(name) ?? null,
+      removeAttribute: (name: string) => attributes.delete(name),
+      setAttribute: (name: string, value: string) =>
+        attributes.set(name, value),
+    },
+  };
+  globals.window = {
+    localStorage: {
+      getItem: blocked,
+      removeItem: blocked,
+      setItem: blocked,
+    },
+  };
+
+  try {
+    assert.equal(readThemePreference(), "system");
+
+    setThemePreference("dark");
+    assert.equal(attributes.get("data-theme"), "dark");
+    assert.equal(readThemePreference(), "dark");
+
+    setThemePreference("system");
+    assert.equal(attributes.has("data-theme"), false);
+    assert.equal(readThemePreference(), "system");
+  } finally {
+    globals.document = saved.document;
+    globals.window = saved.window;
+  }
 });
