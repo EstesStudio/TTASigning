@@ -19,6 +19,35 @@ import {
 const SDK_MAX_ATTEMPTS = 3;
 const CONDITIONAL_PUT_MAX_ATTEMPTS = 3;
 
+type S3ClientSettings = {
+  region: string;
+  endpoint: string | undefined;
+  forcePathStyle: boolean;
+};
+
+let sharedClient: { settingsKey: string; client: S3Client } | undefined;
+
+function getS3Client(settings: S3ClientSettings, useSharedClient: boolean) {
+  const settingsKey = useSharedClient ? JSON.stringify(settings) : undefined;
+  if (settingsKey !== undefined && sharedClient?.settingsKey === settingsKey) {
+    return sharedClient.client;
+  }
+
+  // The SDK resolves and refreshes credentials through its default chain.
+  const client = new S3Client({
+    ...settings,
+    maxAttempts: SDK_MAX_ATTEMPTS,
+    retryMode: "standard",
+  });
+
+  if (settingsKey !== undefined) {
+    // Earlier services can still have streams in flight on the old client.
+    sharedClient = { settingsKey, client };
+  }
+
+  return client;
+}
+
 function readEndpoint(env: EnvSource): string | undefined {
   const endpoint = readEnv(env, "S3_ENDPOINT");
   if (endpoint === undefined) return undefined;
@@ -70,14 +99,14 @@ export function createS3StorageService({
     "S3_REGION",
     readEnv(env, "S3_REGION"),
   );
-  // The SDK resolves and refreshes credentials through its default chain.
-  const client = new S3Client({
-    region,
-    endpoint: readEndpoint(env),
-    forcePathStyle: readForcePathStyle(env),
-    maxAttempts: SDK_MAX_ATTEMPTS,
-    retryMode: "standard",
-  });
+  const client = getS3Client(
+    {
+      region,
+      endpoint: readEndpoint(env),
+      forcePathStyle: readForcePathStyle(env),
+    },
+    env === process.env,
+  );
 
   async function fetchObject(key: string) {
     const normalizedKey = normalizeStorageKey(key);

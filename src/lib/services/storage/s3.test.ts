@@ -30,20 +30,21 @@ const input = {
 };
 const objectRef = { bucketName: "test-documents", key: "records/file.pdf" };
 
-async function createTestService(
-  t: TestContext,
-  respond: (request: IncomingMessage, response: ServerResponse) => void,
-) {
-  const credentials = {
-    AWS_ACCESS_KEY_ID: "test-access",
-    AWS_SECRET_ACCESS_KEY: "test-secret",
-    AWS_SESSION_TOKEN: "test-session",
-    AWS_PROFILE: undefined,
-    AWS_ENDPOINT_URL_S3: undefined,
-    AWS_ENDPOINT_URL: undefined,
-  };
+const testCredentials = {
+  AWS_ACCESS_KEY_ID: "test-access",
+  AWS_SECRET_ACCESS_KEY: "test-secret",
+  AWS_SESSION_TOKEN: "test-session",
+  AWS_CREDENTIAL_EXPIRATION: undefined,
+  AWS_PROFILE: undefined,
+  AWS_ENDPOINT_URL_S3: undefined,
+  AWS_ENDPOINT_URL: undefined,
+};
 
-  for (const [name, value] of Object.entries(credentials)) {
+function setTestEnv(
+  t: TestContext,
+  values: Readonly<Record<string, string | undefined>>,
+) {
+  for (const [name, value] of Object.entries(values)) {
     const previous = process.env[name];
 
     if (value === undefined) delete process.env[name];
@@ -54,7 +55,12 @@ async function createTestService(
       else process.env[name] = previous;
     });
   }
+}
 
+async function startTestServer(
+  t: TestContext,
+  respond: (request: IncomingMessage, response: ServerResponse) => void,
+) {
   const server = createServer(respond);
   server.listen(0, "127.0.0.1");
   await once(server, "listening");
@@ -66,13 +72,19 @@ async function createTestService(
   const address = server.address();
   assert.ok(address && typeof address === "object");
 
-  return createStorageService({
-    env: {
-      ...env,
-      S3_ENDPOINT: `http://127.0.0.1:${address.port}`,
-      S3_FORCE_PATH_STYLE: "true",
-    },
-  });
+  return {
+    ...env,
+    S3_ENDPOINT: `http://127.0.0.1:${address.port}`,
+    S3_FORCE_PATH_STYLE: "true",
+  };
+}
+
+async function createTestService(
+  t: TestContext,
+  respond: (request: IncomingMessage, response: ServerResponse) => void,
+) {
+  setTestEnv(t, testCredentials);
+  return createStorageService({ env: await startTestServer(t, respond) });
 }
 
 function respondWithError(
@@ -214,6 +226,130 @@ test("S3 reads, writes, and deletes normalized objects over signed requests", as
     assert.equal(acl, undefined);
   }
   assert.equal(calls[0].contentType, "application/pdf");
+});
+
+test("S3 reuses a TCP connection across independent app storage services", async (t) => {
+  const sockets = new Set<IncomingMessage["socket"]>();
+  const settings = await startTestServer(t, (request, response) => {
+    sockets.add(request.socket);
+    response.end("PDF");
+  });
+  setTestEnv(t, { ...testCredentials, ...settings });
+
+  const first = await createStorageService().getObject(inputKey);
+  process.env.S3_ENDPOINT = `${settings.S3_ENDPOINT}/`;
+  const second = await createStorageService().getObject(inputKey);
+
+  assert.deepEqual(first.body, Uint8Array.of(80, 68, 70));
+  assert.deepEqual(second.body, Uint8Array.of(80, 68, 70));
+  assert.equal(
+    sockets.size,
+    1,
+    "both downloads should use the same TCP connection",
+  );
+});
+
+test("S3 uses a new endpoint while an earlier download is still streaming", async (t) => {
+  let firstResponse: ServerResponse | undefined;
+  const firstEndpoint = await startTestServer(t, (_, response) => {
+    if (firstResponse) {
+      response.end("OLD");
+      return;
+    }
+
+    firstResponse = response;
+    response.writeHead(200, { "Content-Length": 3 });
+    response.write("P");
+  });
+  const secondEndpoint = await startTestServer(t, (_, response) => {
+    response.end("NEW");
+  });
+  setTestEnv(t, { ...testCredentials, ...firstEndpoint });
+
+  const { stream } = await createStorageService().getObjectStream(inputKey);
+  process.env.S3_ENDPOINT = secondEndpoint.S3_ENDPOINT;
+  const nextDownload = await createStorageService().getObject(inputKey);
+  assert.deepEqual(nextDownload.body, Uint8Array.of(78, 69, 87));
+
+  assert.ok(firstResponse);
+  firstResponse.end("DF");
+  assert.equal(await new Response(stream).text(), "PDF");
+});
+
+test("S3 isolates region and path style changes at the same endpoint", async (t) => {
+  const requests: Array<{ socket: IncomingMessage["socket"]; auth?: string }> =
+    [];
+  const settings = await startTestServer(t, (request, response) => {
+    requests.push({
+      socket: request.socket,
+      auth: request.headers.authorization,
+    });
+    response.end("PDF");
+  });
+  setTestEnv(t, { ...testCredentials, ...settings });
+
+  await createStorageService().getObject(inputKey);
+  process.env.S3_REGION = "eu-west-1";
+  await createStorageService().getObject(inputKey);
+  process.env.S3_FORCE_PATH_STYLE = "false";
+  await createStorageService().getObject(inputKey);
+
+  assert.match(requests[0].auth ?? "", /\/us-east-1\/s3\/aws4_request/);
+  assert.match(requests[1].auth ?? "", /\/eu-west-1\/s3\/aws4_request/);
+  assert.match(requests[2].auth ?? "", /\/eu-west-1\/s3\/aws4_request/);
+  assert.equal(new Set(requests.map(({ socket }) => socket)).size, 3);
+});
+
+test("S3 keeps custom environments separate from the app client", async (t) => {
+  const requests: Array<{
+    socket: IncomingMessage["socket"];
+    token?: string | string[];
+  }> = [];
+  const settings = await startTestServer(t, (request, response) => {
+    requests.push({
+      socket: request.socket,
+      token: request.headers["x-amz-security-token"],
+    });
+    response.end("PDF");
+  });
+  setTestEnv(t, { ...testCredentials, ...settings });
+
+  await createStorageService().getObject(inputKey);
+  process.env.AWS_SESSION_TOKEN = "custom-session";
+  await createStorageService({ env: { ...settings } }).getObject(inputKey);
+
+  assert.equal(requests[0].token, "test-session");
+  assert.equal(requests[1].token, "custom-session");
+  assert.notEqual(requests[0].socket, requests[1].socket);
+});
+
+test("S3 can refresh expiring SDK credentials on a reused connection", async (t) => {
+  const sockets = new Set<IncomingMessage["socket"]>();
+  const tokens: Array<string | string[] | undefined> = [];
+  const settings = await startTestServer(t, (request, response) => {
+    sockets.add(request.socket);
+    tokens.push(request.headers["x-amz-security-token"]);
+    response.end("PDF");
+  });
+  let now = Date.now();
+  const validityMs = 10 * 60 * 1000;
+  t.mock.method(Date, "now", () => now);
+  setTestEnv(t, {
+    ...testCredentials,
+    ...settings,
+    AWS_CREDENTIAL_EXPIRATION: new Date(now + validityMs).toISOString(),
+  });
+
+  await createStorageService().getObject(inputKey);
+  now += validityMs + 1000;
+  process.env.AWS_SESSION_TOKEN = "renewed-session";
+  process.env.AWS_CREDENTIAL_EXPIRATION = new Date(
+    now + validityMs,
+  ).toISOString();
+  await createStorageService().getObject(inputKey);
+
+  assert.deepEqual(tokens, ["test-session", "renewed-session"]);
+  assert.equal(sockets.size, 1);
 });
 
 test("S3 rejects invalid keys before issuing a request", async (t) => {
