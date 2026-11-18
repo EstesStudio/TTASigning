@@ -2,6 +2,7 @@ import {
   ChevronLeft,
   ChevronRight,
   Clock,
+  FilePlus2,
   FileStack,
   LayoutTemplate,
   Plus,
@@ -132,10 +133,21 @@ export const newChoices: NewChoice[] = [
     id: "use-template",
     label: "Use a template",
   },
+  {
+    description: "Set it up once, send it again",
+    href: "/templates/new",
+    icon: FilePlus2,
+    id: "template",
+    label: "New template",
+  },
 ];
 
 /** What the phone's top bar calls this place. */
 export function sectionTitle(pathname: string): string {
+  if (pathname === "/templates/new" || pathname.startsWith("/templates/new/")) {
+    return "New template";
+  }
+
   switch (resolveSection(pathname)) {
     case "documents":
       return "Documents";

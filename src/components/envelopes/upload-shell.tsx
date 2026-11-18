@@ -14,12 +14,24 @@ import {
 
 import { rememberSendTo, useSendTo } from "@/components/contacts/contact-data";
 import { ContactAvatar } from "@/components/contacts/contact-parts";
+import {
+  LazyDocumentComposer,
+  type ComposerResult,
+  type ComposerSource,
+} from "@/components/composer/lazy-composer";
 import { Button } from "@/components/ui/button";
 import { IconButton } from "@/components/ui/icon-button";
 import { XIcon } from "@/components/ui/icons";
 import { DUR, EASE, exitDuration } from "@/components/ui/motion-tokens";
 import { FormField } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
+import { clearComposerDraft } from "@/lib/composer/drafts";
+import {
+  COMPOSER_IMPORT_ACCEPT,
+  importDocumentFile,
+  isComposerImportable,
+} from "@/lib/composer/import";
+import { defaultPageSetup } from "@/lib/composer/page";
 import { cacheDraftPdfBlob } from "@/lib/draft-pdf-cache";
 import {
   renderPdfThumbnail,
@@ -41,11 +53,13 @@ import {
 } from "./flow/upload-drop-sheet";
 
 const MAX_FILE_SIZE_BYTES = 20 * 1024 * 1024;
+const COMPOSER_DRAFT_KEY = "envelope-new";
 
 type UploadErrorCode = "invalid-type" | "preview-unavailable" | "too-large";
 
 const errorMessageMap: Record<UploadErrorCode, string> = {
-  "invalid-type": "That kind of file can't be used. Add a PDF.",
+  "invalid-type":
+    "That kind of file can't be used. Add a PDF or a Word document (.docx), or write the document here.",
   "preview-unavailable": PREVIEW_UNAVAILABLE_MESSAGE,
   "too-large":
     "That file is over the 20 MB limit. Compress it or split it into smaller PDFs, then try again.",
@@ -168,6 +182,16 @@ export function UploadShell({ directUploadPrefix = null }: UploadShellProps) {
   // The first page of the chosen file as a small picture: shown beside the
   // file name here, then saved as the envelope's dashboard thumbnail.
   const thumbnailRef = useRef<Promise<Blob | null> | null>(null);
+  // The document editor: open with what it should show, and the document
+  // behind the chosen PDF when it was written here (so it can be edited).
+  const [composer, setComposer] = useState<{
+    initial: ComposerSource | null;
+    notes: string[];
+  } | null>(null);
+  const [composedSource, setComposedSource] = useState<ComposerSource | null>(
+    null,
+  );
+  const [isImporting, setIsImporting] = useState(false);
 
   useEffect(() => {
     return () => {
@@ -201,6 +225,7 @@ export function UploadShell({ directUploadPrefix = null }: UploadShellProps) {
 
   function resetSelection(clearTitle: boolean) {
     startThumbnail(null);
+    setComposedSource(null);
     setSummary(null);
     setErrorMessage(null);
     setIsCreatingDraft(false);
@@ -237,7 +262,47 @@ export function UploadShell({ directUploadPrefix = null }: UploadShellProps) {
     };
   }
 
+  async function openImported(file: File) {
+    setIsImporting(true);
+    setErrorMessage(null);
+
+    try {
+      const imported = await importDocumentFile(file);
+
+      setComposer({
+        initial: {
+          html: imported.html,
+          page: imported.page ?? defaultPageSetup(),
+          title: title.trim() || imported.title || "",
+        },
+        notes: imported.notes,
+      });
+    } catch (error) {
+      setErrorMessage(
+        error instanceof Error
+          ? error.message
+          : errorMessageMap["invalid-type"],
+      );
+      setRefusals((count) => count + 1);
+    } finally {
+      setIsImporting(false);
+    }
+  }
+
+  function handleComposed(result: ComposerResult) {
+    setComposer(null);
+    beginUpload(result.file);
+    setComposedSource(result.source);
+    setTitle(result.source.title);
+    setAutoFilledTitle(null);
+  }
+
   function beginUpload(file: File) {
+    if (!isClientVisiblePdf(file) && isComposerImportable(file)) {
+      void openImported(file);
+      return;
+    }
+
     if (!isClientVisiblePdf(file)) {
       setErrorMessage(errorMessageMap["invalid-type"]);
       setRefusals((count) => count + 1);
@@ -254,6 +319,7 @@ export function UploadShell({ directUploadPrefix = null }: UploadShellProps) {
       return;
     }
 
+    setComposedSource(null);
     titleHadFocusRef.current =
       document.activeElement !== null &&
       document.activeElement === titleFieldRef.current;
@@ -372,6 +438,10 @@ export function UploadShell({ directUploadPrefix = null }: UploadShellProps) {
         return;
       }
 
+      if (composedSource) {
+        clearComposerDraft(COMPOSER_DRAFT_KEY);
+      }
+
       try {
         await cacheDraftPdfBlob(payload.data.envelopeId, summary.file);
       } catch (error) {
@@ -449,8 +519,8 @@ export function UploadShell({ directUploadPrefix = null }: UploadShellProps) {
       }}
     >
       <input
-        accept=".pdf,application/pdf"
-        aria-label="Upload PDF"
+        accept={`.pdf,application/pdf,${COMPOSER_IMPORT_ACCEPT}`}
+        aria-label="Upload PDF or Word document"
         className="sr-only"
         onChange={handleInputChange}
         ref={fileInputRef}
@@ -458,7 +528,7 @@ export function UploadShell({ directUploadPrefix = null }: UploadShellProps) {
         type="file"
       />
       <FlowFrame
-        description="Add the PDF to be signed. You'll choose who signs it next."
+        description="Add a PDF or Word document, or write one here. You'll choose who signs it next."
         footer={
           <FlowActions
             back={{ href: "/dashboard", label: "Cancel" }}
@@ -525,7 +595,14 @@ export function UploadShell({ directUploadPrefix = null }: UploadShellProps) {
         <UploadDropSheet
           errorMessage={errorMessage}
           isDragActive={isDragActive}
+          isImporting={isImporting}
+          onEditDocument={
+            composedSource
+              ? () => setComposer({ initial: composedSource, notes: [] })
+              : undefined
+          }
           onOpenFilePicker={openFilePicker}
+          onWriteDocument={() => setComposer({ initial: null, notes: [] })}
           onRemoveFile={handleRemoveFile}
           phase={phase}
           previewUrl={previewUrl}
@@ -558,6 +635,16 @@ export function UploadShell({ directUploadPrefix = null }: UploadShellProps) {
             />
           }
         />
+        {composer ? (
+          <LazyDocumentComposer
+            confirmLabel="Continue"
+            initial={composer.initial}
+            notes={composer.notes}
+            onClose={() => setComposer(null)}
+            onConfirm={handleComposed}
+            storageKey={COMPOSER_DRAFT_KEY}
+          />
+        ) : null}
         <p className="text-center text-[0.8125rem] leading-5 text-(--secondary)">
           Sending the same document again?{" "}
           <Link

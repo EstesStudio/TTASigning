@@ -10,18 +10,7 @@ import {
 } from "@/lib/pdfjs-client";
 import { renderPdfThumbnail } from "@/lib/pdf-thumbnail";
 import { createSharedSerialQueue } from "@/lib/shared-serial-queue";
-
-/** Where a field sits on its page, and whose it is (by signing order). */
-type TemplateFieldPreview = {
-  height: number;
-  page: number;
-  /** Index of the role in signing order. */
-  roleIndex: number;
-  type: string;
-  width: number;
-  x: number;
-  y: number;
-};
+import type { TemplateFieldPreview } from "@/lib/templates";
 
 /*
  * A template's pages, drawn in the browser from its PDF (the server never

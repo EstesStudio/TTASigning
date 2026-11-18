@@ -9,7 +9,7 @@ import {
   buildRateLimitKey,
 } from "@/lib/security/route-controls";
 import { getClientIpAddress, getRequestPathname } from "@/lib/security/request";
-import { listTemplatesForUser } from "@/lib/templates";
+import { isRoleStandInEmail, listTemplatesForUser } from "@/lib/templates";
 
 const privateNoStore = { "cache-control": "private, no-store" };
 const COMMAND_DOCUMENT_LIMIT = 100;
@@ -53,14 +53,31 @@ export async function GET(request: Request) {
 
     return NextResponse.json(
       {
-        documents: envelopePage.envelopes.map((envelope) => ({
-          emails: envelope.searchableEmails,
-          href: `/envelopes/${encodeURIComponent(envelope.id)}`,
-          id: envelope.id,
-          status: envelope.expired ? "expired" : envelope.status,
-          statusLabel: envelope.statusLabel,
-          title: envelope.title,
-        })),
+        documents: envelopePage.envelopes.map((envelope) => {
+          // A template being made from scratch: its signers are role
+          // stand-ins, and it opens where the template is finished.
+          const isTemplateDraft =
+            envelope.status === "draft" &&
+            envelope.searchableEmails.length > 0 &&
+            envelope.searchableEmails.every(isRoleStandInEmail);
+
+          return {
+            emails: isTemplateDraft ? [] : envelope.searchableEmails,
+            href: isTemplateDraft
+              ? `/templates/new/${encodeURIComponent(envelope.id)}`
+              : `/envelopes/${encodeURIComponent(envelope.id)}`,
+            id: envelope.id,
+            status: isTemplateDraft
+              ? "template-draft"
+              : envelope.expired
+                ? "expired"
+                : envelope.status,
+            statusLabel: isTemplateDraft
+              ? "Template draft"
+              : envelope.statusLabel,
+            title: envelope.title,
+          };
+        }),
         templates: templates.map((template) => ({
           id: template.id,
           name: template.name,

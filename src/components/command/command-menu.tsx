@@ -5,6 +5,7 @@ import {
   ArrowLeftIcon,
   ClockIcon,
   CornerDownLeftIcon,
+  FilePlus2Icon,
   FileTextIcon,
   KeyRoundIcon,
   LayoutTemplateIcon,
@@ -481,7 +482,7 @@ function CommandMenuDialog({
                         go(
                           `/templates/${encodeURIComponent(template.id)}/use`,
                           {
-                            href: `/templates/${encodeURIComponent(template.id)}/use`,
+                            href: `/templates/${encodeURIComponent(template.id)}`,
                             id: template.id,
                             kind: "template",
                             label: template.name,
@@ -491,6 +492,13 @@ function CommandMenuDialog({
                       value={`use-template ${template.id} ${template.name}`}
                     />
                   ))}
+                  <CommandRow
+                    icon={FilePlus2Icon}
+                    label="New template"
+                    onSelect={() => go("/templates/new")}
+                    keywords={["create"]}
+                    value="action-new-template"
+                  />
                 </Command.Group>
               ) : (
                 <>
@@ -526,6 +534,13 @@ function CommandMenuDialog({
                       onSelect={() => openPage("templates")}
                       keywords={["start from template"]}
                       value="action-use-template"
+                    />
+                    <CommandRow
+                      icon={FilePlus2Icon}
+                      label="New template"
+                      onSelect={() => go("/templates/new")}
+                      keywords={["create"]}
+                      value="action-new-template-root"
                     />
                   </Command.Group>
 
@@ -581,9 +596,9 @@ function CommandMenuDialog({
                           label={template.name}
                           onSelect={() =>
                             go(
-                              `/templates/${encodeURIComponent(template.id)}/use`,
+                              `/templates/${encodeURIComponent(template.id)}`,
                               {
-                                href: `/templates/${encodeURIComponent(template.id)}/use`,
+                                href: `/templates/${encodeURIComponent(template.id)}`,
                                 id: template.id,
                                 kind: "template",
                                 label: template.name,

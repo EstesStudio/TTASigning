@@ -10,6 +10,7 @@ import { type ShellUser } from "@/components/layout/account-menu";
 import { resolveSection } from "@/components/layout/nav-items";
 import { PhoneBottomBar, PhoneTopBar } from "@/components/layout/shell-phone";
 import { DesktopTopBar } from "@/components/layout/shell-top-bar";
+import { TemplateDraftReturn } from "@/components/layout/template-draft-return";
 
 type AppShellProps = {
   children: ReactNode;
@@ -17,6 +18,12 @@ type AppShellProps = {
   isAdmin?: boolean;
   /** Shown to the administrator until email can reach signers. */
   showEmailSetupNotice?: boolean;
+  /**
+   * The draft this browser is turning into a template, if any. The builder
+   * finishes on the draft's review page; for this draft the shell brings
+   * the person back to "Save template" instead.
+   */
+  templateDraftId?: string | null;
   user: ShellUser;
 };
 
@@ -43,6 +50,7 @@ export function AppShell({
   children,
   isAdmin = false,
   showEmailSetupNotice = false,
+  templateDraftId = null,
   user,
 }: AppShellProps) {
   const pathname = usePathname() ?? "/dashboard";
@@ -50,6 +58,11 @@ export function AppShell({
   const [noticeDismissed, setNoticeDismissed] = useState(false);
   const showNotice =
     showEmailSetupNotice && !noticeDismissed && currentSection !== "settings";
+  const returningToTemplate =
+    templateDraftId !== null &&
+    new RegExp(`^/envelopes/${escapeRegExp(templateDraftId)}(/|$)`).test(
+      pathname,
+    );
 
   if (isFullScreen(pathname)) {
     return (
@@ -90,7 +103,11 @@ export function AppShell({
                 </button>
               </div>
             ) : null}
-            {children}
+            {returningToTemplate && templateDraftId ? (
+              <TemplateDraftReturn envelopeId={templateDraftId} />
+            ) : (
+              children
+            )}
           </div>
         </main>
 
@@ -98,4 +115,8 @@ export function AppShell({
       </div>
     </CommandMenuProvider>
   );
+}
+
+function escapeRegExp(value: string) {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }

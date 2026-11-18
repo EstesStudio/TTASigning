@@ -13,6 +13,7 @@ import {
   listEnvelopesForUser,
   type DashboardEnvelopePage,
 } from "@/lib/envelopes";
+import { isRoleStandInEmail } from "@/lib/templates";
 
 /** When this request was rendered. Read once per request, on the server. */
 function renderedAt() {
@@ -124,6 +125,16 @@ export default async function DashboardPage({
   }
 
   const envelopes = result?.envelopes;
+  // A template being made from scratch: every signer is a role stand-in.
+  const templateDraftIds = (envelopes ?? [])
+    .filter(
+      (envelope) =>
+        envelope.status === "draft" &&
+        envelope.searchableEmails.length > 0 &&
+        envelope.searchableEmails.every(isRoleStandInEmail),
+    )
+    .map((envelope) => envelope.id);
+
   return (
     <DashboardShell
       envelopes={envelopes}
@@ -143,6 +154,7 @@ export default async function DashboardPage({
           ? dashboardHref({ page: page + 1, search, showAll })
           : undefined,
       }}
+      templateDraftIds={templateDraftIds}
       view={isAdmin ? (showAll ? "all" : "mine") : undefined}
     />
   );
