@@ -127,23 +127,24 @@ The graft only lives in your local clone. The merge itself is a normal commit th
 
 A deployment made with the button needs no environment variables. These are there if you want them, under Settings, Environment Variables in the Vercel project. Deploy again after changing one.
 
-| Variable                                            | What it does                                                                                                                                                                                           |
-| --------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| `SETUP_TOKEN`                                       | A secret the setup page asks for. See [Lock down a new install](#lock-down-a-new-install).                                                                                                             |
-| `CRON_SECRET`                                       | Closes the daily cleanup route to everyone but Vercel's own cron call. See [Daily cleanup](#daily-cleanup).                                                                                            |
-| `BOTID`                                             | `1` turns on Vercel BotID for sign-in, sign-up and setup. See [Bot protection](#bot-protection).                                                                                                       |
-| `RESEND_FROM_EMAIL`, `SUPPORT_EMAIL`                | Fix the sender and support addresses from the environment instead of in Settings.                                                                                                                      |
-| `BETTER_AUTH_SECRET`                                | Your own secret for signing sessions. Without it one is derived from the database password, so changing that password signs everyone out.                                                              |
-| `APP_URL`                                           | The site's public address, if it should not be the project's production domain.                                                                                                                        |
-| `HOSTED_MODE`                                       | `1` runs SignuDoc as a public service under its own name. See [Hosted mode](#hosted-mode).                                                                                                             |
-| `RESEND_REGION`                                     | Where Resend sends from when the app adds your domain, for example `eu-west-1`. See [Running in the EU](#running-in-the-eu).                                                                           |
-| `SEAL_P12_BASE64`, `SEAL_P12_PASSWORD`              | Seal finished PDFs with a certificate from a certificate authority instead of the install's own. See [Signed PDFs and the seal](#signed-pdfs-and-the-seal).                                            |
-| `SEAL_TIMESTAMP_URL`                                | An RFC 3161 timestamp server that adds a trusted time to each seal, and long-term validation. See [Long-term validation](#long-term-validation).                                                       |
-| `EIDEASY_CLIENT_ID`, `EIDEASY_SECRET`               | Let senders ask for advanced or qualified signatures in the signers' own names, through eID Easy. See [Signatures in the signers' own names](#signatures-in-the-signers-own-names-eidas-ades-and-qes). |
-| `CSC_API_URL`, `CSC_CLIENT_ID`, `CSC_CLIENT_SECRET` | The same through a trust service provider's remote signing service (CSC API v2). See [Signatures in the signers' own names](#signatures-in-the-signers-own-names-eidas-ades-and-qes).                  |
-| `BACKUP_BLOB_READ_WRITE_TOKEN`, `BACKUP_KEEP_DAYS`  | A daily backup of the database and files to a second Blob store. See [Backup and restore](backup-and-restore.md).                                                                                      |
-| `AUDIT_LOG`                                         | `off` keeps audit rows out of the function logs. See [Send the audit trail to your SIEM](#send-the-audit-trail-to-your-siem).                                                                          |
-| `SSO_ISSUER`, `SSO_CLIENT_ID`, `SSO_CLIENT_SECRET`  | Sign in through your organization's identity provider (Okta, Entra ID, Google Workspace). `PASSWORD_SIGN_IN=off` then turns passwords off. See [Single sign-on](#single-sign-on).                      |
+| Variable                                                                | What it does                                                                                                                                                                                           |
+| ----------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `SETUP_TOKEN`                                                           | A secret the setup page asks for. See [Lock down a new install](#lock-down-a-new-install).                                                                                                             |
+| `CRON_SECRET`                                                           | Closes the daily cleanup route to everyone but Vercel's own cron call. See [Daily cleanup](#daily-cleanup).                                                                                            |
+| `BOTID`                                                                 | `1` turns on Vercel BotID for sign-in, sign-up and setup. See [Bot protection](#bot-protection).                                                                                                       |
+| `RESEND_FROM_EMAIL`, `SUPPORT_EMAIL`                                    | Fix the sender and support addresses from the environment instead of in Settings.                                                                                                                      |
+| `BETTER_AUTH_SECRET`                                                    | Your own secret for signing sessions. Without it one is derived from the database password, so changing that password signs everyone out.                                                              |
+| `APP_URL`                                                               | The site's public address, if it should not be the project's production domain.                                                                                                                        |
+| `HOSTED_MODE`                                                           | `1` runs SignuDoc as a public service under its own name. See [Hosted mode](#hosted-mode).                                                                                                             |
+| `RESEND_REGION`                                                         | Where Resend sends from when the app adds your domain, for example `eu-west-1`. See [Running in the EU](#running-in-the-eu).                                                                           |
+| `SEAL_P12_BASE64`, `SEAL_P12_PASSWORD`                                  | Seal finished PDFs with a certificate from a certificate authority instead of the install's own. See [Signed PDFs and the seal](#signed-pdfs-and-the-seal).                                            |
+| `SEAL_TIMESTAMP_URL`                                                    | An RFC 3161 timestamp server that adds a trusted time to each seal, and long-term validation. See [Long-term validation](#long-term-validation).                                                       |
+| `EIDEASY_CLIENT_ID`, `EIDEASY_SECRET`                                   | Let senders ask for advanced or qualified signatures in the signers' own names, through eID Easy. See [Signatures in the signers' own names](#signatures-in-the-signers-own-names-eidas-ades-and-qes). |
+| `CSC_API_URL`, `CSC_CLIENT_ID`, `CSC_CLIENT_SECRET`                     | The same through a trust service provider's remote signing service (CSC API v2). See [Signatures in the signers' own names](#signatures-in-the-signers-own-names-eidas-ades-and-qes).                  |
+| `BACKUP_BLOB_READ_WRITE_TOKEN`, `BACKUP_KEEP_DAYS`                      | A daily backup of the database and files to a second Blob store. See [Backup and restore](backup-and-restore.md).                                                                                      |
+| `AUDIT_LOG`                                                             | `off` keeps audit rows out of the function logs. See [Send the audit trail to your SIEM](#send-the-audit-trail-to-your-siem).                                                                          |
+| `SSO_ISSUER`, `SSO_CLIENT_ID`, `SSO_CLIENT_SECRET`                      | Sign in through your organization's identity provider (Okta, Entra ID, Google Workspace). `PASSWORD_SIGN_IN=off` then turns passwords off. See [Single sign-on](#single-sign-on).                      |
+| `MICROSOFT_CLIENT_ID`, `MICROSOFT_CLIENT_SECRET`, `MICROSOFT_TENANT_ID` | Sign in with a Microsoft 365 or Microsoft account, alongside or instead of the provider above. See [Microsoft 365 sign-in](#microsoft-365-sign-in).                                                    |
 
 ## Set the site up
 
@@ -208,6 +209,23 @@ How it behaves:
 - A missing or broken setting (one of the three left out, an issuer that is not `https://`) turns single sign-on off and leaves a warning in the function logs, so password sign-in keeps working.
 
 SAML is not supported. Okta, Entra ID and Google all offer OIDC for the same application.
+
+### Microsoft 365 sign-in
+
+A dedicated "Continue with Microsoft" button for installs whose people are in Microsoft 365, without touching the generic single sign-on above; both buttons show when both are set up. It uses the same OpenID Connect wiring, so accounts, the sign-up rule and the audit trail behave the same way (see "How it behaves" above).
+
+1. In Microsoft Entra ID, under Identity, Applications, App registrations, register an application (or use an existing one). Under Authentication, add the web redirect URI `https://<your site>/api/auth/callback/microsoft`.
+2. Under Certificates and secrets, make a client secret. Under Overview, copy the Application (client) ID.
+3. In the Vercel project, under Settings, Environment Variables, set:
+   - `MICROSOFT_CLIENT_ID` and `MICROSOFT_CLIENT_SECRET`: from the application you registered.
+   - `MICROSOFT_TENANT_ID` (optional): who may sign in. `common` (the default) allows any Microsoft account, `organizations` only work and school accounts, `consumers` only personal ones. To allow only your own directory, use its tenant GUID instead, so people cannot sign in with a personal account and get past your directory's rules.
+4. Deploy again. The sign-in and sign-up pages show "Continue with Microsoft".
+
+Notes:
+
+- With `common` or `consumers`, anyone with a Microsoft account can press the button: the install's sign-up rule (Settings, Organization, Who can sign up) still decides who gets an account.
+- `PASSWORD_SIGN_IN=off` works the same as with the provider above, and the addresses in `PASSWORD_SIGN_IN_ALLOWED_EMAILS` keep their password. A broken setting (one of the two left out, a tenant id that is neither `common`, `organizations`, `consumers` nor a GUID) turns the button off and leaves a warning in the function logs.
+- The sign-in and sign-up rule enforcement, the audit trail entries and the skipping of this app's own two-step sign-in are exactly those of the generic provider: see "How it behaves" above.
 
 ## Your responsibilities
 

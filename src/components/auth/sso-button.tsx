@@ -5,11 +5,16 @@ import { useState } from "react";
 import { ShellButton } from "@/components/shared/form-shell";
 
 // "Continue with <provider>": hands the visitor to the organization's
-// identity provider (lib/auth/sso.ts). Better Auth sends them back to
-// /api/auth/callback/sso, and from there to the dashboard, or to the sign-in
-// page with ?error= when it did not work.
+// identity provider (lib/auth/sso.ts) or to Microsoft 365 (lib/auth/microsoft.ts).
+// Better Auth sends them back to /api/auth/callback/<provider id>, and from
+// there to the dashboard, or to the sign-in page with ?error= when it did
+// not work.
 
-export type SsoOption = { name: string };
+export type SsoOption = {
+  name: string;
+  /** The Better Auth provider id; "sso" unless said otherwise. */
+  providerId?: string;
+};
 
 /** What the sign-in page says for an ?error= the provider callback sent. */
 export function describeSsoError(code: string): string {
@@ -58,7 +63,7 @@ export function SsoButton({
           callbackURL: `${origin}/dashboard`,
           errorCallbackURL: `${origin}/login`,
           newUserCallbackURL: `${origin}/dashboard`,
-          provider: "sso",
+          provider: sso.providerId ?? "sso",
         }),
         headers: { "content-type": "application/json" },
         method: "POST",

@@ -1,3 +1,4 @@
+import { readMicrosoftConfig } from "./microsoft.ts";
 import { readEnv, type EnvSource } from "../utils/env.ts";
 
 // Single sign-on with the organization's own identity provider, over OpenID
@@ -95,14 +96,17 @@ export function readSsoConfig(env: EnvSource = process.env): SsoConfig | null {
 
 /**
  * Whether password sign-in is on. It can only be turned off while single
- * sign-on is set up, so nobody can be left with no way in at all.
+ * sign-on or Microsoft 365 sign-in is set up, so nobody can be left with no
+ * way in at all.
  */
 export function readPasswordSignInPolicy(
   env: EnvSource = process.env,
 ): PasswordSignInPolicy {
+  const providerConfigured =
+    readSsoConfig(env) !== null || readMicrosoftConfig(env) !== null;
   const off =
     readEnv(env, "PASSWORD_SIGN_IN")?.toLowerCase() === "off" &&
-    readSsoConfig(env) !== null;
+    providerConfigured;
 
   return {
     allowedEmails: off

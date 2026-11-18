@@ -49,6 +49,8 @@ type ForgotPasswordFormErrors = Partial<
 >;
 
 type LoginShellProps = {
+  /** Microsoft 365 sign-in, when the install has it (lib/auth/microsoft.ts). */
+  microsoft?: SsoOption | null;
   /** "on", "off", or "fallback": off, but a few addresses may still use one. */
   passwordSignIn?: "fallback" | "off" | "on";
   resetError?: string | null;
@@ -122,6 +124,7 @@ export function LoginShell(props: LoginShellProps) {
 }
 
 function LiveLoginShell({
+  microsoft = null,
   passwordSignIn = "on",
   resetError = null,
   resetToken = null,
@@ -427,7 +430,15 @@ function LiveLoginShell({
             />
           ) : null}
 
-          {sso && showPasswordForm ? (
+          {microsoft ? (
+            <SsoButton
+              onError={setBannerMessage}
+              sso={microsoft}
+              variant={showPasswordForm || sso ? "secondary" : "primary"}
+            />
+          ) : null}
+
+          {(sso || microsoft) && showPasswordForm ? (
             <p className="text-center text-xs font-semibold uppercase tracking-[0.12em] text-(--secondary)">
               or
             </p>

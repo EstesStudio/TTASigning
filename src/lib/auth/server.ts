@@ -37,6 +37,11 @@ import {
 } from "../utils/env.ts";
 import { escapeHtml } from "../utils/html.ts";
 import { isRunningSetup } from "./setup-context.ts";
+import {
+  MICROSOFT_NAME,
+  MICROSOFT_PROVIDER_ID,
+  readMicrosoftConfig,
+} from "./microsoft.ts";
 import { signInEvents } from "./sign-in-events.ts";
 import {
   mayUsePassword,
@@ -290,36 +295,60 @@ export function createAppAuth({
     return cachedEmailService;
   };
   const sso = readSsoConfig(env);
+  const microsoft = readMicrosoftConfig(env);
   const passwordPolicy = readPasswordSignInPolicy(env);
+  // What the refusal of a password says to use instead. Password sign-in
+  // can only be off with one of the providers configured (sso.ts).
+  const providerSignInName = sso?.name ?? (microsoft ? MICROSOFT_NAME : null);
   const plugins = [
-    // Single sign-on with the organization's identity provider (sso.ts).
-    // Its sign-ins do not ask for this app's second step: the provider's
-    // own sign-in, with its own MFA, is the check.
-    ...(sso
+    // Provider sign-ins (sso.ts, microsoft.ts) over OpenID Connect. Their
+    // sign-ins do not ask for this app's second step: the provider's own
+    // sign-in, with its own MFA, is the check.
+    ...(sso || microsoft
       ? [
           genericOAuth({
             config: [
-              {
-                clientId: sso.clientId,
-                clientSecret: sso.clientSecret,
-                discoveryUrl: sso.discoveryUrl,
-                // A provider whose discovery cannot vouch for its ID tokens
-                // is left out rather than trusted unchecked.
-                requireIdTokenVerification: true,
-                // Microsoft Entra ID leaves email_verified out of its
-                // tokens. The organization's own directory is trusted for
-                // its addresses unless it says one is not verified.
-                mapProfileToUser: (profile) => ({
-                  emailVerified:
-                    profile.email_verified !== false &&
-                    profile.email_verified !== "false",
-                }),
-                name: sso.name,
-                pkce: true,
-                providerId: SSO_PROVIDER_ID,
-                scopes: ["openid", "email", "profile"],
-              },
-            ],
+              ...(sso
+                ? [
+                    {
+                      clientId: sso.clientId,
+                      clientSecret: sso.clientSecret,
+                      discoveryUrl: sso.discoveryUrl,
+                      // A provider whose discovery cannot vouch for its ID
+                      // tokens is left out rather than trusted unchecked.
+                      requireIdTokenVerification: true,
+                      name: sso.name,
+                      pkce: true,
+                      providerId: SSO_PROVIDER_ID,
+                      scopes: ["openid", "email", "profile"],
+                    },
+                  ]
+                : []),
+              ...(microsoft
+                ? [
+                    {
+                      clientId: microsoft.clientId,
+                      clientSecret: microsoft.clientSecret,
+                      discoveryUrl: microsoft.discoveryUrl,
+                      requireIdTokenVerification: true,
+                      name: MICROSOFT_NAME,
+                      pkce: true,
+                      providerId: MICROSOFT_PROVIDER_ID,
+                      scopes: ["openid", "email", "profile"],
+                    },
+                  ]
+                : []),
+            ].map((provider) => ({
+              ...provider,
+              // Microsoft Entra ID leaves email_verified out of its tokens.
+              // The organization's own directory is trusted for its
+              // addresses unless it says one is not verified.
+              mapProfileToUser: (profile: Record<string, unknown>) => ({
+                emailVerified:
+                  profile.email_verified !== false &&
+                  profile.email_verified !== "false",
+              }),
+            })),
           }),
         ]
       : []),
@@ -461,15 +490,15 @@ export function createAppAuth({
             : "";
 
         // With password sign-in turned off, only the addresses kept for
-        // when the identity provider is down may use one (sso.ts).
+        // when the provider is down may use one (sso.ts, microsoft.ts).
         if (
-          sso &&
+          !passwordPolicy.enabled &&
           PASSWORD_PATHS.has(ctx.path ?? "") &&
           !mayUsePassword(passwordPolicy, email)
         ) {
           throw new APIError("FORBIDDEN", {
             code: "PASSWORD_SIGN_IN_OFF",
-            message: `Password sign-in is turned off here. Continue with ${sso.name} instead.`,
+            message: `Password sign-in is turned off here. Continue with ${providerSignInName ?? "your organization's sign-in"} instead.`,
           });
         }
 
