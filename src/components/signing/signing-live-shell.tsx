@@ -48,11 +48,8 @@ import {
   type SigningVisibleField,
 } from "@/lib/schemas/signing";
 import { type SigningSubmission } from "@/lib/schemas/field";
-import {
-  countAnswerableFields,
-  isNumberEntry,
-  NUMBER_ENTRY_MESSAGE,
-} from "@/lib/field-choices";
+import { countAnswerableFields, isNumberEntry } from "@/lib/field-choices";
+import { type SignerLocale, t } from "@/lib/i18n";
 
 const typedSignatureFont =
   '"Snell Roundhand", "Brush Script MT", "Segoe Script", cursive';
@@ -81,16 +78,6 @@ type PositionedSigningField = {
   width: string;
 };
 
-const defaultSubmitErrorMessage =
-  "We couldn't finish signing right now. Reload the page or request a fresh signing link from the sender.";
-const defaultDeclineErrorMessage =
-  "We couldn't record your decline right now. Reload the page or request a fresh signing link from the sender.";
-/** What a signer sees once their decline is recorded. */
-export const declinedConfirmation = {
-  description:
-    "Your decline has been recorded. No further action is needed, and this link no longer opens the document.",
-  title: "You declined to sign",
-};
 const compactFieldHeightThreshold = 0.045;
 const compactFieldWidthThreshold = 0.12;
 
@@ -130,6 +117,7 @@ function shouldShowInlineFieldValue(
 
 function getCanvasFieldLabel(
   field: Pick<SigningCurrentField | SigningVisibleField, "label" | "type">,
+  locale: SignerLocale,
 ) {
   if (field.label?.trim()) {
     return field.label;
@@ -137,25 +125,25 @@ function getCanvasFieldLabel(
 
   switch (field.type) {
     case "signature":
-      return "Sign";
+      return t(locale, "field.canvas.signature");
     case "initials":
-      return "Initial";
+      return t(locale, "field.canvas.initials");
     case "date":
-      return "Date";
+      return t(locale, "field.canvas.date");
     case "name":
-      return "Name";
+      return t(locale, "field.canvas.name");
     case "text":
-      return "Text";
+      return t(locale, "field.canvas.text");
     case "checkbox":
-      return "Checkbox";
+      return t(locale, "field.canvas.checkbox");
     case "number":
-      return "Number";
+      return t(locale, "field.canvas.number");
     case "dropdown":
-      return "Choose";
+      return t(locale, "field.canvas.dropdown");
     case "radio":
-      return "Option";
+      return t(locale, "field.canvas.radio");
     default:
-      return "Field";
+      return t(locale, "field.canvas.fallback");
   }
 }
 
@@ -171,6 +159,7 @@ function getSignatureFieldType(
 
 function getFieldLabel(
   field: Pick<SigningCurrentField, "label" | "type">,
+  locale: SignerLocale,
 ): string {
   if (field.label?.trim()) {
     return field.label;
@@ -178,25 +167,25 @@ function getFieldLabel(
 
   switch (field.type) {
     case "signature":
-      return "Sign here";
+      return t(locale, "field.label.signature");
     case "initials":
-      return "Initial here";
+      return t(locale, "field.label.initials");
     case "date":
-      return "Date";
+      return t(locale, "field.label.date");
     case "name":
-      return "Name";
+      return t(locale, "field.label.name");
     case "text":
-      return "Enter text";
+      return t(locale, "field.label.text");
     case "checkbox":
-      return "Checkbox";
+      return t(locale, "field.label.checkbox");
     case "number":
-      return "Enter a number";
+      return t(locale, "field.label.number");
     case "dropdown":
-      return "Choose one";
+      return t(locale, "field.label.dropdown");
     case "radio":
-      return "Option";
+      return t(locale, "field.label.radio");
     default:
-      return "Field";
+      return t(locale, "field.label.fallback");
   }
 }
 
@@ -232,28 +221,28 @@ function hasInvalidNumber(
   return field.type === "number" && value.length > 0 && !isNumberEntry(value);
 }
 
-function getSummaryLabel(field: SigningCurrentField) {
+function getSummaryLabel(field: SigningCurrentField, locale: SignerLocale) {
   switch (field.type) {
     case "signature":
-      return "Signature";
+      return t(locale, "field.summary.signature");
     case "initials":
-      return "Initials";
+      return t(locale, "field.summary.initials");
     case "date":
-      return "Date";
+      return t(locale, "field.summary.date");
     case "name":
-      return "Name";
+      return t(locale, "field.summary.name");
     case "text":
-      return "Text input";
+      return t(locale, "field.summary.text");
     case "checkbox":
-      return "Checkbox";
+      return t(locale, "field.summary.checkbox");
     case "number":
-      return "Number";
+      return t(locale, "field.summary.number");
     case "dropdown":
-      return "Dropdown";
+      return t(locale, "field.summary.dropdown");
     case "radio":
-      return "Choice";
+      return t(locale, "field.summary.radio");
     default:
-      return "Field";
+      return t(locale, "field.summary.fallback");
   }
 }
 
@@ -283,13 +272,18 @@ function getCompletionValue(
   {
     checkboxValues,
     localDateLabel,
+    locale,
     signatureValues,
     signerName,
     textValues,
-  }: EnteredValues & { localDateLabel: string; signerName: string },
+  }: EnteredValues & {
+    localDateLabel: string;
+    locale: SignerLocale;
+    signerName: string;
+  },
 ) {
   if (field.type === "signature" || field.type === "initials") {
-    return signatureValues[field.id]?.value ?? "Tap to sign";
+    return signatureValues[field.id]?.value ?? t(locale, "live.tapToSign");
   }
 
   if (field.type === "name") {
@@ -297,21 +291,23 @@ function getCompletionValue(
   }
 
   if (field.type === "text") {
-    return textValues[field.id]?.trim() || "Enter text";
+    return textValues[field.id]?.trim() || t(locale, "live.enterText");
   }
 
   if (field.type === "number") {
     return hasInvalidNumber(field, textValues)
-      ? "Not a number"
-      : textValues[field.id]?.trim() || "Enter a number";
+      ? t(locale, "live.notANumber")
+      : textValues[field.id]?.trim() || t(locale, "live.enterANumber");
   }
 
   if (field.type === "dropdown") {
-    return textValues[field.id]?.trim() || "Choose one";
+    return textValues[field.id]?.trim() || t(locale, "live.chooseOne");
   }
 
   if (field.type === "checkbox") {
-    return checkboxValues[field.id] ? "Checked" : "Optional";
+    return checkboxValues[field.id]
+      ? t(locale, "live.checked")
+      : t(locale, "live.optional");
   }
 
   if (field.type === "radio") {
@@ -319,7 +315,7 @@ function getCompletionValue(
       (button) => checkboxValues[button.id],
     );
 
-    return chosen ? getFieldLabel(chosen) : "Choose one";
+    return chosen ? getFieldLabel(chosen, locale) : t(locale, "live.chooseOne");
   }
 
   return localDateLabel;
@@ -372,12 +368,17 @@ function isFieldComplete(
   return true;
 }
 
-function getVisibleFieldValue(field: SigningVisibleField) {
+function getVisibleFieldValue(
+  field: SigningVisibleField,
+  locale: SignerLocale,
+) {
   if (field.type === "checkbox" || field.type === "radio") {
-    return field.checked ? "Checked" : "Unchecked";
+    return field.checked
+      ? t(locale, "live.checked")
+      : t(locale, "live.unchecked");
   }
 
-  return field.value?.trim() || getFieldLabel(field);
+  return field.value?.trim() || getFieldLabel(field, locale);
 }
 
 function buildSigningSubmissionPayload(
@@ -453,23 +454,29 @@ export type ProviderSignatureProblem =
 function describeProviderProblem(
   problem: ProviderSignatureProblem,
   providerName: string,
+  locale: SignerLocale,
 ): string {
   switch (problem) {
     case "cancelled":
-      return `You did not finish signing at ${providerName}. Nothing was signed, so you can try again.`;
+      return t(locale, "providerProblem.cancelled", {
+        provider: providerName,
+      });
     case "expired":
-      return "Your earlier signing session ended before it finished. Nothing was signed, so you can try again.";
+      return t(locale, "providerProblem.expired");
     case "name":
-      return `The certificate you signed with at ${providerName} is not in the name this document was sent to. Nothing was signed. If the name is wrong, ask the sender to send the document again under the name on your certificate.`;
+      return t(locale, "providerProblem.name", { provider: providerName });
     default:
-      return `${providerName} could not complete your signature. Nothing was signed. Try again, or ask the sender for help.`;
+      return t(locale, "providerProblem.failed", { provider: providerName });
   }
 }
 
 export function SigningLiveShell({
+  locale = "en",
   record,
   signatureProblem = null,
 }: {
+  /** The language the organization chose for its signers. */
+  locale?: SignerLocale;
   record: SigningPayload;
   signatureProblem?: ProviderSignatureProblem | null;
 }) {
@@ -525,7 +532,7 @@ export function SigningLiveShell({
   const [drawnSignatureVersion, setDrawnSignatureVersion] = useState(0);
   const [zoomLevel, setZoomLevel] = useState(DEFAULT_DOCUMENT_ZOOM_LEVEL);
   const [localDateLabel] = useState(() =>
-    new Intl.DateTimeFormat("en-US", {
+    new Intl.DateTimeFormat(locale === "es" ? "es-ES" : "en-US", {
       day: "numeric",
       month: "long",
       year: "numeric",
@@ -674,7 +681,7 @@ export function SigningLiveShell({
           return;
         }
 
-        setSubmitError(payload?.error ?? defaultSubmitErrorMessage);
+        setSubmitError(payload?.error ?? t(locale, "live.defaultSubmitError"));
         setReauthPassword("");
         setIsSubmitting(false);
         return;
@@ -682,7 +689,7 @@ export function SigningLiveShell({
 
       if (providerSignature) {
         if (!payload?.redirectUrl) {
-          setSubmitError(defaultSubmitErrorMessage);
+          setSubmitError(t(locale, "live.defaultSubmitError"));
           setIsSubmitting(false);
           return;
         }
@@ -695,7 +702,7 @@ export function SigningLiveShell({
 
       window.location.assign(payload?.redirectPath ?? fallbackRedirectPath);
     } catch {
-      setSubmitError(defaultSubmitErrorMessage);
+      setSubmitError(t(locale, "live.defaultSubmitError"));
       setIsSubmitting(false);
     }
   }
@@ -716,15 +723,13 @@ export function SigningLiveShell({
       } | null;
 
       if (!response.ok || typeof payload?.consentedAt !== "number") {
-        setConsentError(
-          payload?.error ?? "Your agreement could not be saved right now.",
-        );
+        setConsentError(payload?.error ?? t(locale, "consentDialog.saveError"));
         return;
       }
 
       setConsentedAt(payload.consentedAt);
     } catch {
-      setConsentError("Your agreement could not be saved right now.");
+      setConsentError(t(locale, "consentDialog.saveError"));
     } finally {
       setIsSavingConsent(false);
     }
@@ -759,7 +764,9 @@ export function SigningLiveShell({
           return;
         }
 
-        setDeclineError(payload?.error ?? defaultDeclineErrorMessage);
+        setDeclineError(
+          payload?.error ?? t(locale, "live.defaultDeclineError"),
+        );
         setIsDeclining(false);
         return;
       }
@@ -769,7 +776,7 @@ export function SigningLiveShell({
       // recorded (issue #55).
       setHasDeclined(true);
     } catch {
-      setDeclineError(defaultDeclineErrorMessage);
+      setDeclineError(t(locale, "live.defaultDeclineError"));
       setIsDeclining(false);
     }
   }
@@ -809,9 +816,9 @@ export function SigningLiveShell({
   if (hasDeclined) {
     return (
       <SigningStateScreen
-        description={declinedConfirmation.description}
+        description={t(locale, "live.declineConfirm.description")}
         focusHeading
-        title={declinedConfirmation.title}
+        title={t(locale, "live.declineConfirm.title")}
       />
     );
   }
@@ -827,7 +834,7 @@ export function SigningLiveShell({
                 {record.envelopeTitle}
               </p>
               <p className="mt-0.5 truncate text-[0.8125rem] text-(--tertiary)">
-                From {record.senderName}
+                {t(locale, "live.fromSender", { sender: record.senderName })}
               </p>
             </div>
           </div>
@@ -838,7 +845,9 @@ export function SigningLiveShell({
               href={`${record.documentUrl}?download=1`}
             >
               <DownloadIcon aria-hidden="true" className="size-4" />
-              <span className="sr-only sm:not-sr-only">Download PDF</span>
+              <span className="sr-only sm:not-sr-only">
+                {t(locale, "live.downloadPdf")}
+              </span>
             </a>
             <ShellButton
               className="min-h-11 px-4"
@@ -849,7 +858,7 @@ export function SigningLiveShell({
               }}
               variant="secondary"
             >
-              Decline
+              {t(locale, "live.decline")}
             </ShellButton>
           </div>
         </div>
@@ -861,6 +870,7 @@ export function SigningLiveShell({
             {describeProviderProblem(
               signatureProblem,
               providerSignature.providerName,
+              locale,
             )}
           </div>
         ) : null}
@@ -887,7 +897,7 @@ export function SigningLiveShell({
 
                 <div className="flex items-center justify-center gap-3">
                   <button
-                    aria-label="Previous page"
+                    aria-label={t(locale, "live.previousPage")}
                     className="btn-quiet size-10 px-0"
                     disabled={activePage === 1}
                     onClick={() =>
@@ -898,13 +908,16 @@ export function SigningLiveShell({
                     <ChevronLeftIcon className="size-4" />
                   </button>
                   <div className="min-w-[7.5rem] text-center">
-                    <p className="sr-only">Document page</p>
+                    <p className="sr-only">{t(locale, "live.documentPage")}</p>
                     <p className="text-sm font-bold text-(--fg)">
-                      {`Page ${activePage} of ${record.pageCount}`}
+                      {t(locale, "live.pageOf", {
+                        count: record.pageCount,
+                        page: activePage,
+                      })}
                     </p>
                   </div>
                   <button
-                    aria-label="Next page"
+                    aria-label={t(locale, "live.nextPage")}
                     className="btn-quiet size-10 px-0"
                     disabled={activePage === record.pageCount}
                     onClick={() =>
@@ -921,6 +934,7 @@ export function SigningLiveShell({
                 <div className="flex justify-center xl:justify-end">
                   <SigningToolbarStatus
                     hasLockedFields={pageVisibleFields.length > 0}
+                    locale={locale}
                     remainingFields={remainingFields}
                   />
                 </div>
@@ -971,7 +985,11 @@ export function SigningLiveShell({
 
                       {isDocumentReady
                         ? pageVisibleFields.map((field) => (
-                            <VisibleFieldStamp field={field} key={field.id} />
+                            <VisibleFieldStamp
+                              field={field}
+                              key={field.id}
+                              locale={locale}
+                            />
                           ))
                         : null}
 
@@ -982,6 +1000,7 @@ export function SigningLiveShell({
                               field={field}
                               key={field.id}
                               localDateLabel={localDateLabel}
+                              locale={locale}
                               isInvalid={hasInvalidNumber(field, textValues)}
                               signerName={record.signer.name}
                               onCheckboxChange={(checked) => {
@@ -1030,11 +1049,10 @@ export function SigningLiveShell({
                         <div className="absolute inset-0 z-1 flex items-center justify-center px-6">
                           <div className="max-w-[320px] rounded-[1.25rem] border-2 border-dashed border-(--border-strong) bg-white/92 px-6 py-7 text-center">
                             <p className="text-lg font-extrabold tracking-[-0.02em] text-(--fg)">
-                              No signer fields on this page
+                              {t(locale, "live.noFieldsTitle")}
                             </p>
                             <p className="mt-2 text-sm leading-6 text-(--secondary)">
-                              Move between pages to review your assigned fields
-                              and any completed values from earlier signers.
+                              {t(locale, "live.noFieldsBody")}
                             </p>
                           </div>
                         </div>
@@ -1048,7 +1066,9 @@ export function SigningLiveShell({
 
           <aside className="space-y-4 xl:sticky xl:top-[5.25rem] xl:self-start">
             <section className="panel rounded-[1.25rem] p-5">
-              <p className="section-eyebrow">Current signer</p>
+              <p className="section-eyebrow">
+                {t(locale, "live.currentSigner")}
+              </p>
               <div className="mt-3 flex items-center gap-3">
                 <span className="inline-flex size-11 shrink-0 items-center justify-center rounded-full bg-(--accent-soft) text-[0.9375rem] font-bold text-(--accent-ink)">
                   {getInitials(record.signer.name)}
@@ -1064,19 +1084,28 @@ export function SigningLiveShell({
               </div>
 
               <div className="well mt-5 p-4">
-                <p className="section-eyebrow">Ready to finish</p>
+                <p className="section-eyebrow">
+                  {t(locale, "live.readyToFinish")}
+                </p>
                 <p className="mt-1.5 text-[0.9375rem] font-bold text-(--fg)">
                   {remainingFields === 0
-                    ? "All required fields complete"
-                    : `${remainingFields} required field${remainingFields === 1 ? "" : "s"} remaining`}
+                    ? t(locale, "live.allComplete")
+                    : remainingFields === 1
+                      ? t(locale, "live.oneRemaining", {
+                          count: remainingFields,
+                        })
+                      : t(locale, "live.manyRemaining", {
+                          count: remainingFields,
+                        })}
                 </p>
                 {invalidNumberCount > 0 ? (
                   <p
                     className="mt-1.5 text-[0.8125rem] font-semibold leading-5 text-(--danger)"
                     role="alert"
                   >
-                    A number field marked in red does not hold a number.{" "}
-                    {NUMBER_ENTRY_MESSAGE}
+                    {t(locale, "live.numberWarning", {
+                      message: t(locale, "error.numberEntry"),
+                    })}
                   </p>
                 ) : null}
                 <div
@@ -1091,8 +1120,7 @@ export function SigningLiveShell({
                   />
                 </div>
                 <p className="mt-3 text-[0.8125rem] leading-5 text-(--secondary)">
-                  Previous signer values stay visible but locked. Only your
-                  assigned fields are interactive.
+                  {t(locale, "live.lockedFieldsNote")}
                 </p>
               </div>
 
@@ -1105,14 +1133,16 @@ export function SigningLiveShell({
                     setIsFinishDialogOpen(true);
                   }}
                 >
-                  Finish
+                  {t(locale, "live.finish")}
                 </ShellButton>
               </div>
             </section>
 
             <section className="panel rounded-[1.25rem] p-5">
               <div className="flex items-center justify-between gap-3">
-                <p className="section-eyebrow">Assigned fields</p>
+                <p className="section-eyebrow">
+                  {t(locale, "live.assignedFields")}
+                </p>
                 <span className="pill pill-neutral">
                   {actionSummaryFields.length}
                 </span>
@@ -1127,13 +1157,18 @@ export function SigningLiveShell({
                     )}
                     isInvalid={hasInvalidNumber(field, textValues)}
                     key={field.id}
-                    label={`${getSummaryLabel(field)} · Page ${field.page}`}
+                    label={t(locale, "live.fieldOnPage", {
+                      label: getSummaryLabel(field, locale),
+                      page: field.page,
+                    })}
+                    locale={locale}
                     value={getCompletionValue(
                       field,
                       record.currentSignerFields,
                       {
                         ...enteredValues,
                         localDateLabel,
+                        locale,
                         signerName: record.signer.name,
                       },
                     )}
@@ -1145,7 +1180,7 @@ export function SigningLiveShell({
         </section>
       </main>
 
-      <PublicLegalFooter />
+      <PublicLegalFooter locale={locale} />
 
       {signatureModal ? (
         <SignatureModal
@@ -1156,6 +1191,7 @@ export function SigningLiveShell({
           }
           drawnSignatureVersion={drawnSignatureVersion}
           fieldType={signatureModal.type}
+          locale={locale}
           onApply={(entry) => {
             setReusableSignatureEntries((current) => ({
               ...current,
@@ -1189,8 +1225,11 @@ export function SigningLiveShell({
 
       {isFinishDialogOpen ? (
         <DialogFrame
-          description={`You are signing "${record.envelopeTitle}" from ${record.senderName}.`}
-          title="Finish signing?"
+          description={t(locale, "finishDialog.description", {
+            sender: record.senderName,
+            title: record.envelopeTitle,
+          })}
+          title={t(locale, "finishDialog.title")}
           onClose={() => {
             if (isSubmitting) {
               return;
@@ -1203,30 +1242,29 @@ export function SigningLiveShell({
           {providerSignature ? (
             <div className="grid gap-3 text-sm leading-6 text-(--secondary)">
               <p>
-                This document asks for{" "}
-                {providerSignature.level === "qualified"
-                  ? "a qualified electronic signature"
-                  : "an advanced electronic signature"}
-                , made with a certificate in your own name.
+                {t(
+                  locale,
+                  providerSignature.level === "qualified"
+                    ? "finishDialog.qualified"
+                    : "finishDialog.advanced",
+                )}
               </p>
               <p>
-                Next, {providerSignature.providerName} asks you to confirm who
-                you are and to approve the signature. When it is done, you come
-                back here. By continuing, you confirm that your signature is
-                intended to be binding for this document.
+                {t(locale, "finishDialog.providerSteps", {
+                  provider: providerSignature.providerName,
+                })}
               </p>
             </div>
           ) : (
             <p className="text-sm leading-6 text-(--secondary)">
-              By clicking Finish, you confirm that your electronic signature is
-              intended to be binding for this document.
+              {t(locale, "finishDialog.plainConfirm")}
             </p>
           )}
           {part11 ? (
             <div className="grid gap-4">
               <div className="well rounded-xl px-3.5 py-3">
                 <p className="text-xs font-semibold text-(--tertiary)">
-                  Meaning of your signature
+                  {t(locale, "finishDialog.meaningOfSignature")}
                 </p>
                 <p className="mt-0.5 text-sm font-semibold text-(--fg)">
                   {part11.meaningLabel}: {part11.meaningStatement}
@@ -1234,7 +1272,7 @@ export function SigningLiveShell({
               </div>
               <label className="flex items-start gap-3 text-sm leading-6 text-(--secondary)">
                 <Checkbox
-                  aria-label="I confirm the meaning of my signature"
+                  aria-label={t(locale, "finishDialog.confirmMeaningAria")}
                   checked={isMeaningConfirmed}
                   className="mt-1"
                   disabled={isSubmitting}
@@ -1242,18 +1280,15 @@ export function SigningLiveShell({
                     setIsMeaningConfirmed(checked === true)
                   }
                 />
-                <span>
-                  I confirm this meaning. My name, the date and time, and this
-                  meaning will be printed with my signature.
-                </span>
+                <span>{t(locale, "finishDialog.confirmMeaning")}</span>
               </label>
               <p className="text-sm leading-6 text-(--secondary)">
-                Enter your account&apos;s email address and password to sign.
+                {t(locale, "finishDialog.enterCredentials")}
               </p>
               <FieldShell
                 autoComplete="username"
                 disabled={isSubmitting}
-                label="Email address"
+                label={t(locale, "finishDialog.emailAddress")}
                 name="reauth-email"
                 onChange={(event) => setReauthEmail(event.target.value)}
                 readOnly={false}
@@ -1263,7 +1298,7 @@ export function SigningLiveShell({
               <FieldShell
                 autoComplete="current-password"
                 disabled={isSubmitting}
-                label="Password"
+                label={t(locale, "finishDialog.password")}
                 name="reauth-password"
                 onChange={(event) => setReauthPassword(event.target.value)}
                 readOnly={false}
@@ -1286,7 +1321,7 @@ export function SigningLiveShell({
               }}
               variant="secondary"
             >
-              Back
+              {t(locale, "finishDialog.back")}
             </ShellButton>
             <ShellButton
               disabled={!isReauthReady}
@@ -1295,11 +1330,13 @@ export function SigningLiveShell({
             >
               {providerSignature
                 ? isSubmitting
-                  ? "Preparing..."
-                  : `Continue to ${providerSignature.providerName}`
+                  ? t(locale, "finishDialog.preparing")
+                  : t(locale, "finishDialog.continueToProvider", {
+                      provider: providerSignature.providerName,
+                    })
                 : isSubmitting
-                  ? "Finishing..."
-                  : "Finish signing"}
+                  ? t(locale, "finishDialog.finishing")
+                  : t(locale, "finishDialog.finishSigning")}
             </ShellButton>
           </div>
         </DialogFrame>
@@ -1307,9 +1344,12 @@ export function SigningLiveShell({
 
       {consentedAt === null && !isDeclineDialogOpen ? (
         <DialogFrame
-          description={`${record.senderName} sent you "${record.envelopeTitle}" to sign electronically.`}
+          description={t(locale, "consentDialog.description", {
+            sender: record.senderName,
+            title: record.envelopeTitle,
+          })}
           onClose={() => undefined}
-          title="Before you sign"
+          title={t(locale, "consentDialog.title")}
         >
           <div className="well max-h-[45vh] space-y-4 overflow-y-auto px-4 py-4 text-sm leading-6 text-(--secondary) sm:px-5">
             {record.disclosure.sections.map((section) => (
@@ -1321,7 +1361,7 @@ export function SigningLiveShell({
           </div>
           <label className="flex items-start gap-3 text-sm leading-6 text-(--fg)">
             <Checkbox
-              aria-label="I agree to use electronic records and signatures"
+              aria-label={t(locale, "consentDialog.checkboxAria")}
               checked={isConsentChecked}
               className="mt-1"
               disabled={isSavingConsent}
@@ -1345,14 +1385,14 @@ export function SigningLiveShell({
               }}
               variant="secondary"
             >
-              Decline
+              {t(locale, "live.decline")}
             </ShellButton>
             <ShellButton
               disabled={!isConsentChecked}
               loading={isSavingConsent}
               onClick={handleConsent}
             >
-              Agree and continue
+              {t(locale, "consentDialog.agree")}
             </ShellButton>
           </div>
         </DialogFrame>
@@ -1360,8 +1400,10 @@ export function SigningLiveShell({
 
       {isDeclineDialogOpen ? (
         <DialogFrame
-          description={`The sender (${record.senderName}) will be notified that you declined. This cannot be undone.`}
-          title="Decline to sign?"
+          description={t(locale, "declineDialog.description", {
+            sender: record.senderName,
+          })}
+          title={t(locale, "declineDialog.title")}
           onClose={() => {
             if (isDeclining) {
               return;
@@ -1373,7 +1415,7 @@ export function SigningLiveShell({
         >
           <label className="grid gap-1.5">
             <span className="text-[0.8125rem] font-semibold text-(--secondary)">
-              Reason (optional)
+              {t(locale, "declineDialog.reason")}
             </span>
             <Textarea
               autoFocus
@@ -1381,7 +1423,7 @@ export function SigningLiveShell({
               id="signing-decline-reason"
               name="signing-decline-reason"
               onChange={(event) => setDeclineReason(event.target.value)}
-              placeholder="I'd like to discuss some terms first..."
+              placeholder={t(locale, "declineDialog.reasonPlaceholder")}
               value={declineReason}
             />
           </label>
@@ -1399,14 +1441,16 @@ export function SigningLiveShell({
               }}
               variant="secondary"
             >
-              Cancel
+              {t(locale, "declineDialog.cancel")}
             </ShellButton>
             <ShellButton
               loading={isDeclining}
               onClick={handleDeclineSigning}
               variant="danger"
             >
-              {isDeclining ? "Declining..." : "Decline to sign"}
+              {isDeclining
+                ? t(locale, "declineDialog.declining")
+                : t(locale, "declineDialog.declineToSign")}
             </ShellButton>
           </div>
         </DialogFrame>
@@ -1417,9 +1461,11 @@ export function SigningLiveShell({
 
 function SigningToolbarStatus({
   hasLockedFields,
+  locale,
   remainingFields,
 }: {
   hasLockedFields: boolean;
+  locale: SignerLocale;
   remainingFields: number;
 }) {
   return (
@@ -1456,11 +1502,15 @@ function SigningToolbarStatus({
       <div className="min-w-0">
         <p className="text-[0.8125rem] font-bold leading-tight text-(--fg)">
           {remainingFields === 0
-            ? "Ready to finish"
-            : `${remainingFields} required remaining`}
+            ? t(locale, "live.readyToFinish")
+            : t(locale, "live.toolbar.manyRemaining", {
+                count: remainingFields,
+              })}
         </p>
         <p className="text-xs leading-tight text-(--tertiary)">
-          {hasLockedFields ? "Locked values visible" : "Current signer view"}
+          {hasLockedFields
+            ? t(locale, "live.lockedValues")
+            : t(locale, "live.currentSignerView")}
         </p>
       </div>
     </div>
@@ -1472,6 +1522,7 @@ function CurrentSignerField({
   field,
   isInvalid,
   localDateLabel,
+  locale,
   onCheckboxChange,
   onSignatureClick,
   onTextChange,
@@ -1484,6 +1535,7 @@ function CurrentSignerField({
   /** True for a number field holding something that is not a number. */
   isInvalid: boolean;
   localDateLabel: string;
+  locale: SignerLocale;
   onCheckboxChange: (checked: boolean) => void;
   onSignatureClick: () => void;
   onTextChange: (value: string) => void;
@@ -1499,7 +1551,7 @@ function CurrentSignerField({
   if (field.type === "signature" || field.type === "initials") {
     return (
       <button
-        aria-label={getSummaryLabel(field)}
+        aria-label={getSummaryLabel(field, locale)}
         className={`absolute z-2 overflow-hidden rounded-[0.375rem] border-2 border-(--accent) text-(--accent-ink) transition ${
           signatureEntry?.value
             ? "bg-[rgb(var(--accent-rgb)/0.10)]"
@@ -1515,7 +1567,12 @@ function CurrentSignerField({
           signatureEntry.imageDataUrl ? (
             <span className="relative block h-full w-full">
               <Image
-                alt={`${field.type === "initials" ? "Initials" : "Signature"} preview`}
+                alt={t(
+                  locale,
+                  field.type === "initials"
+                    ? "modal.initialsPreviewAlt"
+                    : "modal.signaturePreviewAlt",
+                )}
                 className="object-contain p-1"
                 fill
                 src={signatureEntry.imageDataUrl}
@@ -1540,7 +1597,7 @@ function CurrentSignerField({
             </span>
           ) : showInlineLabel ? (
             <span className="block max-w-full truncate px-1 text-xs font-bold">
-              {getCanvasFieldLabel(field)}
+              {getCanvasFieldLabel(field, locale)}
             </span>
           ) : null}
         </span>
@@ -1573,12 +1630,12 @@ function CurrentSignerField({
         style={frame}
       >
         <input
-          aria-label={getFieldLabel(field)}
+          aria-label={getFieldLabel(field, locale)}
           className="h-full w-full border-none bg-transparent px-2 text-sm text-(--fg) outline-none placeholder:text-(--placeholder)"
           id={`signing-field-${field.id}`}
           name={`signing-field-${field.id}`}
           onChange={(event) => onTextChange(event.target.value)}
-          placeholder={showInlineLabel ? getFieldLabel(field) : ""}
+          placeholder={showInlineLabel ? getFieldLabel(field, locale) : ""}
           value={textValue}
         />
       </div>
@@ -1595,18 +1652,18 @@ function CurrentSignerField({
         }`}
         data-signing-field="true"
         style={frame}
-        title={isInvalid ? NUMBER_ENTRY_MESSAGE : undefined}
+        title={isInvalid ? t(locale, "error.numberEntry") : undefined}
       >
         <input
           aria-invalid={isInvalid ? true : undefined}
-          aria-label={getFieldLabel(field)}
+          aria-label={getFieldLabel(field, locale)}
           autoComplete="off"
           className="h-full w-full border-none bg-transparent px-2 text-sm text-(--fg) outline-none placeholder:text-(--placeholder)"
           id={`signing-field-${field.id}`}
           inputMode="decimal"
           name={`signing-field-${field.id}`}
           onChange={(event) => onTextChange(event.target.value)}
-          placeholder={showInlineLabel ? "Number" : ""}
+          placeholder={showInlineLabel ? t(locale, "field.canvas.number") : ""}
           value={textValue}
         />
       </div>
@@ -1621,7 +1678,7 @@ function CurrentSignerField({
         style={frame}
       >
         <select
-          aria-label={getFieldLabel(field)}
+          aria-label={getFieldLabel(field, locale)}
           className={`h-full w-full cursor-pointer border-none bg-transparent bg-size-[0.75rem] bg-position-[right_0.25rem_center] pr-5 pl-1.5 text-sm outline-none ${
             textValue ? "text-(--fg)" : "text-(--secondary)"
           }`}
@@ -1631,7 +1688,9 @@ function CurrentSignerField({
           value={textValue}
         >
           <option value="">
-            {field.required ? "Choose one" : "No answer"}
+            {field.required
+              ? t(locale, "live.chooseOne")
+              : t(locale, "live.noAnswer")}
           </option>
           {(field.options ?? []).map((option) => (
             <option key={option} value={option}>
@@ -1647,7 +1706,7 @@ function CurrentSignerField({
     return (
       <button
         aria-checked={checkboxValue}
-        aria-label={getFieldLabel(field)}
+        aria-label={getFieldLabel(field, locale)}
         className={`absolute z-2 flex items-center justify-center rounded-full border-2 border-(--accent) text-(--accent-ink) transition ${
           checkboxValue
             ? "bg-[rgb(var(--accent-rgb)/0.14)]"
@@ -1673,7 +1732,7 @@ function CurrentSignerField({
 
   return (
     <button
-      aria-label={getFieldLabel(field)}
+      aria-label={getFieldLabel(field, locale)}
       aria-pressed={checkboxValue}
       className={`absolute z-2 flex items-center justify-center rounded-[0.25rem] border-2 border-(--accent) text-(--accent-ink) transition ${
         checkboxValue
@@ -1705,7 +1764,13 @@ function CurrentSignerField({
   );
 }
 
-function VisibleFieldStamp({ field }: { field: SigningVisibleField }) {
+function VisibleFieldStamp({
+  field,
+  locale,
+}: {
+  field: SigningVisibleField;
+  locale: SignerLocale;
+}) {
   const frame = getFieldFrame(field);
   const showInlineLabel = shouldShowInlineFieldLabel(field);
   const showInlineValue = shouldShowInlineFieldValue(field);
@@ -1765,7 +1830,15 @@ function VisibleFieldStamp({ field }: { field: SigningVisibleField }) {
         style={frame}
       >
         <Image
-          alt={`${field.signerName} completed ${field.type}`}
+          alt={t(locale, "modal.completedAlt", {
+            fieldType: t(
+              locale,
+              field.type === "initials"
+                ? "field.noun.initials"
+                : "field.noun.signature",
+            ),
+            signer: field.signerName,
+          })}
           className="object-contain"
           fill
           src={field.imageDataUrl}
@@ -1800,11 +1873,11 @@ function VisibleFieldStamp({ field }: { field: SigningVisibleField }) {
                   : undefined,
             }}
           >
-            {getVisibleFieldValue(field)}
+            {getVisibleFieldValue(field, locale)}
           </p>
         ) : showInlineLabel ? (
           <p className="w-full truncate text-center text-[11px] font-semibold text-(--tertiary)">
-            {getCanvasFieldLabel(field)}
+            {getCanvasFieldLabel(field, locale)}
           </p>
         ) : null}
       </div>
@@ -1816,6 +1889,7 @@ function SignatureModal({
   existingEntry,
   drawnSignatureVersion,
   fieldType,
+  locale,
   onApply,
   onClearDrawnSignature,
   onClose,
@@ -1826,6 +1900,7 @@ function SignatureModal({
   existingEntry?: SignatureEntry;
   drawnSignatureVersion: number;
   fieldType: "initials" | "signature";
+  locale: SignerLocale;
   onApply: (entry: SignatureEntry) => void;
   onClearDrawnSignature: () => void;
   onClose: () => void;
@@ -1849,10 +1924,18 @@ function SignatureModal({
   });
   const drawPreviewMessage =
     drawnSignatureVersion === 0
-      ? "Draw with mouse or finger"
-      : `Canvas cleared ${drawnSignatureVersion} time${drawnSignatureVersion === 1 ? "" : "s"}`;
-  const typedPlaceholder =
-    fieldType === "initials" ? "Type your initials" : "Type your signature";
+      ? t(locale, "modal.drawPrompt")
+      : drawnSignatureVersion === 1
+        ? t(locale, "live.canvasClearedOne")
+        : t(locale, "live.canvasClearedMany", {
+            count: drawnSignatureVersion,
+          });
+  const typedPlaceholder = t(
+    locale,
+    fieldType === "initials"
+      ? "modal.typeInitialsPlaceholder"
+      : "modal.typeSignaturePlaceholder",
+  );
   const normalizedTypedSignatureValue = typedSignatureValue.trim();
   const canApply =
     signatureMode === "typed"
@@ -1870,10 +1953,11 @@ function SignatureModal({
 
   return (
     <DialogFrame
-      description="By signing, you agree that this electronic signature is the legal equivalent of your manual signature."
-      title={
-        fieldType === "initials" ? "Add your initials" : "Add your signature"
-      }
+      description={t(locale, "modal.description")}
+      title={t(
+        locale,
+        fieldType === "initials" ? "modal.addInitials" : "modal.addSignature",
+      )}
       onClose={onClose}
     >
       <Tabs
@@ -1886,13 +1970,13 @@ function SignatureModal({
             className="segmented-item h-auto min-h-10 flex-1 data-active:bg-white data-active:text-(--fg) data-active:shadow-[0_1px_3px_rgba(28,29,43,0.12)] after:hidden"
             value="typed"
           >
-            Type
+            {t(locale, "modal.typeTab")}
           </TabsTrigger>
           <TabsTrigger
             className="segmented-item h-auto min-h-10 flex-1 data-active:bg-white data-active:text-(--fg) data-active:shadow-[0_1px_3px_rgba(28,29,43,0.12)] after:hidden"
             value="drawn"
           >
-            Draw
+            {t(locale, "modal.drawTab")}
           </TabsTrigger>
         </TabsList>
       </Tabs>
@@ -1901,7 +1985,9 @@ function SignatureModal({
         <div className="space-y-4">
           <label className="grid gap-1.5">
             <span className="text-[0.8125rem] font-semibold text-(--secondary)">
-              {fieldType === "initials" ? "Type initials" : "Type signature"}
+              {fieldType === "initials"
+                ? t(locale, "modal.typeInitials")
+                : t(locale, "modal.typeSignature")}
             </span>
             <input
               autoFocus
@@ -1929,7 +2015,7 @@ function SignatureModal({
               {normalizedTypedSignatureValue || typedPlaceholder}
             </p>
             <p className="mt-4 text-xs font-medium text-(--tertiary)">
-              Rendered in signature style
+              {t(locale, "modal.rendered")}
             </p>
           </div>
         </div>
@@ -1941,6 +2027,7 @@ function SignatureModal({
             // from the drawing that Apply would use, never a stale one.
             initialDataUrl={drawnSignatureDataUrl}
             key={drawnSignatureVersion}
+            locale={locale}
             onChange={setDrawnSignatureDataUrl}
           />
           <div className="mt-2 flex justify-end">
@@ -1952,7 +2039,7 @@ function SignatureModal({
               }}
               variant="ghost"
             >
-              Clear
+              {t(locale, "modal.clear")}
             </ShellButton>
           </div>
         </div>
@@ -1960,7 +2047,7 @@ function SignatureModal({
 
       <div className="flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
         <ShellButton onClick={onClose} variant="secondary">
-          Cancel
+          {t(locale, "modal.cancel")}
         </ShellButton>
         <ShellButton
           disabled={!canApply}
@@ -1970,10 +2057,12 @@ function SignatureModal({
                 ? {
                     imageDataUrl: drawnSignatureDataUrl,
                     inputMethod: "drawn",
-                    value:
+                    value: t(
+                      locale,
                       fieldType === "initials"
-                        ? "Drawn initials"
-                        : "Drawn signature",
+                        ? "modal.drawnInitials"
+                        : "modal.drawnSignature",
+                    ),
                   }
                 : {
                     imageDataUrl: null,
@@ -1983,7 +2072,9 @@ function SignatureModal({
             )
           }
         >
-          {fieldType === "initials" ? "Apply initials" : "Apply signature"}
+          {fieldType === "initials"
+            ? t(locale, "modal.applyInitials")
+            : t(locale, "modal.applySignature")}
         </ShellButton>
       </div>
     </DialogFrame>
@@ -1993,10 +2084,12 @@ function SignatureModal({
 function SignatureDrawCanvas({
   emptyMessage,
   initialDataUrl,
+  locale,
   onChange,
 }: {
   emptyMessage: string;
   initialDataUrl?: string | null;
+  locale: SignerLocale;
   onChange: (value: string | null) => void;
 }) {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
@@ -2159,7 +2252,7 @@ function SignatureDrawCanvas({
   return (
     <div className="relative overflow-hidden rounded-xl border-2 border-dashed border-(--border-strong) bg-white">
       <canvas
-        aria-label="Draw signature canvas"
+        aria-label={t(locale, "modal.canvasAria")}
         className="h-[220px] w-full touch-none"
         onPointerCancel={handlePointerEnd}
         onPointerDown={handlePointerDown}
@@ -2212,12 +2305,14 @@ function FieldStatusRow({
   isComplete,
   isInvalid,
   label,
+  locale,
   value,
 }: {
   isComplete: boolean;
   /** Filled in, but with something the field cannot take. */
   isInvalid: boolean;
   label: string;
+  locale: SignerLocale;
   value: string;
 }) {
   return (
@@ -2237,7 +2332,11 @@ function FieldStatusRow({
               : "pill-accent"
         }`}
       >
-        {isInvalid ? "Fix this" : isComplete ? "Complete" : "Required"}
+        {isInvalid
+          ? t(locale, "pills.fixThis")
+          : isComplete
+            ? t(locale, "pills.complete")
+            : t(locale, "pills.required")}
       </span>
     </div>
   );
