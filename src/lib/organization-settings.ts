@@ -3,6 +3,7 @@ import { z } from "zod";
 import { normalizeBrandColor } from "./brand-color.ts";
 import { buildBrandLogoPath } from "./branding.ts";
 import { getDb, type DbExecutor } from "./db/connection.ts";
+import { SIGNER_LANGUAGES, type SignerLocale } from "./i18n.ts";
 import { emailSchema } from "./schemas/common.ts";
 import {
   saveSettings,
@@ -20,6 +21,7 @@ export type OrganizationSettingsField =
   | "privacyUrl"
   | "retentionDays"
   | "senderAddress"
+  | "signerLanguage"
   | "signupMode"
   | "supportAddress"
   | "termsUrl";
@@ -56,6 +58,7 @@ export type OrganizationSettingsView = {
   retentionDays: string;
   senderAddress: string;
   senderAddressFromEnv: boolean;
+  signerLanguage: SignerLocale;
   signupMode: AppSettings["signupMode"];
   supportAddress: string;
   supportAddressFromEnv: boolean;
@@ -83,6 +86,7 @@ export function toOrganizationSettingsView(
       settings.retentionDays === null ? "" : String(settings.retentionDays),
     senderAddress: settings.senderAddress ?? "",
     senderAddressFromEnv: settings.senderAddressFromEnv,
+    signerLanguage: settings.signerLanguage,
     signupMode: settings.signupMode,
     supportAddress: settings.supportAddress ?? "",
     supportAddressFromEnv: settings.supportAddressFromEnv,
@@ -146,6 +150,7 @@ const organizationSettingsSchema = z.object({
     }, z.number().int().min(30).max(36_500).nullable())
     .default(null),
   senderAddress: optionalEmail.default(null),
+  signerLanguage: z.enum(SIGNER_LANGUAGES).default("en"),
   signupMode: z.enum(SIGNUP_MODES),
   supportAddress: optionalEmail.default(null),
   termsUrl: optionalWebUrl.default(null),
@@ -158,6 +163,7 @@ const FIELD_MESSAGES: Record<OrganizationSettingsField, string> = {
   privacyUrl: "Enter a full web address starting with https://",
   retentionDays: "Enter a number of days, 30 or more, or leave this empty",
   senderAddress: "Enter a valid email address, or leave this empty",
+  signerLanguage: "Choose the language signers see",
   signupMode: "Choose who can create an account",
   supportAddress: "Enter an email address people can write to for help",
   termsUrl: "Enter a full web address starting with https://",
@@ -272,6 +278,7 @@ export async function updateOrganizationSettings(
       ...(current.senderAddressFromEnv
         ? {}
         : { senderAddress: input.senderAddress?.toLowerCase() ?? null }),
+      signerLanguage: input.signerLanguage,
       ...(current.supportAddressFromEnv || input.supportAddress === null
         ? {}
         : { supportAddress: input.supportAddress.toLowerCase() }),
@@ -287,6 +294,7 @@ const AUDITED_SETTINGS = [
   "privacyUrl",
   "retentionDays",
   "senderAddress",
+  "signerLanguage",
   "signupMode",
   "supportAddress",
   "termsUrl",
