@@ -155,8 +155,11 @@ function LiveLoginShell({
   );
   const [isResendingVerification, setIsResendingVerification] = useState(false);
   const [showResendVerification, setShowResendVerification] = useState(false);
-  // The password was right and the account uses two-step sign-in.
-  const [needsSecondStep, setNeedsSecondStep] = useState(false);
+  // The password was right and the account uses two-step sign-in. The value
+  // is the methods Better Auth says this person can use ("totp", "otp").
+  const [secondStepMethods, setSecondStepMethods] = useState<string[] | null>(
+    null,
+  );
 
   function handleChange(field: keyof LoginFormValues) {
     return (event: ChangeEvent<HTMLInputElement>) => {
@@ -288,7 +291,10 @@ function LiveLoginShell({
       typeof result.data === "object" &&
       "twoFactorRedirect" in result.data
     ) {
-      setNeedsSecondStep(true);
+      const methods = (result.data as { twoFactorMethods?: unknown })
+        .twoFactorMethods;
+
+      setSecondStepMethods(Array.isArray(methods) ? methods : []);
       setIsSubmitting(false);
       return;
     }
@@ -389,11 +395,12 @@ function LiveLoginShell({
     return <ResetPasswordCard resetToken={resetToken} />;
   }
 
-  if (needsSecondStep) {
+  if (secondStepMethods) {
     return (
       <SecondStepCard
+        methods={secondStepMethods}
         onRestart={(message) => {
-          setNeedsSecondStep(false);
+          setSecondStepMethods(null);
           setValues((currentValues) => ({ ...currentValues, password: "" }));
           setBannerMessage(message);
         }}
@@ -747,16 +754,103 @@ function ResetPasswordCard({ resetToken }: { resetToken: string }) {
 }
 
 type SecondStepCardProps = {
+  /** What Better Auth offered for this sign-in: "totp", "otp" (emailed). */
+  methods: string[];
   /** Back to the password, with a reason to show there. */
   onRestart: (message: string) => void;
   onSignedIn: () => void;
 };
 
-function SecondStepCard({ onRestart, onSignedIn }: SecondStepCardProps) {
+type SecondStepMode = "app" | "backup" | "email";
+
+function describeSecondStepFailure(
+  code: string | undefined,
+  mode: SecondStepMode,
+): string {
+  switch (code) {
+    case "INVALID_CODE":
+      return mode === "app"
+        ? "That code is not right. Check the time on your phone and try the newest code."
+        : "That code is not right. Try again, or send yourself a new one.";
+    case "OTP_HAS_EXPIRED":
+      return "That emailed code has expired. Send yourself a new one.";
+    case "INVALID_BACKUP_CODE":
+      return "That backup code is not right, or it was used before.";
+    case "ACCOUNT_TEMPORARILY_LOCKED":
+      return "Too many wrong codes. Two-step sign-in is locked for 15 minutes.";
+    case "TOO_MANY_ATTEMPTS_REQUEST_NEW_CODE":
+      return "Too many wrong codes. Log in again to get a new try.";
+    case "INVALID_TWO_FACTOR_COOKIE":
+      return "That took too long. Log in again.";
+    default:
+      return "Something went wrong. Please try again.";
+  }
+}
+
+function SecondStepCard({
+  methods,
+  onRestart,
+  onSignedIn,
+}: SecondStepCardProps) {
+  const appAvailable = methods.includes("totp");
+  const emailAvailable = methods.includes("otp");
+  // The app stays the default whenever it might work (and when the answer
+  // said neither, which cannot happen here); emailed codes only lead when
+  // they are the one method this person set up.
+  const [mode, setMode] = useState<SecondStepMode>(
+    emailAvailable && !appAvailable ? "email" : "app",
+  );
+  // Whether the emailed code was asked for (it is never sent on its own:
+  // the visitor asks, so a stray sign-in attempt sends no email).
+  const [codeSent, setCodeSent] = useState(false);
   const [code, setCode] = useState("");
-  const [useBackupCode, setUseBackupCode] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [isSending, setIsSending] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
+
+  function switchMode(next: SecondStepMode) {
+    setMode(next);
+    setCode("");
+    setError(null);
+  }
+
+  async function requestEmailCode() {
+    if (isSending || isSubmitting) {
+      return;
+    }
+
+    setIsSending(true);
+    setError(null);
+
+    try {
+      const response = await fetch("/api/auth/two-factor/send-otp", {
+        body: "{}",
+        headers: { "content-type": "application/json" },
+        method: "POST",
+      });
+
+      if (response.ok) {
+        setCodeSent(true);
+        setCode("");
+        return;
+      }
+
+      const payload = (await response.json().catch(() => null)) as {
+        code?: string;
+      } | null;
+
+      if (payload?.code === "INVALID_TWO_FACTOR_COOKIE") {
+        onRestart("That took too long. Log in again.");
+        return;
+      }
+
+      setError("We couldn't send the code. Please try again.");
+    } catch {
+      setError("We couldn't send the code. Please try again.");
+    } finally {
+      setIsSending(false);
+    }
+  }
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -767,13 +861,17 @@ function SecondStepCard({ onRestart, onSignedIn }: SecondStepCardProps) {
 
     const trimmed = code.replace(/\s+/g, "");
 
-    if (!useBackupCode && !/^\d{6}$/.test(trimmed)) {
-      setError("Enter the 6-digit code your authenticator app shows.");
-      return;
-    }
-
-    if (useBackupCode && trimmed.length === 0) {
-      setError("Enter one of your backup codes.");
+    if (mode === "backup") {
+      if (trimmed.length === 0) {
+        setError("Enter one of your backup codes.");
+        return;
+      }
+    } else if (!/^\d{6}$/.test(trimmed)) {
+      setError(
+        mode === "app"
+          ? "Enter the 6-digit code your authenticator app shows."
+          : "Enter the 6-digit code we emailed you.",
+      );
       return;
     }
 
@@ -782,9 +880,11 @@ function SecondStepCard({ onRestart, onSignedIn }: SecondStepCardProps) {
 
     try {
       const response = await fetch(
-        useBackupCode
+        mode === "backup"
           ? "/api/auth/two-factor/verify-backup-code"
-          : "/api/auth/two-factor/verify-totp",
+          : mode === "email"
+            ? "/api/auth/two-factor/verify-otp"
+            : "/api/auth/two-factor/verify-totp",
         {
           body: JSON.stringify({ code: trimmed }),
           headers: { "content-type": "application/json" },
@@ -802,29 +902,17 @@ function SecondStepCard({ onRestart, onSignedIn }: SecondStepCardProps) {
         message?: string;
       } | null;
 
-      switch (payload?.code) {
-        case "INVALID_CODE":
-          setError(
-            "That code is not right. Check the time on your phone and try the newest code.",
-          );
-          break;
-        case "INVALID_BACKUP_CODE":
-          setError("That backup code is not right, or it was used before.");
-          break;
-        case "ACCOUNT_TEMPORARILY_LOCKED":
-          setError(
-            "Too many wrong codes. Two-step sign-in is locked for 15 minutes.",
-          );
-          break;
-        case "TOO_MANY_ATTEMPTS_REQUEST_NEW_CODE":
-          onRestart("Too many wrong codes. Log in again to get a new try.");
-          return;
-        case "INVALID_TWO_FACTOR_COOKIE":
-          onRestart("That took too long. Log in again.");
-          return;
-        default:
-          setError("Something went wrong. Please try again.");
+      const failure = describeSecondStepFailure(payload?.code, mode);
+
+      if (
+        payload?.code === "INVALID_TWO_FACTOR_COOKIE" ||
+        payload?.code === "TOO_MANY_ATTEMPTS_REQUEST_NEW_CODE"
+      ) {
+        onRestart(failure);
+        return;
       }
+
+      setError(failure);
     } catch {
       setError("Something went wrong. Please try again.");
     } finally {
@@ -832,19 +920,28 @@ function SecondStepCard({ onRestart, onSignedIn }: SecondStepCardProps) {
     }
   }
 
+  const description =
+    mode === "backup"
+      ? "Each backup code works once."
+      : mode === "app"
+        ? "Open your authenticator app and enter the 6-digit code it shows."
+        : codeSent
+          ? "Enter the 6-digit code we just emailed you. It works for 10 minutes."
+          : "We can email a 6-digit code to your address. It works for 10 minutes.";
+
   return (
     <section className="panel w-full max-w-[460px] p-8 sm:p-10">
       <div className="space-y-7">
         <div className="space-y-2">
           <p className="section-eyebrow">Two-step sign-in</p>
           <h1 className="text-[clamp(1.875rem,4.5vw,2.375rem)] font-extrabold leading-[1.08] tracking-[-0.035em] text-(--fg)">
-            {useBackupCode ? "Enter a backup code" : "Enter your code"}
+            {mode === "backup"
+              ? "Enter a backup code"
+              : mode === "email" && !codeSent
+                ? "Email me a code"
+                : "Enter your code"}
           </h1>
-          <p className="text-sm leading-6 text-(--secondary)">
-            {useBackupCode
-              ? "Each backup code works once."
-              : "Open your authenticator app and enter the 6-digit code it shows."}
-          </p>
+          <p className="text-sm leading-6 text-(--secondary)">{description}</p>
         </div>
 
         {error ? (
@@ -853,43 +950,91 @@ function SecondStepCard({ onRestart, onSignedIn }: SecondStepCardProps) {
           </p>
         ) : null}
 
-        <form className="space-y-5" noValidate onSubmit={handleSubmit}>
-          <FieldShell
-            autoComplete="one-time-code"
-            disabled={isSubmitting}
-            label={useBackupCode ? "Backup code" : "6-digit code"}
-            name="second-step-code"
-            onChange={(event) => {
-              setCode(event.target.value);
-              setError(null);
-            }}
-            readOnly={isSubmitting}
-            value={code}
-          />
-          <ShellButton
-            className="w-full"
-            disabled={isSubmitting}
-            loading={isSubmitting}
-            type="submit"
-          >
-            {isSubmitting ? "Checking..." : "Continue"}
-          </ShellButton>
-        </form>
+        {mode === "email" && !codeSent ? (
+          <div className="space-y-5">
+            <ShellButton
+              className="w-full"
+              loading={isSending}
+              onClick={() => void requestEmailCode()}
+              type="button"
+            >
+              {isSending ? "Sending..." : "Email me a code"}
+            </ShellButton>
+          </div>
+        ) : (
+          <form className="space-y-5" noValidate onSubmit={handleSubmit}>
+            <FieldShell
+              autoComplete="one-time-code"
+              disabled={isSubmitting}
+              label={mode === "backup" ? "Backup code" : "6-digit code"}
+              name="second-step-code"
+              onChange={(event) => {
+                setCode(event.target.value);
+                setError(null);
+              }}
+              readOnly={isSubmitting}
+              value={code}
+            />
+            {mode === "email" ? (
+              <ShellButton
+                className="w-full"
+                disabled={isSubmitting || isSending}
+                onClick={() => void requestEmailCode()}
+                type="button"
+                variant="secondary"
+              >
+                {isSending ? "Sending..." : "Send a new code"}
+              </ShellButton>
+            ) : null}
+            <ShellButton
+              className="w-full"
+              disabled={isSubmitting}
+              loading={isSubmitting}
+              type="submit"
+            >
+              {isSubmitting ? "Checking..." : "Continue"}
+            </ShellButton>
+          </form>
+        )}
 
-        <div className="border-t border-(--border) pt-5 text-sm">
-          <button
-            className="w-fit p-0 text-left font-bold text-(--accent-ink) underline-offset-4 hover:underline"
-            onClick={() => {
-              setUseBackupCode((current) => !current);
-              setCode("");
-              setError(null);
-            }}
-            type="button"
-          >
-            {useBackupCode
-              ? "Use a code from your app instead"
-              : "Lost your phone? Use a backup code"}
-          </button>
+        <div className="space-y-3 border-t border-(--border) pt-5 text-sm">
+          {mode !== "backup" && emailAvailable && mode === "app" ? (
+            <button
+              className="block p-0 text-left font-bold text-(--accent-ink) underline-offset-4 hover:underline"
+              onClick={() => switchMode("email")}
+              type="button"
+            >
+              Email me a code instead
+            </button>
+          ) : null}
+          {mode !== "backup" && appAvailable && mode === "email" ? (
+            <button
+              className="block p-0 text-left font-bold text-(--accent-ink) underline-offset-4 hover:underline"
+              onClick={() => switchMode("app")}
+              type="button"
+            >
+              Use a code from your app instead
+            </button>
+          ) : null}
+          {mode !== "backup" ? (
+            <button
+              className="block p-0 text-left font-bold text-(--accent-ink) underline-offset-4 hover:underline"
+              onClick={() => switchMode("backup")}
+              type="button"
+            >
+              Lost your phone? Use a backup code
+            </button>
+          ) : (
+            <button
+              className="block p-0 text-left font-bold text-(--accent-ink) underline-offset-4 hover:underline"
+              onClick={() => switchMode(appAvailable ? "app" : "email")}
+              type="button"
+            >
+              {appAvailable
+                ? "Use a code from your app instead"
+                : "Email me a code instead"}
+            </button>
+          )}
         </div>
       </div>
     </section>
