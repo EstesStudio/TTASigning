@@ -10,6 +10,7 @@ import {
 
 const onVercel = { VERCEL: "1" };
 const elsewhere = {};
+const threeAddresses = "198.51.100.7, 203.0.113.9, 192.0.2.4";
 
 test("on Vercel, the address Vercel wrote wins over one the visitor could have sent", () => {
   const headers = new Headers({
@@ -34,11 +35,13 @@ test("on Vercel, the address Vercel wrote wins over one the visitor could have s
 
 test("off Vercel, Vercel's header means nothing and the proxy headers are used", () => {
   const headers = new Headers({
-    "x-forwarded-for": "198.51.100.7, 10.0.0.1",
+    // The visitor could have written the first two; the last is the one the
+    // nearest proxy added, which the default count trusts.
+    "x-forwarded-for": threeAddresses,
     "x-vercel-forwarded-for": "203.0.113.5",
   });
 
-  assert.equal(getClientIpAddress(headers, elsewhere), "198.51.100.7");
+  assert.equal(getClientIpAddress(headers, elsewhere), "192.0.2.4");
   assert.equal(
     getClientIpAddress(
       new Headers({ "cf-connecting-ip": "198.51.100.9" }),
@@ -50,6 +53,64 @@ test("off Vercel, Vercel's header means nothing and the proxy headers are used",
     getClientIpHeaderNames(elsewhere).includes("x-vercel-forwarded-for"),
     false,
   );
+});
+
+test("off Vercel, TRUSTED_PROXY_HOPS steps past the addresses our proxies wrote for each other", () => {
+  const headers = new Headers({ "x-forwarded-for": threeAddresses });
+
+  assert.equal(
+    getClientIpAddress(headers, { ...elsewhere, TRUSTED_PROXY_HOPS: "1" }),
+    "203.0.113.9",
+  );
+  assert.equal(
+    getClientIpAddress(headers, { ...elsewhere, TRUSTED_PROXY_HOPS: "2" }),
+    "198.51.100.7",
+  );
+});
+
+test("off Vercel, more hops configured than the header shows gives no address", () => {
+  const headers = new Headers({
+    "x-forwarded-for": "198.51.100.7",
+    "x-real-ip": "198.51.100.7",
+  });
+
+  assert.equal(
+    getClientIpAddress(headers, { ...elsewhere, TRUSTED_PROXY_HOPS: "2" }),
+    null,
+  );
+});
+
+test("on Vercel, TRUSTED_PROXY_HOPS changes nothing", () => {
+  const headers = new Headers({
+    "x-forwarded-for": threeAddresses,
+    "x-real-ip": "203.0.113.5",
+  });
+
+  assert.equal(
+    getClientIpAddress(headers, { ...onVercel, TRUSTED_PROXY_HOPS: "2" }),
+    "203.0.113.5",
+  );
+});
+
+test("an unreadable TRUSTED_PROXY_HOPS counts as 0 and says so once", (t) => {
+  const warn = t.mock.method(console, "warn", () => {});
+  const headers = new Headers({ "x-forwarded-for": threeAddresses });
+
+  try {
+    assert.equal(
+      getClientIpAddress(headers, { ...elsewhere, TRUSTED_PROXY_HOPS: "many" }),
+      "192.0.2.4",
+    );
+    assert.equal(
+      getClientIpAddress(headers, { ...elsewhere, TRUSTED_PROXY_HOPS: "-1" }),
+      "192.0.2.4",
+    );
+  } finally {
+    warn.mock.restore();
+  }
+
+  assert.equal(warn.mock.callCount(), 1);
+  assert.match(String(warn.mock.calls[0]?.arguments[0]), /TRUSTED_PROXY_HOPS/);
 });
 
 test("an empty header is passed over, and no header at all gives no address", () => {

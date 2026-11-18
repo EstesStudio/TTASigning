@@ -135,6 +135,7 @@ A deployment made with the button needs no environment variables. These are ther
 | `RESEND_FROM_EMAIL`, `SUPPORT_EMAIL`                | Fix the sender and support addresses from the environment instead of in Settings.                                                                                                                      |
 | `BETTER_AUTH_SECRET`                                | Your own secret for signing sessions. Without it one is derived from the database password, so changing that password signs everyone out.                                                              |
 | `APP_URL`                                           | The site's public address, if it should not be the project's production domain.                                                                                                                        |
+| `TRUSTED_PROXY_HOPS`                                | Off Vercel, how many addresses at the right end of the forwarded headers your own proxies wrote for each other. See [Rate limits](#rate-limits).                                                       |
 | `HOSTED_MODE`                                       | `1` runs SignuDoc as a public service under its own name. See [Hosted mode](#hosted-mode).                                                                                                             |
 | `RESEND_REGION`                                     | Where Resend sends from when the app adds your domain, for example `eu-west-1`. See [Running in the EU](#running-in-the-eu).                                                                           |
 | `SEAL_P12_BASE64`, `SEAL_P12_PASSWORD`              | Seal finished PDFs with a certificate from a certificate authority instead of the install's own. See [Signed PDFs and the seal](#signed-pdfs-and-the-seal).                                            |
@@ -143,6 +144,7 @@ A deployment made with the button needs no environment variables. These are ther
 | `CSC_API_URL`, `CSC_CLIENT_ID`, `CSC_CLIENT_SECRET` | The same through a trust service provider's remote signing service (CSC API v2). See [Signatures in the signers' own names](#signatures-in-the-signers-own-names-eidas-ades-and-qes).                  |
 | `BACKUP_BLOB_READ_WRITE_TOKEN`, `BACKUP_KEEP_DAYS`  | A daily backup of the database and files to a second Blob store. See [Backup and restore](backup-and-restore.md).                                                                                      |
 | `AUDIT_LOG`                                         | `off` keeps audit rows out of the function logs. See [Send the audit trail to your SIEM](#send-the-audit-trail-to-your-siem).                                                                          |
+| `PASSWORD_BREACH_CHECK`                             | `off` skips the Have I Been Pwned check of new passwords, for a network that cannot reach api.pwnedpasswords.com. See [Password breach check](#password-breach-check).                                 |
 | `SSO_ISSUER`, `SSO_CLIENT_ID`, `SSO_CLIENT_SECRET`  | Sign in through your organization's identity provider (Okta, Entra ID, Google Workspace). `PASSWORD_SIGN_IN=off` then turns passwords off. See [Single sign-on](#single-sign-on).                      |
 
 ## Set the site up
@@ -312,6 +314,10 @@ To close the route, set a secret. A caller then has to send `Authorization: Bear
 ## Rate limits
 
 Sign-in, sign-up, password reset, the signing pages, uploads and sending are rate limited per visitor. The counts are kept in the `rate_limits` table in Postgres, so they hold across every instance of the app. On Vercel the visitor's address is read from the header Vercel sets itself, which a visitor cannot forge. If the database cannot be reached, each instance falls back to counting in its own memory.
+
+Anywhere else the address comes from the usual proxy headers, where the only entries a visitor cannot change are the ones your own proxies added. The app therefore reads from the right: `TRUSTED_PROXY_HOPS` says how many of the rightmost addresses were written by your proxies for each other, and the address chosen is the next one out — what the outermost proxy you counted saw the visitor arriving at. The default of 0 is right behind a single nginx or Caddy that appends to `X-Forwarded-For`; a load balancer in front of it, or Cloudflare in front of your nginx, makes it 1, and each further internal hop adds one more. A value that is not a whole number of 0 or more counts as 0.
+
+Without a proxy in front of the app there is nothing to tell a proxy's entry from one the visitor typed in, so the address stays whatever the visitor sent — only the network connection itself would show the truth, and the app does not see it. Put the app behind a reverse proxy, or bind it to localhost, and count the internal hops with `TRUSTED_PROXY_HOPS`.
 
 ## Bot protection
 
