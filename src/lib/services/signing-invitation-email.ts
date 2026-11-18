@@ -1,5 +1,6 @@
 import { type Branding } from "../branding.ts";
 import { formatDeadline } from "../envelope-deadline.ts";
+import { type SignerLocale, t } from "../i18n.ts";
 import { escapeHtml } from "../utils/html.ts";
 import { withUserEmailLegalFooter } from "./email-legal-footer.ts";
 import { type TransactionalEmailMessage } from "./email.ts";
@@ -11,6 +12,8 @@ type SigningInvitationEmailInput = {
   expiresAt?: number | null;
   /** An approver is asked to approve, not to sign. A signer by default. */
   role?: "approver" | "signer";
+  /** The signer's language: the install's signer language. */
+  locale: SignerLocale;
   senderName: string;
   signerEmail: string;
   signerName: string;
@@ -20,9 +23,12 @@ type SigningInvitationEmailInput = {
 /** "This request expires on …", or nothing for an envelope with no deadline. */
 export function buildDeadlineLine(
   expiresAt: number | null | undefined,
+  locale: SignerLocale = "en",
 ): string | null {
   return typeof expiresAt === "number"
-    ? `This request expires on ${formatDeadline(expiresAt)}.`
+    ? t(locale, "email.deadlineLine", {
+        date: formatDeadline(expiresAt, locale),
+      })
     : null;
 }
 
@@ -48,33 +54,46 @@ export function describeRequestedAction(
 export function buildSigningInvitationEmail(
   input: SigningInvitationEmailInput,
 ): TransactionalEmailMessage {
+  const { locale } = input;
   const { productName } = input.branding;
-  const action = describeRequestedAction(input.role);
-  const subject = `${input.senderName} requested your ${action.noun} on "${input.envelopeTitle}"`;
-  const deadlineLine = buildDeadlineLine(input.expiresAt);
+  const greeting = t(locale, "email.greeting", { name: input.signerName });
+  const sentLine = t(locale, "email.invitation.sent", {
+    sender: input.senderName,
+    title: input.envelopeTitle,
+    product: productName,
+  });
+  const subject = t(locale, "email.invitation.subject", {
+    sender: input.senderName,
+    title: input.envelopeTitle,
+  });
+  const deadlineLine = buildDeadlineLine(input.expiresAt, locale);
+  const cta = t(locale, "email.cta");
+  const noAccount = t(locale, "email.noAccount", { product: productName });
+  const newestLink = t(locale, "email.newestLink");
   const textBody = [
-    `Hi ${input.signerName},`,
+    greeting,
     "",
-    `${input.senderName} sent you "${input.envelopeTitle}" through ${productName}.`,
+    sentLine,
     "",
-    `${action.linkText} here:`,
+    cta,
     input.signingUrl,
     ...(deadlineLine ? ["", deadlineLine] : []),
     "",
-    `You do not need a ${productName} account to ${action.accountLine}.`,
-    "If you receive a newer invitation or reminder link, use the newest one.",
+    noAccount,
+    newestLink,
   ].join("\n");
   const htmlBody = [
-    `<p>Hi ${escapeHtml(input.signerName)},</p>`,
-    `<p>${escapeHtml(input.senderName)} sent you &ldquo;${escapeHtml(input.envelopeTitle)}&rdquo; through ${escapeHtml(productName)}.</p>`,
-    `<p><a href="${escapeHtml(input.signingUrl)}">${escapeHtml(action.linkText)}</a></p>`,
+    `<p>${escapeHtml(greeting)}</p>`,
+    `<p>${escapeHtml(sentLine)}</p>`,
+    `<p><a href="${escapeHtml(input.signingUrl)}">${escapeHtml(cta)}</a></p>`,
     deadlineLine ? `<p>${escapeHtml(deadlineLine)}</p>` : "",
-    `<p>You do not need a ${escapeHtml(productName)} account to ${action.accountLine}.</p>`,
-    "<p>If you receive a newer invitation or reminder link, use the newest one.</p>",
+    `<p>${escapeHtml(noAccount)}</p>`,
+    `<p>${escapeHtml(newestLink)}</p>`,
   ].join("");
   const legalFooter = withUserEmailLegalFooter(
     {
       htmlBody,
+      locale,
       textBody,
     },
     input.branding,
