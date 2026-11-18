@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
+import { crc32, deflateSync } from "node:zlib";
 
 import {
   BrandLogoError,
@@ -123,4 +124,137 @@ test("a PNG with a damaged byte is refused", () => {
   damaged[45] ^= 0xff;
   assert.equal(sniffLogoContentType(damaged), "image/png");
   assert.throws(() => checkLogoUpload(damaged), BrandLogoError);
+});
+
+function pngChunk(type: string, data: Uint8Array = new Uint8Array()) {
+  const typeAndData = Buffer.concat([Buffer.from(type, "latin1"), data]);
+  const chunk = Buffer.alloc(typeAndData.length + 8);
+
+  chunk.writeUInt32BE(data.length, 0);
+  typeAndData.copy(chunk, 4);
+  chunk.writeUInt32BE(crc32(typeAndData), chunk.length - 4);
+
+  return chunk;
+}
+
+// Builds a PNG from raw scanlines (filter byte first), so tests can break one part.
+function buildPng(options: {
+  bitDepth?: number;
+  colorType?: number;
+  height: number;
+  idat?: Uint8Array;
+  interlaced?: boolean;
+  palette?: boolean;
+  raw?: Uint8Array;
+  width: number;
+}) {
+  const header = Buffer.alloc(13);
+
+  header.writeUInt32BE(options.width, 0);
+  header.writeUInt32BE(options.height, 4);
+  header[8] = options.bitDepth ?? 8;
+  header[9] = options.colorType ?? 6;
+  header[12] = options.interlaced ? 1 : 0;
+
+  return Uint8Array.from(
+    Buffer.concat([
+      WHOLE_PNG.subarray(0, 8),
+      pngChunk("IHDR", header),
+      ...(options.palette ? [pngChunk("PLTE", Buffer.from([0, 0, 0]))] : []),
+      pngChunk(
+        "IDAT",
+        options.idat ?? deflateSync(options.raw ?? new Uint8Array()),
+      ),
+      pngChunk("IEND"),
+    ]),
+  );
+}
+
+test("a WebP chunk with a huge length is refused, not looped on", () => {
+  // RIFF size 12, then a JUNK chunk whose length is 0xfffffff8.
+  const bytes = Buffer.alloc(20);
+
+  bytes.write("RIFF", 0, "latin1");
+  bytes.writeUInt32LE(12, 4);
+  bytes.write("WEBP", 8, "latin1");
+  bytes.write("JUNK", 12, "latin1");
+  bytes.writeUInt32LE(0xfffffff8, 16);
+
+  assert.throws(() => checkLogoUpload(bytes), BrandLogoError);
+});
+
+test("a WebP with only its image header is refused", () => {
+  // The fixture's VP8L chunk cut to its 5 header bytes, plus padding.
+  const bytes = Buffer.concat([WHOLE_WEBP.subarray(0, 25), Buffer.alloc(1)]);
+
+  bytes.writeUInt32LE(bytes.length - 8, 4);
+  bytes.writeUInt32LE(5, 16);
+  assert.throws(() => checkLogoUpload(bytes), BrandLogoError);
+});
+
+test("a PNG is refused unless its pixel data is all there", () => {
+  // 2x2 RGBA: two rows of a filter byte and 8 pixel bytes.
+  const raw = new Uint8Array(18);
+
+  assert.equal(
+    checkLogoUpload(buildPng({ height: 2, raw, width: 2 })),
+    "image/png",
+  );
+
+  for (const broken of [
+    buildPng({ height: 2, idat: new Uint8Array(), width: 2 }),
+    buildPng({ height: 2, raw: raw.subarray(0, 9), width: 2 }),
+    buildPng({ height: 2, raw: Uint8Array.from([...raw, 0]), width: 2 }),
+    buildPng({ height: 2, idat: deflateSync(raw).subarray(0, 6), width: 2 }),
+    buildPng({
+      height: 2,
+      raw: Uint8Array.from([9, ...raw.subarray(1)]),
+      width: 2,
+    }),
+  ]) {
+    assert.throws(() => checkLogoUpload(broken), BrandLogoError);
+  }
+});
+
+test("interlaced and palette PNGs are measured right", () => {
+  // 3x3 RGBA in Adam7: passes 2 and 3 are empty, the rest hold rows of
+  // 1, 1, 2, 1, 1 and 3 pixels.
+  const interlaced = new Uint8Array(5 + 5 + 9 + 5 + 5 + 13);
+
+  assert.equal(
+    checkLogoUpload(
+      buildPng({ height: 3, interlaced: true, raw: interlaced, width: 3 }),
+    ),
+    "image/png",
+  );
+
+  // 10x1 at 4 bits per pixel: 5 bytes and a filter byte.
+  const palette = {
+    bitDepth: 4,
+    colorType: 3,
+    height: 1,
+    raw: new Uint8Array(6),
+    width: 10,
+  };
+
+  assert.equal(
+    checkLogoUpload(buildPng({ ...palette, palette: true })),
+    "image/png",
+  );
+  assert.throws(() => checkLogoUpload(buildPng(palette)), BrandLogoError);
+});
+
+test("a PNG that would inflate past the pixel limit is refused", () => {
+  assert.throws(
+    () =>
+      checkLogoUpload(
+        buildPng({
+          height: 8000,
+          idat: deflateSync(new Uint8Array(1)),
+          width: 8000,
+        }),
+      ),
+    (error: unknown) =>
+      error instanceof BrandLogoError && /too many pixels/.test(error.message),
+  );
 });

@@ -1,5 +1,5 @@
 import { createHash } from "node:crypto";
-import { crc32 } from "node:zlib";
+import { crc32, inflateSync } from "node:zlib";
 
 import { MAX_LOGO_BYTES, type LogoContentType } from "./branding.ts";
 import { getDb, queryOne, type DbExecutor } from "./db/connection.ts";
@@ -69,10 +69,8 @@ function readUint32BE(bytes: Uint8Array, offset: number) {
 
 function readUint32LE(bytes: Uint8Array, offset: number) {
   return (
-    bytes[offset] |
-    (bytes[offset + 1] << 8) |
-    (bytes[offset + 2] << 16) |
-    (bytes[offset + 3] * 0x1000000)
+    bytes[offset + 3] * 0x1000000 +
+    ((bytes[offset + 2] << 16) | (bytes[offset + 1] << 8) | bytes[offset])
   );
 }
 
@@ -88,10 +86,118 @@ function chunkType(bytes: Uint8Array, offset: number) {
   return String.fromCharCode(...bytes.subarray(offset, offset + 4));
 }
 
+// Caps the inflated pixel data so a tiny file can't expand into gigabytes.
+const MAX_PNG_PIXEL_BYTES = 64 * 1024 * 1024;
+
+const PNG_CHANNELS: Record<number, number> = { 0: 1, 2: 3, 3: 1, 4: 2, 6: 4 };
+const PNG_BIT_DEPTHS: Record<number, number[]> = {
+  0: [1, 2, 4, 8, 16],
+  2: [8, 16],
+  3: [1, 2, 4, 8],
+  4: [8, 16],
+  6: [8, 16],
+};
+
+// Adam7 passes: x start, y start, x step, y step.
+const ADAM7 = [
+  [0, 0, 8, 8],
+  [4, 0, 8, 8],
+  [0, 4, 4, 8],
+  [2, 0, 4, 4],
+  [0, 2, 2, 4],
+  [1, 0, 2, 2],
+  [0, 1, 1, 2],
+];
+
+type PngHeader = {
+  bitDepth: number;
+  colorType: number;
+  height: number;
+  interlaced: boolean;
+  width: number;
+};
+
+function readPngHeader(bytes: Uint8Array, offset: number): PngHeader | null {
+  const header = {
+    bitDepth: bytes[offset + 8],
+    colorType: bytes[offset + 9],
+    height: readUint32BE(bytes, offset + 4),
+    interlaced: bytes[offset + 12] === 1,
+    width: readUint32BE(bytes, offset),
+  };
+
+  const valid =
+    header.width > 0 &&
+    header.height > 0 &&
+    PNG_BIT_DEPTHS[header.colorType]?.includes(header.bitDepth) === true &&
+    bytes[offset + 10] === 0 &&
+    bytes[offset + 11] === 0 &&
+    bytes[offset + 12] <= 1;
+
+  return valid ? header : null;
+}
+
+/** Rows and bytes per row (filter byte included) of each pass. */
+function pngScanlines(header: PngHeader): Array<[number, number]> {
+  const bitsPerPixel = PNG_CHANNELS[header.colorType] * header.bitDepth;
+  const passes = header.interlaced ? ADAM7 : [[0, 0, 1, 1]];
+
+  return passes
+    .map(([xStart, yStart, xStep, yStep]): [number, number] => {
+      const columns = Math.ceil((header.width - xStart) / xStep);
+      const rows = Math.ceil((header.height - yStart) / yStep);
+
+      return columns > 0 && rows > 0
+        ? [rows, Math.ceil((columns * bitsPerPixel) / 8) + 1]
+        : [0, 0];
+    })
+    .filter(([rows]) => rows > 0);
+}
+
+function hasWholePngPixels(header: PngHeader, data: Uint8Array[]): boolean {
+  const scanlines = pngScanlines(header);
+  const expected = scanlines.reduce(
+    (sum, [rows, size]) => sum + rows * size,
+    0,
+  );
+
+  if (expected > MAX_PNG_PIXEL_BYTES) {
+    throw new BrandLogoError(
+      "This image has too many pixels for a logo. Choose a smaller one.",
+    );
+  }
+
+  let pixels: Buffer;
+
+  try {
+    pixels = inflateSync(Buffer.concat(data), { maxOutputLength: expected });
+  } catch {
+    return false;
+  }
+
+  if (pixels.length !== expected) {
+    return false;
+  }
+
+  // Every row starts with a filter type from 0 to 4.
+  let offset = 0;
+
+  for (const [rows, size] of scanlines) {
+    for (let row = 0; row < rows; row += 1, offset += size) {
+      if (pixels[offset] > 4) {
+        return false;
+      }
+    }
+  }
+
+  return true;
+}
+
 function isCompletePng(bytes: Uint8Array): boolean {
   let offset = 8;
-  let seenHeader = false;
-  let seenData = false;
+  let header: PngHeader | null = null;
+  let seenPalette = false;
+  const data: Uint8Array[] = [];
 
   while (offset + 12 <= bytes.length) {
     const length = readUint32BE(bytes, offset);
@@ -109,23 +215,26 @@ function isCompletePng(bytes: Uint8Array): boolean {
       return false;
     }
 
-    if (!seenHeader) {
+    if (!header) {
       if (type !== "IHDR" || length !== 13) {
         return false;
       }
 
-      const width = readUint32BE(bytes, dataStart);
-      const height = readUint32BE(bytes, dataStart + 4);
+      header = readPngHeader(bytes, dataStart);
 
-      if (width === 0 || height === 0) {
+      if (!header) {
+        return false;
+      }
+    } else if (type === "PLTE") {
+      seenPalette = true;
+    } else if (type === "IDAT") {
+      data.push(bytes.subarray(dataStart, dataEnd));
+    } else if (type === "IEND") {
+      if (data.length === 0 || (header.colorType === 3 && !seenPalette)) {
         return false;
       }
 
-      seenHeader = true;
-    } else if (type === "IDAT") {
-      seenData = true;
-    } else if (type === "IEND") {
-      return seenData;
+      return hasWholePngPixels(header, data);
     }
 
     offset = dataEnd + 4;
@@ -230,13 +339,14 @@ function isCompleteWebp(bytes: Uint8Array): boolean {
     const dataStart = offset + 8;
     const dataEnd = dataStart + length;
 
-    if (dataEnd > riffEnd) {
+    if (dataEnd > riffEnd || dataEnd <= offset) {
       return false;
     }
 
     if (type === "VP8 ") {
+      // A key frame header with its size, and some data after it.
       if (
-        length < 10 ||
+        length <= 10 ||
         !startsWith(bytes, [0x9d, 0x01, 0x2a], dataStart + 3) ||
         (readUint16LE(bytes, dataStart + 6) & 0x3fff) === 0 ||
         (readUint16LE(bytes, dataStart + 8) & 0x3fff) === 0
@@ -246,7 +356,12 @@ function isCompleteWebp(bytes: Uint8Array): boolean {
 
       seenImage = true;
     } else if (type === "VP8L") {
-      if (length < 5 || bytes[dataStart] !== 0x2f) {
+      // Signature, size and a zero version, and some data after them.
+      if (
+        length <= 5 ||
+        bytes[dataStart] !== 0x2f ||
+        bytes[dataStart + 4] >> 5 !== 0
+      ) {
         return false;
       }
 
