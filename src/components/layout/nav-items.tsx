@@ -1,10 +1,12 @@
 import {
   ChevronLeft,
   ChevronRight,
+  Clock,
   FileStack,
   LayoutTemplate,
   Plus,
   Settings,
+  Users,
   type IconComponent,
 } from "@/components/ui/icons";
 
@@ -38,11 +40,27 @@ export const primaryNavItems: ShellNavItem[] = [
     section: "documents",
   },
   {
+    description: "What happened, as it happens",
+    href: "/activity",
+    icon: Clock,
+    keywords: ["history", "timeline", "feed", "signed", "viewed"],
+    label: "Activity",
+    section: "activity",
+  },
+  {
     href: "/templates",
     icon: LayoutTemplate,
     keywords: ["library"],
     label: "Templates",
     section: "templates",
+  },
+  {
+    description: "People you send to",
+    href: "/contacts",
+    icon: Users,
+    keywords: ["people", "address book", "recipients", "signers"],
+    label: "Contacts",
+    section: "contacts",
   },
   {
     description: "Your account and organization",
@@ -72,7 +90,11 @@ export const phoneTabItems: ShellNavItem[] = [
   navItem("templates"),
 ];
 
-export const phoneMoreItems: ShellNavItem[] = [navItem("settings")];
+export const phoneMoreItems: ShellNavItem[] = [
+  navItem("activity"),
+  navItem("contacts"),
+  navItem("settings"),
+];
 
 export const newEnvelopeItem: ShellNavItem = {
   href: "/envelopes/new",
