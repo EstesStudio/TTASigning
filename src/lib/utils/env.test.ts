@@ -134,6 +134,33 @@ test("a production build may run on localhost, but not on Vercel", () => {
   );
 });
 
+test("a production install on a public URL is told to set its own auth secret", (t) => {
+  const warn = t.mock.method(console, "warn", () => {});
+  const databaseUrl = (password: string) =>
+    NEON_URL.replace("npg_Abc123Def456Ghi7", password);
+
+  resolveAuthSecret({
+    APP_URL: "https://sign.example.com",
+    DATABASE_URL: databaseUrl("npg_Qrs456Tuv789Wxy0"),
+    NODE_ENV: "production",
+  });
+
+  assert.equal(warn.mock.callCount(), 1);
+  assert.match(String(warn.mock.calls[0]?.arguments[0]), /BETTER_AUTH_SECRET/);
+
+  // On localhost the database password and the secret share an owner, so
+  // there is nothing to warn about.
+  resolveAuthSecret({
+    APP_URL: "http://localhost:3000",
+    DATABASE_URL: databaseUrl("npg_Lmn123Opq456Rst7"),
+    NODE_ENV: "production",
+  });
+
+  assert.equal(warn.mock.callCount(), 1);
+
+  warn.mock.restore();
+});
+
 test("Supabase's POSTGRES_URL is used when DATABASE_URL is not set", () => {
   const supabase =
     "postgres://postgres.ref:Sup3rSecretPassw0rd@aws-0-us-east-1.pooler.supabase.com:6543/postgres?sslmode=require&supa=base-pooler.x";

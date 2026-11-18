@@ -6,6 +6,8 @@ import {
   resolveDatabaseUrl as findDatabaseUrl,
 } from "../../../db/database-url.mjs";
 
+import { logSecurityEvent } from "../security/logging.ts";
+
 export type EnvSource = Readonly<Record<string, string | undefined>>;
 
 export class MissingEnvError extends Error {
@@ -188,11 +190,45 @@ const DERIVED_SECRET_CONTEXT = "signudoc/better-auth-secret/v1";
 
 let lastDerivedSecret: { password: string; secret: string } | null = null;
 
+// The same secret signs sessions, and also makes the signers' email codes,
+// their verification cookies and the key that encrypts the seal key. On a
+// public production URL that is worth having under a secret of the
+// operator's own, so say so once per process.
+function warnAboutDerivedSecret(env: EnvSource): void {
+  if (!isProduction(env)) {
+    return;
+  }
+
+  const appUrl = resolveAppUrl(env);
+
+  if (!appUrl) {
+    return;
+  }
+
+  let isPublic = true;
+
+  try {
+    isPublic = !isLoopbackHostname(new URL(appUrl).hostname);
+  } catch {
+    isPublic = false;
+  }
+
+  if (isPublic) {
+    logSecurityEvent("warn", {
+      category: "auth_secret_derived",
+      message:
+        "BETTER_AUTH_SECRET is derived from the database password in production. Set it explicitly (for example with `openssl rand -hex 32`): it also makes the signers' email codes, their verification cookies and the key that encrypts the seal key.",
+    });
+  }
+}
+
 // When BETTER_AUTH_SECRET is not set, the auth secret is derived from the
 // database password, so a fresh install needs nothing typed in. Anyone who
 // holds the database password can already read and write every session, so
 // this gives them nothing new. Changing the database password signs
-// everyone out; set BETTER_AUTH_SECRET to avoid that.
+// everyone out; set BETTER_AUTH_SECRET to avoid that. In production on a
+// public URL a warning suggests setting it, because the derived value also
+// protects signer codes, verification cookies and the seal key.
 function deriveAuthSecret(env: EnvSource): string | undefined {
   const databaseUrl = findDatabaseUrl(env);
   const password = databaseUrl
@@ -217,6 +253,8 @@ function deriveAuthSecret(env: EnvSource): string | undefined {
         .update(DERIVED_SECRET_CONTEXT)
         .digest("hex"),
     };
+
+    warnAboutDerivedSecret(env);
   }
 
   return lastDerivedSecret.secret;
