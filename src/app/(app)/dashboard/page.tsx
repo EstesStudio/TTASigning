@@ -1,4 +1,10 @@
 import { DashboardShell } from "@/components/dashboard/dashboard-shell";
+import {
+  getDocumentsOverview,
+  listActivityForUser,
+  type ActivityItem,
+  type DocumentsOverview,
+} from "@/lib/activity";
 import { isAdminUser } from "@/lib/auth/admin";
 import { getAuthSession } from "@/lib/auth/server";
 import { getDb } from "@/lib/db/connection";
@@ -8,8 +14,13 @@ import {
   type DashboardEnvelopePage,
 } from "@/lib/envelopes";
 
-/** Envelopes on one page of the dashboard. */
-const DASHBOARD_PAGE_SIZE = 48;
+/** When this request was rendered. Read once per request, on the server. */
+function renderedAt() {
+  return Date.now();
+}
+
+/** Envelopes on one page of the list. */
+const DOCUMENT_PAGE_SIZE = 48;
 
 type DashboardPageProps = {
   searchParams: Promise<Record<string, string | string[] | undefined>>;
@@ -19,7 +30,7 @@ function firstValue(value: string | string[] | undefined): string {
   return (Array.isArray(value) ? value[0] : value) ?? "";
 }
 
-function buildDashboardHref({
+function dashboardHref({
   page,
   search,
   showAll,
@@ -50,10 +61,10 @@ function buildDashboardHref({
 export default async function DashboardPage({
   searchParams,
 }: DashboardPageProps) {
+  const now = renderedAt();
   const session = await getAuthSession();
   const database = getDb();
   const params = await searchParams;
-  const view = firstValue(params.view);
   const search = firstValue(params.q).trim().slice(0, 160);
   const requestedPage = Number.parseInt(firstValue(params.page), 10);
   const page =
@@ -61,27 +72,47 @@ export default async function DashboardPage({
       ? requestedPage
       : 1;
   let result: DashboardEnvelopePage | undefined;
+  let overview: DocumentsOverview | null = null;
+  let latest: ActivityItem | null = null;
   let initialState: "default" | "empty" | "error" = "error";
   let isAdmin = false;
   let showAll = false;
 
   try {
-    isAdmin = session ? await isAdminUser(session.user.id, database) : false;
-    // An administrator can see every envelope in the install, not only
-    // their own.
-    showAll = isAdmin && view === "all";
+    if (session) {
+      isAdmin = await isAdminUser(session.user.id, database);
+      // An administrator can see every envelope in the install, not only
+      // their own.
+      showAll = isAdmin && firstValue(params.view) === "all";
 
-    const filters = {
-      limit: DASHBOARD_PAGE_SIZE,
-      page,
-      ...(search ? { search } : {}),
-    };
+      const filters = {
+        limit: DOCUMENT_PAGE_SIZE,
+        page,
+        ...(search ? { search } : {}),
+      };
+      const [list, summary, activity] = await Promise.all([
+        showAll
+          ? listAllEnvelopesForAdmin(filters, database)
+          : listEnvelopesForUser(session.user.id, filters, database),
+        // The overview and the latest event are extras: the list stands
+        // on its own if either fails.
+        getDocumentsOverview(
+          session.user.id,
+          Math.floor(now / 1000),
+          database,
+        ).catch(() => null),
+        listActivityForUser(session.user.id, { limit: 1 }, database).catch(
+          () => null,
+        ),
+      ]);
 
-    result = !session
-      ? { envelopes: [], hasMore: false }
-      : showAll
-        ? await listAllEnvelopesForAdmin(filters, database)
-        : await listEnvelopesForUser(session.user.id, filters, database);
+      result = list;
+      overview = summary;
+      latest = activity?.items[0] ?? null;
+    } else {
+      result = { envelopes: [], hasMore: false };
+    }
+
     // Nothing at all yet, as opposed to nothing that matches or nothing
     // on this page.
     initialState =
@@ -92,18 +123,24 @@ export default async function DashboardPage({
     initialState = "error";
   }
 
+  const envelopes = result?.envelopes;
   return (
     <DashboardShell
-      envelopes={result?.envelopes}
+      envelopes={envelopes}
       initialSearch={search}
       initialState={initialState}
+      latestActivity={latest}
+      // One clock for the server render and the browser: time groups and
+      // "waiting n days" are worked out from it on both sides.
+      now={now}
+      overview={overview}
       pagination={{
         newerHref:
           page > 1
-            ? buildDashboardHref({ page: page - 1, search, showAll })
+            ? dashboardHref({ page: page - 1, search, showAll })
             : undefined,
         olderHref: result?.hasMore
-          ? buildDashboardHref({ page: page + 1, search, showAll })
+          ? dashboardHref({ page: page + 1, search, showAll })
           : undefined,
       }}
       view={isAdmin ? (showAll ? "all" : "mine") : undefined}
