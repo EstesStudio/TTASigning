@@ -16,8 +16,10 @@ import { normalizedRectToPdfRect } from "../utils/pdf-coords.ts";
 import { embedTextFaces, type TextFace } from "./pdf-fonts.ts";
 import {
   drawOnDisplayedPage,
+  fieldOnDisplayedPage,
   getDisplayedPageGeometry,
   type DisplayedPageGeometry,
+  type StoredPageSize,
 } from "./pdf-page-geometry.ts";
 import { sha256Hex } from "./pdf-seal.ts";
 import { getBranding } from "../settings.ts";
@@ -403,19 +405,32 @@ function buildCertificateAuditEvents(input: {
   envelope: EnvelopeRecord;
   terminalTimestamp: number;
 }): AuditEventRecord[] {
-  const baseAuditEvents =
-    input.envelope.status === "completed"
-      ? stripCompletedAuditEvents(input.auditEvents)
-      : input.auditEvents;
-  const terminalAuditEvents =
-    input.envelope.status === "completed"
-      ? [buildCompletedAuditEvent(input.envelope.id, input.terminalTimestamp)]
-      : [];
+  // The rows come in the order they were recorded: the audit query reads
+  // them by the chain's sequence, and a caller adds the event it is about to
+  // record at the end. They are printed in that order and never re-sorted.
+  // created_at is in whole seconds and ids are random, so sorting by time and
+  // then id would shuffle events from the same second (issue #97).
+  if (input.envelope.status !== "completed") {
+    return [...input.auditEvents];
+  }
 
-  return [...baseAuditEvents, ...terminalAuditEvents].sort(
-    (left, right) =>
-      left.createdAt - right.createdAt || left.id.localeCompare(right.id),
+  // A completed envelope shows one completed row. A recorded one keeps its
+  // place, so events recorded after it stay after it. Before it is recorded,
+  // as when the last signature seals the envelope, it goes last.
+  const recordedCompletion = input.auditEvents.find(
+    (event) => event.event === "completed",
   );
+
+  if (recordedCompletion) {
+    return input.auditEvents.filter(
+      (event) => event.event !== "completed" || event === recordedCompletion,
+    );
+  }
+
+  return [
+    ...input.auditEvents,
+    buildCompletedAuditEvent(input.envelope.id, input.terminalTimestamp),
+  ];
 }
 
 export async function stampFieldValue(
@@ -1357,6 +1372,8 @@ export async function renderFinalizedEnvelopePdf(
     envelope: EnvelopeRecord;
     fields: FieldRecord[];
     includeAuditTrail?: boolean;
+    /** The envelope's stored page sizes, which fields were placed against. */
+    pages: readonly StoredPageSize[];
     signers: SignerRecord[];
     sourcePdfKey: string;
   },
@@ -1420,15 +1437,25 @@ export async function renderFinalizedEnvelopePdf(
     },
   );
   const imageCache = new Map<string, PDFImage>();
+  const storedPages = new Map(
+    input.pages.map((page) => [page.pageNumber, page]),
+  );
 
-  for (const field of stampedFields) {
-    const page = pdfDocument.getPage(field.page - 1);
+  for (const placedField of stampedFields) {
+    const page = pdfDocument.getPage(placedField.page - 1);
 
     if (!page) {
       throw new PdfFinalizeError(
-        `Field ${field.id} references missing page ${field.page}.`,
+        `Field ${placedField.id} references missing page ${placedField.page}.`,
       );
     }
+
+    const geometry = getDisplayedPageGeometry(page);
+    const field = fieldOnDisplayedPage(
+      placedField,
+      storedPages.get(placedField.page),
+      geometry,
+    );
 
     await stampFieldValue(
       field,
@@ -1437,6 +1464,7 @@ export async function renderFinalizedEnvelopePdf(
       imageCache,
       pdfDocument,
       storageService,
+      geometry,
     );
 
     const manifestation =
@@ -1479,6 +1507,7 @@ export async function finalizeEnvelope(
     copyRecipients?: readonly CertificateCopyRecipient[];
     envelope: EnvelopeRecord;
     fields: FieldRecord[];
+    pages: readonly StoredPageSize[];
     signers: SignerRecord[];
     sourcePdf: StorageObjectRef;
   },
@@ -1509,6 +1538,7 @@ export async function finalizeEnvelope(
           copyRecipients: input.copyRecipients,
           envelope: input.envelope,
           fields: input.fields,
+          pages: input.pages,
           signers: input.signers,
           sourcePdfKey: input.sourcePdf.key,
         },

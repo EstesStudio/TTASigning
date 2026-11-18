@@ -36,10 +36,27 @@ import {
 } from "@/lib/types/domain";
 import { getSignerPalette } from "./signer-palette";
 
+/** A finished envelope an administrator has scheduled to be deleted. */
+export type EnvelopeDeletionNotice = {
+  deleteOnLabel: string;
+  /** Shown to administrators only. */
+  reason: string | null;
+  requestedByEmail: string;
+};
+
 type EnvelopeDetailShellProps = {
+  /** An administrator may delete a finished envelope. */
+  canDeleteFinished?: boolean;
   envelopeId: string;
   initialState?: "error" | "not-found";
+  /**
+   * Who sent it, when an administrator is looking at another member's
+   * envelope. They can read it, download its files and delete it once it
+   * is finished; the rest stays with its sender.
+   */
+  ownerLabel?: string;
   record?: EnvelopeDetailData;
+  scheduledDeletion?: EnvelopeDeletionNotice;
 };
 
 type EnvelopeStatus = "draft" | "sent" | "completed" | "declined" | "voided";
@@ -74,7 +91,9 @@ type ModalState =
   | "change-reminders"
   | "copy-draft"
   | "correct-signer"
+  | "cancel-deletion"
   | "delete-draft"
+  | "delete-finished"
   | "save-template"
   | "void-envelope"
   | null;
@@ -124,10 +143,14 @@ const timelineToneClasses: Record<TimelineTone, string> = {
 };
 
 export function EnvelopeDetailShell({
+  canDeleteFinished = false,
   envelopeId,
   initialState,
+  ownerLabel,
   record,
+  scheduledDeletion,
 }: EnvelopeDetailShellProps) {
+  const isOwnEnvelope = ownerLabel === undefined;
   const [activeModal, setActiveModal] = useState<ModalState>(null);
   const [actionError, setActionError] = useState<string | null>(null);
   const [isChangingDeadline, setIsChangingDeadline] = useState(false);
@@ -135,6 +158,9 @@ export function EnvelopeDetailShell({
   const [isCopyingDraft, setIsCopyingDraft] = useState(false);
   const [isCorrectingSigner, setIsCorrectingSigner] = useState(false);
   const [isDeletingDraft, setIsDeletingDraft] = useState(false);
+  const [isDeletingFinished, setIsDeletingFinished] = useState(false);
+  const [isCancellingDeletion, setIsCancellingDeletion] = useState(false);
+  const [deleteReason, setDeleteReason] = useState("");
   const [isSendingReminder, setIsSendingReminder] = useState(false);
   const [isVoidingEnvelope, setIsVoidingEnvelope] = useState(false);
   const [correctingSigner, setCorrectingSigner] =
@@ -413,6 +439,66 @@ export function EnvelopeDetailShell({
     }
   }
 
+  async function handleConfirmDeleteFinished() {
+    setActionError(null);
+    setIsDeletingFinished(true);
+
+    try {
+      const response = await fetch(`/api/envelopes/${envelopeId}/deletion`, {
+        body: JSON.stringify({ reason: deleteReason }),
+        headers: { "Content-Type": "application/json" },
+        method: "POST",
+      });
+      const payload = (await response.json().catch(() => null)) as {
+        error?: string;
+      } | null;
+
+      if (!response.ok) {
+        setActionError(
+          payload?.error ?? "Unable to schedule this envelope's deletion.",
+        );
+        return;
+      }
+
+      // The page shows when it will go, and lets it be cancelled.
+      window.location.reload();
+    } catch {
+      // The request may or may not have reached the server.
+      setActionError(
+        "Could not reach the server. Reload the page to see whether the deletion was scheduled.",
+      );
+    } finally {
+      setIsDeletingFinished(false);
+    }
+  }
+
+  async function handleConfirmCancelDeletion() {
+    setActionError(null);
+    setIsCancellingDeletion(true);
+
+    try {
+      const response = await fetch(`/api/envelopes/${envelopeId}/deletion`, {
+        method: "DELETE",
+      });
+      const payload = (await response.json().catch(() => null)) as {
+        error?: string;
+      } | null;
+
+      if (!response.ok) {
+        setActionError(payload?.error ?? "Unable to cancel this deletion.");
+        return;
+      }
+
+      window.location.reload();
+    } catch {
+      setActionError(
+        "Could not reach the server. Reload the page to see whether the deletion was cancelled.",
+      );
+    } finally {
+      setIsCancellingDeletion(false);
+    }
+  }
+
   async function handleConfirmVoidEnvelope() {
     setActionError(null);
     setIsVoidingEnvelope(true);
@@ -452,9 +538,9 @@ export function EnvelopeDetailShell({
       <section className="panel p-5 sm:p-8" data-animate="enter">
         <Link
           className="inline-flex items-center text-sm font-semibold text-(--secondary) transition hover:text-(--accent-ink)"
-          href="/dashboard"
+          href={isOwnEnvelope ? "/dashboard" : "/dashboard?view=all"}
         >
-          ← Documents
+          {isOwnEnvelope ? "← Documents" : "← All envelopes"}
         </Link>
 
         <div className="mt-5 flex flex-col gap-6 lg:flex-row lg:items-center lg:justify-between">
@@ -488,6 +574,11 @@ export function EnvelopeDetailShell({
                 <p className="text-sm text-(--secondary)">
                   Created {activeRecord.createdAtLabel}
                 </p>
+                {ownerLabel ? (
+                  <p className="text-sm text-(--secondary)">
+                    Sent by {ownerLabel}
+                  </p>
+                ) : null}
                 {record.signatureTypeLabel ? (
                   <span className="pill pill-neutral">
                     {record.signatureTypeLabel}
@@ -498,7 +589,7 @@ export function EnvelopeDetailShell({
           </div>
 
           <div className="flex shrink-0 flex-col gap-3 sm:flex-row sm:flex-wrap lg:justify-end">
-            {activeRecord.status === "draft" ? (
+            {isOwnEnvelope && activeRecord.status === "draft" ? (
               <>
                 <ShellButton
                   onClick={() => setActiveModal("delete-draft")}
@@ -512,7 +603,7 @@ export function EnvelopeDetailShell({
               </>
             ) : null}
 
-            {activeRecord.status === "sent" ? (
+            {isOwnEnvelope && activeRecord.status === "sent" ? (
               <>
                 <ShellButton
                   onClick={() => setActiveModal("void-envelope")}
@@ -561,15 +652,17 @@ export function EnvelopeDetailShell({
 
             {activeRecord.status !== "draft" ? (
               <>
-                <ShellButton
-                  onClick={() => {
-                    setActionError(null);
-                    setActiveModal("copy-draft");
-                  }}
-                  variant="secondary"
-                >
-                  Copy to new draft
-                </ShellButton>
+                {isOwnEnvelope ? (
+                  <ShellButton
+                    onClick={() => {
+                      setActionError(null);
+                      setActiveModal("copy-draft");
+                    }}
+                    variant="secondary"
+                  >
+                    Copy to new draft
+                  </ShellButton>
+                ) : null}
                 <ShellButton
                   onClick={() =>
                     // A file download from an API route, not a page navigation.
@@ -584,8 +677,57 @@ export function EnvelopeDetailShell({
                 </ShellButton>
               </>
             ) : null}
+
+            {canDeleteFinished && scheduledDeletion ? (
+              <ShellButton
+                onClick={() => {
+                  setActionError(null);
+                  setActiveModal("cancel-deletion");
+                }}
+                variant="secondary"
+              >
+                Cancel deletion
+              </ShellButton>
+            ) : null}
+
+            {canDeleteFinished &&
+            !scheduledDeletion &&
+            (activeRecord.status === "completed" ||
+              activeRecord.status === "declined" ||
+              activeRecord.status === "voided") ? (
+              <ShellButton
+                onClick={() => {
+                  setActionError(null);
+                  setActiveModal("delete-finished");
+                }}
+                variant="secondary"
+              >
+                Delete envelope
+              </ShellButton>
+            ) : null}
           </div>
         </div>
+
+        {scheduledDeletion ? (
+          <div
+            className="mt-4 rounded-xl border border-(--border) bg-(--danger-soft) px-4 py-3 text-sm leading-6 text-(--fg)"
+            role="status"
+          >
+            <p className="font-semibold">
+              Scheduled to be deleted on {scheduledDeletion.deleteOnLabel}
+            </p>
+            <p className="text-(--secondary)">
+              {canDeleteFinished
+                ? `${scheduledDeletion.requestedByEmail} asked for it. Any administrator can cancel until then.`
+                : `An administrator (${scheduledDeletion.requestedByEmail}) asked for it. Download the signed PDF and the certificate before then if you need to keep them.`}
+            </p>
+            {scheduledDeletion.reason ? (
+              <p className="text-(--secondary)">
+                Reason: {scheduledDeletion.reason}
+              </p>
+            ) : null}
+          </div>
+        ) : null}
 
         {reminderHelperText ? (
           <p className="mt-4 text-sm leading-6 text-(--secondary) lg:text-right">
@@ -606,16 +748,18 @@ export function EnvelopeDetailShell({
             >
               {deadlineText}
             </p>
-            <button
-              className="btn-quiet shrink-0"
-              onClick={() => {
-                setActionError(null);
-                setActiveModal("change-deadline");
-              }}
-              type="button"
-            >
-              {isExpired ? "Set a new deadline" : "Change deadline"}
-            </button>
+            {isOwnEnvelope ? (
+              <button
+                className="btn-quiet shrink-0"
+                onClick={() => {
+                  setActionError(null);
+                  setActiveModal("change-deadline");
+                }}
+                type="button"
+              >
+                {isExpired ? "Set a new deadline" : "Change deadline"}
+              </button>
+            ) : null}
           </div>
         ) : null}
 
@@ -624,16 +768,18 @@ export function EnvelopeDetailShell({
             <p className="text-sm leading-6 text-(--secondary)">
               {remindersText}
             </p>
-            <button
-              className="btn-quiet shrink-0"
-              onClick={() => {
-                setActionError(null);
-                setActiveModal("change-reminders");
-              }}
-              type="button"
-            >
-              Change reminders
-            </button>
+            {isOwnEnvelope ? (
+              <button
+                className="btn-quiet shrink-0"
+                onClick={() => {
+                  setActionError(null);
+                  setActiveModal("change-reminders");
+                }}
+                type="button"
+              >
+                Change reminders
+              </button>
+            ) : null}
           </div>
         ) : null}
 
@@ -652,7 +798,7 @@ export function EnvelopeDetailShell({
               View templates
             </Link>
           </div>
-        ) : activeRecord.signers.length > 0 ? (
+        ) : isOwnEnvelope && activeRecord.signers.length > 0 ? (
           <div
             className={`well flex flex-col gap-3 px-5 py-3.5 sm:flex-row sm:items-center sm:justify-between ${
               deadlineText || deadline ? "mt-3" : "mt-5"
@@ -744,7 +890,8 @@ export function EnvelopeDetailShell({
                               {signer.statusDateLabel}
                             </p>
                           ) : null}
-                          {activeRecord.status === "sent" &&
+                          {isOwnEnvelope &&
+                          activeRecord.status === "sent" &&
                           !record.part11 &&
                           (signer.status === "waiting" ||
                             signer.status === "pending") ? (
@@ -910,12 +1057,68 @@ export function EnvelopeDetailShell({
         />
       ) : null}
 
+      {activeModal === "delete-finished" ? (
+        <ConfirmationDialog
+          confirmDisabled={record.part11 && deleteReason.trim().length === 0}
+          confirmLabel="Schedule deletion"
+          description={[
+            "The envelope, its signed PDF, its certificate and its audit trail will be deleted for good in 14 days. Download links already sent to signers will stop working then.",
+            ...(isOwnEnvelope
+              ? []
+              : [
+                  "Its sender is emailed now, with a link to download what they need to keep.",
+                ]),
+            "Until then any administrator can cancel. The install's audit log records the request, and the deletion with the document's fingerprints.",
+          ]}
+          errorMessage={actionError}
+          onCancel={() => setActiveModal(null)}
+          onConfirm={handleConfirmDeleteFinished}
+          processing={isDeletingFinished}
+          title="Schedule this envelope for deletion?"
+        >
+          <label className="grid gap-2 text-sm">
+            <span className="text-[0.8125rem] font-semibold text-(--secondary)">
+              {record.part11 ? "Reason (required)" : "Reason (optional)"}
+            </span>
+            <Textarea
+              disabled={isDeletingFinished}
+              maxLength={1000}
+              onChange={(event) => setDeleteReason(event.target.value)}
+              rows={3}
+              value={deleteReason}
+            />
+            <span className="text-xs leading-5 text-(--tertiary)">
+              Kept in the install&apos;s audit log.
+            </span>
+          </label>
+        </ConfirmationDialog>
+      ) : null}
+
+      {activeModal === "cancel-deletion" ? (
+        <ConfirmationDialog
+          confirmLabel="Cancel deletion"
+          description={[
+            "The envelope stays as it is and will not be deleted.",
+            ...(isOwnEnvelope
+              ? []
+              : [
+                  "If its sender was told it would be deleted, they are told it will not.",
+                ]),
+          ]}
+          errorMessage={actionError}
+          onCancel={() => setActiveModal(null)}
+          onConfirm={handleConfirmCancelDeletion}
+          processing={isCancellingDeletion}
+          title="Cancel this deletion?"
+        />
+      ) : null}
+
       {activeModal === "void-envelope" ? (
         <ConfirmationDialog
           confirmLabel="Void envelope"
           description={[
             "This will cancel the signing process.",
-            "Notified signers will be informed that the envelope has been voided.",
+            "Signers who were sent the envelope, including those who already signed, will be told it was voided.",
             "This action cannot be undone.",
           ]}
           confirmDisabled={record.part11 && voidReason.trim().length === 0}

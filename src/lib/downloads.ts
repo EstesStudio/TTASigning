@@ -22,6 +22,7 @@ import {
   renderEnvelopeCertificatePdf,
   renderFinalizedEnvelopePdf,
 } from "./services/pdf-finalize.ts";
+import type { StoredPageSize } from "./services/pdf-page-geometry.ts";
 import {
   createStorageService,
   StorageObjectNotFoundError,
@@ -486,13 +487,63 @@ async function listFieldsForEnvelope(
   return rows.map(mapFieldRow);
 }
 
+async function listPageSizesForEnvelope(
+  envelopeId: string,
+  database: DbExecutor,
+): Promise<StoredPageSize[]> {
+  return queryMany<StoredPageSize>(
+    database,
+    `
+      SELECT
+        page_number AS "pageNumber",
+        width_pt AS "widthPt",
+        height_pt AS "heightPt"
+      FROM envelope_pages
+      WHERE envelope_id = $1
+      ORDER BY page_number ASC
+    `,
+    [envelopeId],
+  );
+}
+
+const MAX_FILE_NAME_SEGMENT_LENGTH = 120;
+
+const graphemeSegmenter = new Intl.Segmenter(undefined, {
+  granularity: "grapheme",
+});
+
+// Cuts at a whole character, so an emoji (or a letter with its accent) is
+// kept or dropped in one piece. A plain slice can leave half of a surrogate
+// pair, and encodeURIComponent then throws on the file name.
+function truncateToWholeCharacters(value: string, maxLength: number): string {
+  if (value.length <= maxLength) {
+    return value;
+  }
+
+  let result = "";
+
+  for (const { segment } of graphemeSegmenter.segment(value)) {
+    if (result.length + segment.length > maxLength) {
+      break;
+    }
+
+    result += segment;
+  }
+
+  return result;
+}
+
 export function sanitizeFileNameSegment(value: string): string {
-  return value
+  const cleaned = value
+    .toWellFormed()
     .trim()
     .replace(/[<>:"/\\|?*\u0000-\u001F]+/g, " ")
     .replace(/\s+/g, " ")
-    .replace(/\.+$/g, "")
-    .slice(0, 120);
+    .replace(/\.+$/g, "");
+
+  return truncateToWholeCharacters(cleaned, MAX_FILE_NAME_SEGMENT_LENGTH)
+    .trimEnd()
+    .replace(/\.+$/g, "");
 }
 
 function buildDownloadFileName(
@@ -561,9 +612,10 @@ async function buildSignedPdfDownload(
     throw new DownloadAccessError("This file is no longer available.", 404);
   }
 
-  const [auditEvents, fields, signers] = await Promise.all([
+  const [auditEvents, fields, pages, signers] = await Promise.all([
     listAuditEventsForEnvelope(envelope.id, database),
     listFieldsForEnvelope(envelope.id, database),
+    listPageSizesForEnvelope(envelope.id, database),
     listSignersForEnvelope(envelope.id, database),
   ]);
   let body: Uint8Array;
@@ -575,6 +627,7 @@ async function buildSignedPdfDownload(
         completedAt: envelope.completedAt,
         envelope,
         fields,
+        pages,
         signers,
         sourcePdfKey: envelope.sourcePdfKey,
       },

@@ -99,6 +99,7 @@ export const emailTemplateKinds = [
   "void_notification",
   "password_reset",
   "retention_notice",
+  "deletion_notice",
   "expiry_notice",
   "test_email",
   "signing_lock_alert",

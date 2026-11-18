@@ -179,6 +179,7 @@ test("the signed PDF stamps values in any of the supported scripts", async () =>
       envelope: fixture.envelope,
       fields: fixture.fields,
       signers: fixture.signers,
+      pages: [],
       sourcePdfKey: fixture.envelope.sourcePdfKey,
     },
     { seal: saveUnsealed, storageService: fixture.storageService },
@@ -499,6 +500,7 @@ test("numbers and dropdown choices are stamped as text, radio buttons as rings",
         envelope: fixture.envelope,
         fields,
         signers: fixture.signers,
+        pages: [],
         sourcePdfKey: fixture.envelope.sourcePdfKey,
       },
       { seal: saveUnsealed, storageService: fixture.storageService },
@@ -556,6 +558,7 @@ test("a name field is stamped with the name it was filled in with", async () => 
       envelope: fixture.envelope,
       fields: [...fixture.fields, nameField],
       signers: fixture.signers,
+      pages: [],
       sourcePdfKey: fixture.envelope.sourcePdfKey,
     },
     { seal: saveUnsealed, storageService: fixture.storageService },
@@ -669,4 +672,141 @@ test("describeAuditActor keeps the signer's name on the signer's own rows", () =
     }),
     "system",
   );
+});
+
+// Audit rows print "time | event | actor". Returns the events in the order
+// the certificate lists them.
+function certificateEventOrder(text: string): string[] {
+  return [...text.matchAll(/UTC \| ([a-z_]+) \|/g)].map((match) => match[1]);
+}
+
+async function renderCertificateText(
+  envelope: EnvelopeRecord,
+  signers: SignerRecord[],
+  auditEvents: AuditEventRecord[],
+): Promise<string> {
+  return (
+    await extractText(
+      await renderEnvelopeCertificatePdf(
+        { auditEvents, envelope, signers },
+        { seal: saveUnsealed },
+      ),
+    )
+  ).replace(/\s+/g, " ");
+}
+
+test("the last signature is listed before completed in the same second (issue #97)", async () => {
+  const fixture = await makeFixture();
+  const now = fixture.envelope.completedAt ?? 0;
+  // The ids sort after any generated id, so a sort by time then id would
+  // put the completed row first.
+  const auditEvents: AuditEventRecord[] = [
+    {
+      actorEmail: "yamada@example.com",
+      actorType: "signer",
+      createdAt: now,
+      envelopeId: fixture.envelope.id,
+      event: "signed",
+      id: "zz-event-signed",
+      metadata: { signerId: "signer-2", signerName: SECOND_SIGNER_NAME },
+    },
+  ];
+  const text = await renderCertificateText(
+    fixture.envelope,
+    fixture.signers,
+    auditEvents,
+  );
+
+  assert.deepEqual(certificateEventOrder(text), ["signed", "completed"], text);
+});
+
+test("a recorded completed row keeps its place in the recorded order (issue #97)", async () => {
+  const fixture = await makeFixture();
+  const now = fixture.envelope.completedAt ?? 0;
+  const auditEvents: AuditEventRecord[] = [
+    {
+      actorEmail: "yamada@example.com",
+      actorType: "signer",
+      createdAt: now,
+      envelopeId: fixture.envelope.id,
+      event: "signed",
+      id: "zz-event-signed",
+      metadata: { signerId: "signer-2", signerName: SECOND_SIGNER_NAME },
+    },
+    {
+      actorType: "system",
+      createdAt: now,
+      envelopeId: fixture.envelope.id,
+      event: "completed",
+      id: "aa-event-completed",
+      metadata: null,
+    },
+    {
+      actorType: "system",
+      createdAt: now,
+      envelopeId: fixture.envelope.id,
+      event: "email_sent",
+      id: "00-event-email",
+      metadata: null,
+    },
+  ];
+  const text = await renderCertificateText(
+    fixture.envelope,
+    fixture.signers,
+    auditEvents,
+  );
+
+  assert.deepEqual(
+    certificateEventOrder(text),
+    ["signed", "completed", "email_sent"],
+    text,
+  );
+});
+
+test("declined and voided certificates keep same-second events in recorded order (issue #97)", async () => {
+  const fixture = await makeFixture();
+  const at = 1_799_999_000;
+  const sameSecond = (
+    event: AuditEventRecord["event"],
+    id: string,
+  ): AuditEventRecord => ({
+    actorType: "system",
+    createdAt: at,
+    envelopeId: fixture.envelope.id,
+    event,
+    id,
+    metadata: null,
+  });
+
+  for (const [status, terminalEvent] of [
+    ["declined", "declined"],
+    ["voided", "voided"],
+  ] as const) {
+    const envelope: EnvelopeRecord = {
+      ...fixture.envelope,
+      completedAt: null,
+      declinedAt: status === "declined" ? at : null,
+      status,
+      voidedAt: status === "voided" ? at : null,
+    };
+    // Recorded order: sent, signed, the next invitation, then the end. The
+    // ids are in reverse, so a sort by id would turn them around.
+    const auditEvents = [
+      sameSecond("sent", "d-sent"),
+      sameSecond("signed", "c-signed"),
+      sameSecond("email_sent", "b-email"),
+      sameSecond(terminalEvent, "a-end"),
+    ];
+    const text = await renderCertificateText(
+      envelope,
+      fixture.signers,
+      auditEvents,
+    );
+
+    assert.deepEqual(
+      certificateEventOrder(text),
+      ["sent", "signed", "email_sent", terminalEvent],
+      text,
+    );
+  }
 });

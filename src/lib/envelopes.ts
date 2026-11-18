@@ -129,6 +129,7 @@ import {
   getManualNudgeAvailableAt,
   isManualNudgeAvailable,
 } from "./services/reminders.ts";
+import { formatEnvelopeOwner } from "./envelope-access.ts";
 import { PERMITTED_USE_VERSION } from "./permitted-uses.ts";
 import { hashAccessCode } from "./signer-checks.ts";
 import { escapeHtml } from "./utils/html.ts";
@@ -310,6 +311,8 @@ export type DashboardEnvelopeListItem = {
   expired?: boolean;
   id: string;
   searchableEmails: readonly string[];
+  /** Who sent it, in an administrator's list of every envelope. */
+  senderLabel?: string;
   status: EnvelopeRecord["status"];
   /** What the status pill says: the status, or how far signing has got. */
   statusLabel: string;
@@ -1562,18 +1565,23 @@ function buildVoidNotificationEmail(input: {
   senderName: string;
   signerEmail: string;
   signerName: string;
+  /** The signer had already signed, so the document they signed won't be completed. */
+  signerSigned?: boolean;
 }) {
   const subject = `"${input.envelopeTitle}" was voided by ${input.senderName}`;
+  const outcome = input.signerSigned
+    ? "The signing process has been canceled, so the document you signed will not be completed. No further action is needed."
+    : "The signing process has been canceled. No further action is needed.";
   const textBody = [
     `Hi ${input.signerName},`,
     "",
     `${input.senderName} voided "${input.envelopeTitle}" in ${input.branding.productName}.`,
-    "The signing process has been canceled. No further action is needed.",
+    outcome,
   ].join("\n");
   const htmlBody = [
     `<p>Hi ${escapeHtml(input.signerName)},</p>`,
     `<p>${escapeHtml(input.senderName)} voided &ldquo;${escapeHtml(input.envelopeTitle)}&rdquo; in ${escapeHtml(input.branding.productName)}.</p>`,
-    "<p>The signing process has been canceled. No further action is needed.</p>",
+    `<p>${escapeHtml(outcome)}</p>`,
   ].join("");
   const legalFooter = withUserEmailLegalFooter(
     {
@@ -1786,15 +1794,48 @@ function buildDetailSignerMetaLabel(
   return `${pluralize(assignedFieldCount, "field")} assigned`;
 }
 
+/** One page of a dashboard list, newest first. */
+export type DashboardEnvelopePage = {
+  envelopes: DashboardEnvelopeListItem[];
+  /** There are older envelopes on the next page. */
+  hasMore: boolean;
+};
+
 export async function listEnvelopesForUser(
   userId: string,
   filters: Partial<EnvelopeListFilters> = {},
   database: DbExecutor = getDb(),
-): Promise<DashboardEnvelopeListItem[]> {
+): Promise<DashboardEnvelopePage> {
+  return listEnvelopes(userId, filters, database);
+}
+
+/**
+ * Every envelope in the install, whoever sent it, each with its sender.
+ * Other members' drafts are left out: a draft is its sender's own until it
+ * is sent. For an administrator: the caller checks the role.
+ */
+export async function listAllEnvelopesForAdmin(
+  adminUserId: string,
+  filters: Partial<EnvelopeListFilters> = {},
+  database: DbExecutor = getDb(),
+): Promise<DashboardEnvelopePage> {
+  return listEnvelopes(null, filters, database, adminUserId);
+}
+
+async function listEnvelopes(
+  ownerUserId: string | null,
+  filters: Partial<EnvelopeListFilters>,
+  database: DbExecutor,
+  adminUserId?: string,
+): Promise<DashboardEnvelopePage> {
   const parsedFilters = envelopeListFiltersSchema.parse(filters);
-  const values: unknown[] = [userId];
-  const clauses = ["user_id = $1"];
-  let nextParamIndex = 2;
+  const values: unknown[] =
+    ownerUserId === null ? [adminUserId ?? ""] : [ownerUserId];
+  const clauses =
+    ownerUserId === null
+      ? ["(status <> 'draft' OR user_id = $1)"]
+      : ["user_id = $1"];
+  let nextParamIndex = values.length + 1;
 
   if (parsedFilters.status) {
     clauses.push(`status = $${String(nextParamIndex)}`);
@@ -1812,7 +1853,21 @@ export async function listEnvelopesForUser(
           FROM signers
           WHERE signers.envelope_id = envelopes.id
             AND lower(signers.email) LIKE ${searchPlaceholder} ESCAPE '\\'
-        )
+        )${
+          // Across the install, the sender too.
+          ownerUserId === null
+            ? `
+        OR EXISTS (
+          SELECT 1
+          FROM public."user" sender
+          WHERE sender.id = envelopes.user_id
+            AND (
+              lower(sender.email) LIKE ${searchPlaceholder} ESCAPE '\\'
+              OR lower(sender.name) LIKE ${searchPlaceholder} ESCAPE '\\'
+            )
+        )`
+            : ""
+        }
       )`,
     );
     values.push(`%${escapeLike(parsedFilters.search.toLowerCase())}%`);
@@ -1820,7 +1875,8 @@ export async function listEnvelopesForUser(
   }
 
   const limitPlaceholder = `$${String(nextParamIndex)}`;
-  values.push(parsedFilters.limit);
+  // One more than a page, to tell whether there is a next one.
+  values.push(parsedFilters.limit + 1);
   nextParamIndex += 1;
   const offsetPlaceholder = `$${String(nextParamIndex)}`;
   values.push((parsedFilters.page - 1) * parsedFilters.limit);
@@ -1859,7 +1915,8 @@ export async function listEnvelopesForUser(
     values,
   );
 
-  const envelopes = rows.map(mapEnvelopeRow);
+  const hasMore = rows.length > parsedFilters.limit;
+  const envelopes = rows.slice(0, parsedFilters.limit).map(mapEnvelopeRow);
   const envelopeIds = envelopes.map((envelope) => envelope.id);
   const [signersByEnvelope, fieldsByEnvelope, copyRecipientsByEnvelope] =
     await Promise.all([
@@ -1867,12 +1924,30 @@ export async function listEnvelopesForUser(
       listFieldsForEnvelopeIds(envelopeIds, database),
       listCopyRecipientsForEnvelopeIds(envelopeIds, database),
     ]);
+  const sendersById =
+    ownerUserId === null
+      ? await listSendersById(
+          envelopes.map((envelope) => envelope.userId),
+          database,
+        )
+      : null;
 
-  return envelopes.map((envelope) => {
+  const items = envelopes.map((envelope) => {
     const signers = signersByEnvelope.get(envelope.id) ?? [];
     const fields = fieldsByEnvelope.get(envelope.id) ?? [];
+    const sender = sendersById?.get(envelope.userId);
 
     return {
+      ...(sendersById
+        ? {
+            senderLabel: sender
+              ? formatEnvelopeOwner({
+                  ownerEmail: sender.email,
+                  ownerName: sender.name,
+                })
+              : "Unknown sender",
+          }
+        : {}),
       contextLine: buildDashboardContextLine(envelope, signers, fields),
       createdAtLabel: formatShortDate(envelope.createdAt),
       expired: isEnvelopeExpired(envelope, Math.floor(Date.now() / 1000)),
@@ -1881,12 +1956,37 @@ export async function listEnvelopesForUser(
       searchableEmails: [
         ...signers,
         ...(copyRecipientsByEnvelope.get(envelope.id) ?? []),
+        // Across the install, the sender too.
+        ...(sender ? [sender] : []),
       ].map((recipient) => recipient.email),
       status: envelope.status,
       statusLabel: buildDashboardStatusLabel(envelope, signers),
       title: envelope.title,
     };
   });
+
+  return { envelopes: items, hasMore };
+}
+
+type SenderRow = { email: string; id: string; name: string | null };
+
+async function listSendersById(
+  userIds: readonly string[],
+  database: DbExecutor,
+): Promise<Map<string, SenderRow>> {
+  const uniqueIds = [...new Set(userIds)];
+
+  if (uniqueIds.length === 0) {
+    return new Map();
+  }
+
+  const rows = await queryMany<SenderRow>(
+    database,
+    `SELECT id, name, email FROM public."user" WHERE id = ANY($1::text[])`,
+    [uniqueIds],
+  );
+
+  return new Map(rows.map((row) => [row.id, row]));
 }
 
 export async function getEnvelopeDetailDataForUser(
@@ -3258,6 +3358,12 @@ export async function voidSentEnvelope(
     (signer) => signer.status === "notified",
   );
   const currentSigner = notifiedSigners[0];
+  // Everyone who was sent the envelope hears that it was voided: the signer
+  // whose turn it is, and those who already signed it. Signers still waiting
+  // for their turn were never invited, so they get nothing.
+  const invitedSigners = signers.filter(
+    (signer) => signer.status === "notified" || signer.status === "signed",
+  );
   const voidedAt = Math.floor(Date.now() / 1000);
   const emailService = createEmailService();
   const storageService = createStorageService();
@@ -3485,7 +3591,7 @@ export async function voidSentEnvelope(
   const branding = await getBranding().catch(() => null);
 
   await Promise.all(
-    notifiedSigners.map(async (signer) => {
+    invitedSigners.map(async (signer) => {
       try {
         if (!branding) {
           throw new Error(
@@ -3501,6 +3607,7 @@ export async function voidSentEnvelope(
             senderName: input.senderName,
             signerEmail: signer.email,
             signerName: signer.name,
+            signerSigned: signer.status === "signed",
           }),
         );
 

@@ -1340,6 +1340,151 @@ test("a signer who declines is told the decline was recorded, not that the link 
       ),
     ).toBeVisible();
   });
+
+  await test.step("an administrator sees another member's envelope and schedules its deletion", async () => {
+    // The envelope becomes a plain member's, as if they had sent it.
+    const memberId = `member-${runId}`;
+    const memberEmail = `member+${runId}@example.com`;
+    const db = new pg.Client({ connectionString: e2eDatabaseUrl });
+
+    await db.connect();
+
+    try {
+      await db.query(
+        `insert into public."user" (id, name, email, role, "emailVerified") values ($1, 'Mira Member', $2, 'user', true)`,
+        [memberId, memberEmail],
+      );
+      await db.query(`update envelopes set user_id = $1 where id = $2`, [
+        memberId,
+        envelopeId,
+      ]);
+    } finally {
+      await db.end();
+    }
+
+    const senderLabel = `Mira Member (${memberEmail})`;
+
+    // Gone from the administrator's own list, there in everyone's.
+    await page.goto("/dashboard");
+    await expect(
+      page.getByRole("heading", { name: "Terms to decline" }),
+    ).toHaveCount(0);
+    await page.getByRole("link", { name: "Everyone's" }).click();
+    await expect(page).toHaveURL(/\/dashboard\?view=all$/);
+    await expect(
+      page.getByRole("heading", { level: 1, name: "All envelopes" }),
+    ).toBeVisible();
+
+    const card = page.getByRole("link").filter({ hasText: "Terms to decline" });
+
+    await expect(card).toContainText(senderLabel);
+
+    // Enter searches every envelope, the sender's address included.
+    const search = page.getByRole("searchbox", {
+      name: "Search by title or email...",
+    });
+
+    await search.fill(memberEmail);
+    await search.press("Enter");
+    await expect(page).toHaveURL(/\/dashboard\?view=all&q=/);
+    await expect(card).toBeVisible();
+    await card.click();
+    await expect(page).toHaveURL(new RegExp(`/envelopes/${envelopeId}$`));
+    await expect(page.getByText(`Sent by ${senderLabel}`)).toBeVisible();
+    // What changes the envelope stays with its sender.
+    await expect(
+      page.getByRole("button", { name: "Copy to new draft" }),
+    ).toHaveCount(0);
+
+    // A copy of someone else's certificate is on record.
+    const download = page.waitForEvent("download");
+
+    await page.getByRole("button", { name: "Download certificate" }).click();
+    expect((await download).suggestedFilename()).toMatch(/\.pdf$/);
+
+    // Nothing goes at once: the deletion is scheduled, and the sender is
+    // emailed a link to download it.
+    async function scheduleDeletion(reason: string) {
+      await page.getByRole("button", { name: "Delete envelope" }).click();
+
+      const confirm = page.getByRole("dialog", {
+        name: "Schedule this envelope for deletion?",
+      });
+
+      await confirm.getByLabel("Reason (optional)").fill(reason);
+      await confirm.getByRole("button", { name: "Schedule deletion" }).click();
+      await expect(page.getByText(/Scheduled to be deleted on/)).toBeVisible();
+      await expect(page.getByText(`Reason: ${reason}`)).toBeVisible();
+      await expect(
+        page.getByRole("button", { name: "Delete envelope" }),
+      ).toHaveCount(0);
+    }
+
+    await scheduleDeletion("Changed my mind.");
+
+    const notice = await waitForEmail({
+      template: "deletion_notice",
+      to: memberEmail,
+    });
+
+    expect(notice.subject).toMatch(/^"Terms to decline" will be deleted on /);
+    expect(notice.text).toContain(`/envelopes/${envelopeId}`);
+
+    // Any administrator can cancel until then; the sender is told.
+    await page.getByRole("button", { name: "Cancel deletion" }).click();
+    await page
+      .getByRole("dialog", { name: "Cancel this deletion?" })
+      .getByRole("button", { name: "Cancel deletion" })
+      .click();
+    await expect(page.getByText(/Scheduled to be deleted on/)).toHaveCount(0);
+    await expect
+      .poll(async () => {
+        const latest = await waitForEmail({
+          template: "deletion_notice",
+          to: memberEmail,
+        });
+
+        return latest.subject;
+      })
+      .toBe('"Terms to decline" will not be deleted');
+
+    await scheduleDeletion("Never agreed.");
+
+    // The envelope itself stays until the wait is over.
+    await page.reload();
+    await expect(
+      page.getByRole("heading", { name: "Terms to decline" }),
+    ).toBeVisible();
+
+    // The download, the request and its cancellation stay on record in the
+    // install's audit trail, with whose envelope it was.
+    const audit = await page.request.get("/api/admin/audit");
+    const { events } = (await audit.json()) as {
+      events: { event: string; metadata: Record<string, unknown> | null }[];
+    };
+
+    expect(
+      events.find((event) => event.event === "envelope_file_downloaded")
+        ?.metadata,
+    ).toMatchObject({
+      envelopeId,
+      file: "evidence",
+      ownerEmail: memberEmail,
+    });
+    expect(
+      events.find((event) => event.event === "envelope_deletion_scheduled")
+        ?.metadata,
+    ).toMatchObject({
+      envelopeId,
+      ownerEmail: memberEmail,
+      reason: "Never agreed.",
+      status: "declined",
+    });
+    expect(
+      events.find((event) => event.event === "envelope_deletion_cancelled")
+        ?.metadata,
+    ).toMatchObject({ envelopeId, ownerEmail: memberEmail });
+  });
 });
 
 test("two-step sign-in: an administrator sets it up and requires it of everyone", async ({
