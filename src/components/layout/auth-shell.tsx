@@ -5,6 +5,7 @@ import { usePathname } from "next/navigation";
 import type { ReactNode } from "react";
 
 import { Brand } from "@/components/layout/brand";
+import { ThemeMenu } from "@/components/theme/theme-menu";
 import { useBranding } from "@/components/layout/branding-provider";
 import { PublicLegalFooter } from "@/components/layout/public-legal-links";
 import { PublicSessionMenu } from "@/components/layout/public-session-menu";
@@ -46,8 +47,9 @@ export function AuthShell({ children }: AuthShellProps) {
           <Brand href="/" />
           <nav
             aria-label="Public navigation"
-            className="flex items-center gap-3"
+            className="flex items-center gap-2 sm:gap-3"
           >
+            <ThemeMenu />
             <PublicSessionMenu>
               {showNavAction ? (
                 <Link

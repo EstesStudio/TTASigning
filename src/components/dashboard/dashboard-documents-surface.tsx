@@ -217,7 +217,7 @@ export function DashboardDocumentsPanel({
           {view === "all" ? (
             <input name="view" type="hidden" value="all" />
           ) : null}
-          <label className="flex min-h-[2.625rem] w-full items-center gap-2.5 rounded-xl bg-white px-3.5 text-(--tertiary) transition focus-within:ring-3 focus-within:ring-ring/50">
+          <label className="flex min-h-[2.625rem] w-full items-center gap-2.5 rounded-xl bg-(--paper) px-3.5 text-(--tertiary) transition focus-within:ring-3 focus-within:ring-ring/50">
             <SearchIcon aria-hidden="true" className="size-4 shrink-0" />
             <input
               aria-label="Search by title or email..."
@@ -337,7 +337,7 @@ function EnvelopeCard({
 }) {
   const content = (
     <>
-      <span className="flex h-52 items-center justify-center rounded-2xl bg-(--surface) p-3.5 transition group-hover:bg-[#f0f0f6]">
+      <span className="flex h-52 items-center justify-center rounded-2xl bg-(--surface) p-3.5 transition group-hover:bg-(--surface-hover)">
         {interactive ? (
           <DocumentThumbnail envelopeId={envelope.id} title={envelope.title} />
         ) : (
@@ -412,7 +412,7 @@ function EnvelopeCard({
 function UploadCard({ interactive }: { interactive: boolean }) {
   const content = (
     <>
-      <span className="inline-flex size-11 items-center justify-center rounded-[0.875rem] bg-(--accent-soft) text-(--accent)">
+      <span className="inline-flex size-11 items-center justify-center rounded-[0.875rem] bg-(--accent-soft) text-(--accent) dark:text-(--accent-ink)">
         <PlusIcon aria-hidden="true" className="size-5" strokeWidth={2.4} />
       </span>
       Upload a PDF

@@ -2,7 +2,25 @@
 @import "tw-animate-css";
 @import "../styles/shadcn-tailwind.css";
 
-@custom-variant dark (&:is(.dark *));
+/*
+ * Dark follows the system unless someone picked a theme, which the script in
+ * the root layout writes to <html data-theme> before the page paints.
+ * brand-color.ts writes the same selectors for an install's own color.
+ */
+@custom-variant dark {
+  @media (prefers-color-scheme: dark) {
+    &:where(
+      :root:not([data-theme="light"]),
+      :root:not([data-theme="light"]) *
+    ) {
+      @slot;
+    }
+  }
+
+  &:where([data-theme="dark"], [data-theme="dark"] *) {
+    @slot;
+  }
+}
 
 @theme inline {
   --color-background: var(--page);
@@ -36,11 +54,11 @@
   --radius-2xl: calc(var(--radius) * 1.5);
   --radius-3xl: calc(var(--radius) * 1.75);
   --radius-4xl: calc(var(--radius) * 2.25);
-  --shadow-xs: 0 1px 2px rgba(28, 29, 43, 0.05);
-  --shadow-sm: 0 1px 3px rgba(28, 29, 43, 0.08);
-  --shadow: 0 2px 6px rgba(28, 29, 43, 0.05);
-  --shadow-md: 0 10px 30px rgba(28, 29, 43, 0.08);
-  --shadow-lg: 0 18px 40px rgba(28, 29, 43, 0.12);
+  --shadow-xs: 0 1px 2px rgb(var(--shadow-rgb) / 0.05);
+  --shadow-sm: 0 1px 3px rgb(var(--shadow-rgb) / 0.08);
+  --shadow: 0 2px 6px rgb(var(--shadow-rgb) / 0.05);
+  --shadow-md: 0 10px 30px rgb(var(--shadow-rgb) / 0.08);
+  --shadow-lg: 0 18px 40px rgb(var(--shadow-rgb) / 0.12);
 }
 
 /*
@@ -48,8 +66,14 @@
  * without borders, one violet for anything the person can act on, and
  * status shown as tinted pills. Red is kept for errors and for actions that
  * cannot be undone.
+ *
+ * A `.theme-light` box keeps these light values in the dark theme too: a
+ * document page is white paper, and the fields drawn on it are drawn for
+ * white paper.
  */
-:root {
+:root,
+.theme-light {
+  color-scheme: light;
   --page: #f3f4f8;
   --bg: #f3f4f8;
   --paper: #ffffff;
@@ -69,15 +93,20 @@
   --accent-soft-hover: #e0dbfb;
   --accent-softer: #f4f2ff;
   --accent-ink: #4433b8;
+  /* Red text, and a red that white text sits on. */
   --danger: #b42318;
+  --danger-solid: #b42318;
   --danger-hover: #912018;
   --danger-soft: #fdebea;
+  --danger-soft-hover: #fbd9d6;
   --success: #16704a;
   --success-soft: #e3f6ec;
   --warning: #8a5300;
   --warning-soft: #fdf1d8;
   --surface: #f6f6fa;
   --surface-strong: #e6e7ee;
+  --surface-hover: #f0f0f6;
+  --neutral-soft: #eeeff4;
   --shell-surface: #ffffff;
   --border: #e6e7ee;
   --border-strong: #cfd0dc;
@@ -85,9 +114,18 @@
   --hover: rgba(28, 29, 43, 0.05);
   --shell-wash: #f3f4f8;
   --canvas-wash: #e9eaf1;
+  /* Ink for hairlines and washes, and the color shadows are cast in. */
+  --ink-rgb: 28 29 43;
+  --shadow-rgb: 28 29 43;
+  --scrim: rgba(28, 29, 43, 0.32);
+  --selection-alpha: 0.18;
   --shadow-soft: 0 18px 40px rgba(28, 29, 43, 0.12);
   --shadow-card: 0 2px 6px rgba(28, 29, 43, 0.04);
   --shadow-lift: 0 10px 30px rgba(28, 29, 43, 0.08);
+  --avatar: #ffd9c2;
+  --avatar-ink: #7a3412;
+  /* The Lucide chevron-down every select draws, in the secondary ink. */
+  --select-chevron: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23575a6e' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
   --signer-1: #2563eb;
   --signer-1-tint: rgba(37, 99, 235, 0.12);
   --signer-2: #9333ea;
@@ -97,6 +135,74 @@
   --signer-4: #047857;
   --signer-4-tint: rgba(5, 150, 105, 0.12);
   --radius: 0.75rem;
+}
+
+/*
+ * Soft Studio after dark. A deep blue-grey page, cards a step lighter that
+ * still sit on it without borders, and raised cards a step lighter again,
+ * since shadows barely show on a dark page. The accent is the brand's
+ * lightest shade that white text still reads on; text in the brand color
+ * and in each status is lightened until it reads on every card.
+ */
+:root {
+  @variant dark {
+    color-scheme: dark;
+    --page: #111219;
+    --bg: #111219;
+    --paper: #1a1b25;
+    --paper-raised: #22232f;
+    --fg: #ecedf3;
+    --secondary: #a9abbd;
+    --tertiary: #9093a7;
+    --placeholder: #868a9f;
+    /* buildDarkBrandPalette(DEFAULT_BRAND_PALETTE), in brand-color.ts. */
+    --accent: #7464de;
+    --accent-rgb: 116 100 222;
+    --accent-hover: #6456bf;
+    --accent-soft: #2e2b4e;
+    --accent-soft-hover: #35315d;
+    --accent-softer: #27253f;
+    --accent-ink: #9f94e8;
+    --danger: #ff8f84;
+    --danger-solid: #c93a2f;
+    --danger-hover: #ad3027;
+    --danger-soft: #3b2023;
+    --danger-soft-hover: #4a2529;
+    --success: #4fd39a;
+    --success-soft: #163427;
+    --warning: #f2b456;
+    --warning-soft: #3a2d14;
+    --surface: #20212d;
+    --surface-strong: #2c2d3b;
+    --surface-hover: #262735;
+    --neutral-soft: #2a2b38;
+    --shell-surface: #1a1b25;
+    --border: #2a2b38;
+    --border-strong: #3b3d4e;
+    --border-hover: #545769;
+    --hover: rgba(255, 255, 255, 0.05);
+    --shell-wash: #111219;
+    --canvas-wash: #0c0d13;
+    --ink-rgb: 255 255 255;
+    --shadow-rgb: 0 0 0;
+    --scrim: rgba(5, 6, 10, 0.64);
+    --selection-alpha: 0.4;
+    --shadow-soft: 0 18px 40px rgba(0, 0, 0, 0.45);
+    --shadow-card: 0 2px 6px rgba(0, 0, 0, 0.3);
+    --shadow-lift: 0 10px 30px rgba(0, 0, 0, 0.4);
+    --avatar: #4a2c1c;
+    --avatar-ink: #ffc7a3;
+    --select-chevron: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23a9abbd' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
+    /* Signer colors as they show on a dark card. On a page, the light set. */
+    --signer-1: #7aa5ff;
+    --signer-1-tint: rgba(122, 165, 255, 0.16);
+    --signer-2: #c89bfa;
+    --signer-2-tint: rgba(200, 155, 250, 0.16);
+    --signer-3: #f0a35a;
+    --signer-3-tint: rgba(240, 163, 90, 0.16);
+    --signer-4: #4cc99a;
+    --signer-4-tint: rgba(76, 201, 154, 0.16);
+  }
 }
 
 /*
@@ -144,14 +250,14 @@
   /*
    * Every select draws the same chevron instead of the browser's own caret,
    * which sits flush against the right edge and differs between browsers.
-   * The SVG is the Lucide chevron-down used elsewhere, in the secondary ink.
+   * The chevron is --select-chevron, in each theme's secondary ink.
    */
   select {
     appearance: none;
     -webkit-appearance: none;
     -moz-appearance: none;
     cursor: pointer;
-    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23575a6e' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
+    background-image: var(--select-chevron);
     background-repeat: no-repeat;
     background-position: right 0.875rem center;
     background-size: 1rem 1rem;
@@ -172,7 +278,7 @@
   }
 
   ::selection {
-    background: rgb(var(--accent-rgb) / 0.18);
+    background: rgb(var(--accent-rgb) / var(--selection-alpha));
   }
 
   :focus-visible {
@@ -286,7 +392,7 @@
   }
 
   .pill-neutral {
-    background: #eeeff4;
+    background: var(--neutral-soft);
     color: var(--secondary);
   }
 
@@ -328,7 +434,7 @@
   .segmented-item[data-active="true"] {
     background: var(--paper);
     color: var(--fg);
-    box-shadow: 0 1px 3px rgba(28, 29, 43, 0.12);
+    box-shadow: 0 1px 3px rgb(var(--shadow-rgb) / 0.12);
   }
 
   /* A text field drawn without the Input component. */
@@ -350,7 +456,7 @@
 
   /* .field-input's background shorthand clears the chevron, so add it back. */
   select.field-input {
-    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23575a6e' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
+    background-image: var(--select-chevron);
     background-repeat: no-repeat;
     background-position: right 0.875rem center;
     background-size: 1rem 1rem;
@@ -376,7 +482,7 @@
 
   .field-input[aria-invalid="true"] {
     border-color: var(--danger);
-    box-shadow: 0 0 0 3px rgba(180, 35, 24, 0.12);
+    box-shadow: 0 0 0 3px color-mix(in srgb, var(--danger) 14%, transparent);
   }
 
   /* A small secondary button: move, remove, copy, zoom. */
@@ -451,7 +557,7 @@
   [data-paper-grid] {
     background-color: var(--canvas-wash);
     background-image: radial-gradient(
-      rgba(28, 29, 43, 0.07) 1px,
+      rgb(var(--ink-rgb) / 0.07) 1px,
       transparent 1px
     );
     background-position: center center;

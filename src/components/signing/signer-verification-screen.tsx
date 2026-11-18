@@ -4,6 +4,7 @@ import { ShieldCheckIcon } from "lucide-react";
 import { useState, type FormEvent } from "react";
 
 import { Brand } from "@/components/layout/brand";
+import { ThemeMenu } from "@/components/theme/theme-menu";
 import { PublicLegalFooter } from "@/components/layout/public-legal-links";
 import { FieldShell, ShellButton } from "@/components/shared/form-shell";
 import type { SigningVerificationState } from "@/lib/schemas/signing";
@@ -114,8 +115,9 @@ export function SignerVerificationScreen({
   return (
     <div className="flex min-h-screen flex-col">
       <header>
-        <div className="page-width flex items-center py-4">
+        <div className="page-width flex items-center justify-between gap-4 py-4">
           <Brand href="/" />
+          <ThemeMenu />
         </div>
       </header>
       <main className="page-width flex flex-1 items-center justify-center py-10">
@@ -125,7 +127,7 @@ export function SignerVerificationScreen({
         >
           <span
             aria-hidden="true"
-            className="inline-flex size-14 items-center justify-center rounded-2xl bg-(--accent-soft) text-(--accent)"
+            className="inline-flex size-14 items-center justify-center rounded-2xl bg-(--accent-soft) text-(--accent) dark:text-(--accent-ink)"
           >
             <ShieldCheckIcon className="size-6" strokeWidth={2.2} />
           </span>

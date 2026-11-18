@@ -9,6 +9,7 @@ import {
   DEFAULT_BRAND_PALETTE,
   brandPaletteVariables,
   buildBrandPalette,
+  buildDarkBrandPalette,
   normalizeBrandColor,
 } from "@/lib/brand-color";
 import { LOGO_CONTENT_TYPES, MAX_LOGO_BYTES } from "@/lib/branding";
@@ -50,6 +51,7 @@ export function BrandingPanel({
   const palette =
     (typedColor ? buildBrandPalette(typedColor) : null) ??
     DEFAULT_BRAND_PALETTE;
+  const darkPalette = buildDarkBrandPalette(palette);
   const darkened = typedColor !== null && palette.accent !== typedColor;
 
   async function sendLogo(file: File | null) {
@@ -219,20 +221,27 @@ export function BrandingPanel({
               </button>
             ) : null}
           </div>
-          {/* What the color will look like, before it is saved. */}
-          <div
-            aria-hidden="true"
-            className="flex flex-wrap items-center gap-3 rounded-xl bg-(--paper) px-4 py-3"
-            style={brandPaletteVariables(palette) as CSSProperties}
-          >
-            <span className="inline-flex min-h-9 items-center rounded-[0.75rem] bg-(--accent) px-3.5 text-[0.8125rem] font-bold text-white">
-              Button
-            </span>
-            <span className="pill pill-accent">Status</span>
-            <span className="text-[0.8125rem] font-semibold text-(--accent-ink) underline decoration-[rgb(var(--accent-rgb)/0.35)] underline-offset-4">
-              Link
-            </span>
-          </div>
+          {/* What the color will look like, before it is saved, in the
+              theme this page is showing. */}
+          {[
+            { className: "flex dark:hidden", shades: palette },
+            { className: "hidden dark:flex", shades: darkPalette },
+          ].map(({ className, shades }) => (
+            <div
+              aria-hidden="true"
+              className={`${className} flex-wrap items-center gap-3 rounded-xl bg-(--paper) px-4 py-3`}
+              key={className}
+              style={brandPaletteVariables(shades) as CSSProperties}
+            >
+              <span className="inline-flex min-h-9 items-center rounded-[0.75rem] bg-(--accent) px-3.5 text-[0.8125rem] font-bold text-white">
+                Button
+              </span>
+              <span className="pill pill-accent">Status</span>
+              <span className="text-[0.8125rem] font-semibold text-(--accent-ink) underline decoration-[rgb(var(--accent-rgb)/0.35)] underline-offset-4">
+                Link
+              </span>
+            </div>
+          ))}
           {brandColorError ? (
             <p
               className="text-xs font-semibold text-(--danger)"

@@ -1,6 +1,10 @@
 "use client";
 
-import { useRef, type KeyboardEvent, type PointerEvent as ReactPointerEvent } from "react";
+import {
+  useRef,
+  type KeyboardEvent,
+  type PointerEvent as ReactPointerEvent,
+} from "react";
 
 import { type FieldResizeHandle } from "@/lib/utils/pdf-coords";
 
@@ -159,7 +163,8 @@ export function InteractivePlacedField({
       onInteractionChange?.(true);
     }
 
-    const scaledDeltaX = (deltaClientX / gesture.viewportWidth) * coordinateScale;
+    const scaledDeltaX =
+      (deltaClientX / gesture.viewportWidth) * coordinateScale;
     const scaledDeltaY =
       (deltaClientY / gesture.viewportHeight) * coordinateScale;
 
@@ -208,8 +213,8 @@ export function InteractivePlacedField({
       aria-pressed={isSelected}
       className={`absolute z-2 flex touch-none select-none items-center justify-center overflow-visible border-2 text-center text-[11px] font-semibold shadow-(--shadow-card) transition ${
         isSelected
-          ? "ring-4 ring-[rgba(28,29,43,0.10)]"
-          : "hover:ring-2 hover:ring-[rgba(28,29,43,0.08)]"
+          ? "ring-4 ring-[rgb(var(--ink-rgb)/0.10)]"
+          : "hover:ring-2 hover:ring-[rgb(var(--ink-rgb)/0.08)]"
       } cursor-grab ${isRadio ? "rounded-full p-0" : isCheckbox ? "rounded-[0.25rem] p-0" : "rounded-[0.375rem] px-2 py-1"}`}
       onKeyDown={handleKeyboardSelect}
       onPointerCancel={endGesture}
@@ -239,10 +244,12 @@ export function InteractivePlacedField({
         ? resizeHandles.map((handle) => (
             <button
               aria-label={`Resize ${label} field from ${handle.corner}`}
-              className={`absolute ${handle.positionClassName} ${handle.cursorClassName} z-1 size-4 rounded-full bg-white shadow-[0_4px_10px_rgba(28,29,43,0.18)]`}
+              className={`absolute ${handle.positionClassName} ${handle.cursorClassName} z-1 size-4 rounded-full bg-white shadow-[0_4px_10px_rgb(var(--shadow-rgb)/0.18)]`}
               key={handle.corner}
               onPointerCancel={endGesture}
-              onPointerDown={(event) => beginGesture(event, "resize", handle.corner)}
+              onPointerDown={(event) =>
+                beginGesture(event, "resize", handle.corner)
+              }
               onPointerMove={handlePointerMove}
               onPointerUp={endGesture}
               style={{

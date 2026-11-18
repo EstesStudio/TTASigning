@@ -57,7 +57,7 @@ export function PublicSessionMenu({
         <button
           aria-label="Open account menu"
           className={cn(
-            "inline-flex size-10 shrink-0 items-center justify-center rounded-full bg-[#ffd9c2] text-[0.8125rem] font-bold text-[#7a3412] transition hover:ring-4 hover:ring-[rgba(28,29,43,0.06)]",
+            "inline-flex size-10 shrink-0 items-center justify-center rounded-full bg-(--avatar) text-[0.8125rem] font-bold text-(--avatar-ink) transition hover:ring-4 hover:ring-[rgb(var(--ink-rgb)/0.06)]",
             buttonClassName,
           )}
           type="button"

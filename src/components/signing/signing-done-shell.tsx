@@ -1,4 +1,5 @@
 import { Brand } from "@/components/layout/brand";
+import { ThemeMenu } from "@/components/theme/theme-menu";
 import { PublicLegalFooter } from "@/components/layout/public-legal-links";
 
 const fallbackEnvelopeTitle = "this document";
@@ -16,8 +17,9 @@ export function SigningDoneShell({ envelopeTitle }: SigningDoneShellProps) {
   return (
     <div className="flex min-h-screen flex-col">
       <header>
-        <div className="page-width flex items-center py-4">
+        <div className="page-width flex items-center justify-between gap-4 py-4">
           <Brand href="/" />
+          <ThemeMenu />
         </div>
       </header>
 

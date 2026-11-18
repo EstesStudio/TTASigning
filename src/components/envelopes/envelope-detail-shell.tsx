@@ -964,7 +964,7 @@ export function EnvelopeDetailShell({
               <li className="relative pl-7" key={event.id}>
                 <span
                   aria-hidden="true"
-                  className={`absolute left-0 top-1.5 size-3 rounded-full ring-4 ring-white ${timelineToneClasses[event.tone]}`}
+                  className={`absolute left-0 top-1.5 size-3 rounded-full ring-4 ring-(--paper) ${timelineToneClasses[event.tone]}`}
                 />
                 {index < activeRecord.timeline.length - 1 ? (
                   <span

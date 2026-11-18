@@ -111,7 +111,7 @@ export function SignerDataPanel() {
           value={confirmation}
         />
         <ShellButton
-          className="w-fit border-[rgba(180,35,24,0.35)] text-(--danger) hover:border-(--danger) hover:bg-(--danger-soft) hover:text-(--danger)"
+          className="w-fit border-(--danger)/35 text-(--danger) hover:border-(--danger) hover:bg-(--danger-soft) hover:text-(--danger)"
           disabled={
             trimmed.length === 0 ||
             confirmation.trim().toLowerCase() !== trimmed.toLowerCase()

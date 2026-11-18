@@ -365,9 +365,7 @@ async function parseJsonResponse<T>(
   response: Response,
 ): Promise<{ data: T | null; error: string | null }> {
   const payload = (await response.json().catch(() => null)) as
-    | { error?: string }
-    | T
-    | null;
+    { error?: string } | T | null;
 
   if (!response.ok) {
     return {
@@ -831,16 +829,12 @@ function PrepareLiveShellContent({
                 <DocumentZoomControls
                   onDecrease={() =>
                     setZoomLevel((currentZoom) =>
-                      clampDocumentZoomLevel(
-                        currentZoom - DOCUMENT_ZOOM_STEP,
-                      ),
+                      clampDocumentZoomLevel(currentZoom - DOCUMENT_ZOOM_STEP),
                     )
                   }
                   onIncrease={() =>
                     setZoomLevel((currentZoom) =>
-                      clampDocumentZoomLevel(
-                        currentZoom + DOCUMENT_ZOOM_STEP,
-                      ),
+                      clampDocumentZoomLevel(currentZoom + DOCUMENT_ZOOM_STEP),
                     )
                   }
                   onReset={() => setZoomLevel(DEFAULT_DOCUMENT_ZOOM_LEVEL)}
@@ -893,7 +887,9 @@ function PrepareLiveShellContent({
 
               <div className="flex justify-center lg:justify-end">
                 <SaveStatusIndicator
-                  onRetrySave={() => void persistFields(currentFieldsRef.current)}
+                  onRetrySave={() =>
+                    void persistFields(currentFieldsRef.current)
+                  }
                   saveError={saveError}
                   saveState={saveState}
                 />
@@ -958,7 +954,7 @@ function PrepareLiveShellContent({
                 className={`mx-auto ${zoomLevel > DEFAULT_DOCUMENT_ZOOM_LEVEL ? "w-full" : "flex justify-center"}`}
               >
                 <div
-                  className="relative overflow-hidden rounded-md bg-white shadow-[0_1px_2px_rgba(28,29,43,0.08),0_12px_32px_rgba(28,29,43,0.12)]"
+                  className="theme-light relative overflow-hidden rounded-md bg-white shadow-[0_1px_2px_rgb(var(--shadow-rgb)/0.08),0_12px_32px_rgb(var(--shadow-rgb)/0.12)]"
                   style={{
                     width: `${zoomLevel * 100}%`,
                   }}
@@ -1138,13 +1134,13 @@ function PrepareLiveShellContent({
         <div className="fixed inset-0 z-40 lg:hidden">
           <button
             aria-label="Close field tools"
-            className="absolute inset-0 bg-[rgba(28,29,43,0.32)]"
+            className="absolute inset-0 bg-(--scrim)"
             onClick={() => setIsMobileToolsOpen(false)}
             type="button"
           />
           <div
             aria-label="Field tools"
-            className="absolute inset-x-0 bottom-0 rounded-t-[1.75rem] bg-white px-4 py-5 shadow-[0_-24px_60px_rgba(28,29,43,0.18)]"
+            className="absolute inset-x-0 bottom-0 rounded-t-[1.75rem] bg-(--paper-raised) px-4 py-5 shadow-[0_-24px_60px_rgb(var(--shadow-rgb)/0.18)]"
             role="dialog"
           >
             <div className="mx-auto mb-4 h-1.5 w-12 rounded-full bg-(--surface-strong)" />
@@ -1214,7 +1210,9 @@ function FieldToolButton({ isActive, onSelect, tool }: FieldToolButtonProps) {
       <span
         aria-hidden="true"
         className={`inline-flex size-8 shrink-0 items-center justify-center rounded-[0.625rem] ${
-          isActive ? "bg-white/20 text-white" : "bg-white text-(--accent)"
+          isActive
+            ? "bg-white/20 text-white"
+            : "bg-(--paper) text-(--accent) dark:text-(--accent-ink)"
         }`}
       >
         <Icon className="size-4" strokeWidth={2.2} />
@@ -1263,7 +1261,9 @@ function SignerCard({
             .join("")}
         </span>
         <div className="min-w-0">
-          <p className="truncate text-sm font-bold text-(--fg)">{signer.name}</p>
+          <p className="truncate text-sm font-bold text-(--fg)">
+            {signer.name}
+          </p>
           <p className="mt-0.5 text-xs text-(--secondary)">
             {fieldCount} field{fieldCount === 1 ? "" : "s"} placed
           </p>
@@ -1292,7 +1292,9 @@ function EmptyFieldInspector({
   return (
     <div className="well px-4 py-4">
       <p className="text-sm font-bold text-(--fg)">
-        {activeTool ? `${activeTool.label} ready to place` : "No field selected"}
+        {activeTool
+          ? `${activeTool.label} ready to place`
+          : "No field selected"}
       </p>
       <p className="mt-1.5 text-sm leading-6 text-(--secondary)">
         {activeTool
@@ -1367,7 +1369,7 @@ function SaveStatusIndicator({
         aria-hidden="true"
         className={`inline-flex size-5 items-center justify-center rounded-full ${
           isError
-            ? "bg-white text-(--danger)"
+            ? "bg-(--paper) text-(--danger)"
             : isSaving
               ? "text-(--secondary)"
               : "bg-(--success-soft) text-(--success)"
@@ -1600,7 +1602,7 @@ function FieldEditor({
         ) : null}
 
         <Button
-          className="w-full bg-(--danger-soft) text-(--danger) hover:bg-[#fbd9d6]"
+          className="w-full bg-(--danger-soft) text-(--danger) hover:bg-(--danger-soft-hover)"
           onClick={onDelete}
           type="button"
           variant="ghost"
@@ -1808,20 +1810,18 @@ function setFieldRequired(
   required: boolean,
   setFields: Dispatch<SetStateAction<PrepareField[]>>,
 ) {
-  setFields((currentFields) =>
-    {
-      const target = currentFields.find((field) => field.id === fieldId);
+  setFields((currentFields) => {
+    const target = currentFields.find((field) => field.id === fieldId);
 
-      if (!target || !canBeOptional(target.type)) {
-        return currentFields;
-      }
+    if (!target || !canBeOptional(target.type)) {
+      return currentFields;
+    }
 
-      // A radio group is required or optional as a whole.
-      return currentFields.map((field) =>
-        isSameChoice(target, field) ? { ...field, required } : field,
-      );
-    },
-  );
+    // A radio group is required or optional as a whole.
+    return currentFields.map((field) =>
+      isSameChoice(target, field) ? { ...field, required } : field,
+    );
+  });
 }
 
 function deleteField(

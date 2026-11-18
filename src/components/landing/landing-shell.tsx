@@ -10,6 +10,7 @@ import {
 } from "lucide-react";
 
 import { Brand, BrandMark } from "@/components/layout/brand";
+import { ThemeMenu } from "@/components/theme/theme-menu";
 import { PublicSessionMenu } from "@/components/layout/public-session-menu";
 import { PublicLegalFooter } from "@/components/layout/public-legal-links";
 import { LandingDashboardPreview } from "@/components/landing/dashboard-preview";
@@ -134,34 +135,37 @@ const sectionLeadClassName =
 export function LandingShell() {
   return (
     <div className="flex min-h-screen flex-col text-(--fg)">
-      <header className="sticky top-0 z-30 bg-[rgba(243,244,248,0.86)] backdrop-blur-md">
+      <header className="sticky top-0 z-30 bg-(--page)/86 backdrop-blur-md">
         <div className="page-width flex items-center justify-between gap-3 py-3 sm:py-4">
           <Brand href="/" />
 
-          <PublicSessionMenu>
-            <nav
-              aria-label="Public navigation"
-              className="flex items-center gap-1 sm:gap-2"
-            >
-              <Link
-                className={cn(
-                  buttonVariants({ size: "sm", variant: "ghost" }),
-                  "px-3 sm:px-4",
-                )}
-                href="/login"
-                prefetch
+          <div className="flex items-center gap-1 sm:gap-2">
+            <ThemeMenu />
+            <PublicSessionMenu>
+              <nav
+                aria-label="Public navigation"
+                className="flex items-center gap-1 sm:gap-2"
               >
-                Log in
-              </Link>
-              <Link
-                className={buttonVariants({ size: "sm" })}
-                href="/signup"
-                prefetch
-              >
-                Start free
-              </Link>
-            </nav>
-          </PublicSessionMenu>
+                <Link
+                  className={cn(
+                    buttonVariants({ size: "sm", variant: "ghost" }),
+                    "px-3 sm:px-4",
+                  )}
+                  href="/login"
+                  prefetch
+                >
+                  Log in
+                </Link>
+                <Link
+                  className={buttonVariants({ size: "sm" })}
+                  href="/signup"
+                  prefetch
+                >
+                  Start free
+                </Link>
+              </nav>
+            </PublicSessionMenu>
+          </div>
         </div>
       </header>
 
@@ -175,7 +179,9 @@ export function LandingShell() {
 
             <h1 className="mx-auto max-w-[18ch] text-[clamp(2.375rem,6vw,4.25rem)] font-extrabold leading-[1.04] tracking-[-0.045em] text-(--fg)">
               Sign PDFs Online for Free.{" "}
-              <span className="text-(--accent)">No catch.</span>
+              <span className="text-(--accent) dark:text-(--accent-ink)">
+                No catch.
+              </span>
             </h1>
 
             <p className="mx-auto mt-5 max-w-xl text-lg leading-relaxed text-(--secondary) sm:text-[1.1875rem]">
@@ -316,7 +322,8 @@ export function LandingShell() {
         </section>
 
         <section className="page-width pb-10 pt-6 lg:pb-14">
-          <div className="rounded-[2rem] bg-(--accent) px-6 py-14 text-center sm:px-10 lg:py-20">
+          {/* The brand band reads the same in either theme. */}
+          <div className="theme-light rounded-[2rem] bg-(--accent) px-6 py-14 text-center sm:px-10 lg:py-20">
             <div className="mx-auto max-w-[44rem]">
               <p className="text-sm font-semibold text-white/80">Start free</p>
               <h2 className="mt-3 text-[clamp(2rem,4.5vw,3.25rem)] font-extrabold leading-[1.06] tracking-[-0.04em] text-white">
@@ -360,7 +367,7 @@ function SecurityPillarCard({ body, icon: Icon, title }: SecurityPillar) {
     <div className="panel flex gap-4 p-6">
       <span
         aria-hidden="true"
-        className="inline-flex size-11 shrink-0 items-center justify-center rounded-xl bg-(--accent-soft) text-(--accent)"
+        className="inline-flex size-11 shrink-0 items-center justify-center rounded-xl bg-(--accent-soft) text-(--accent) dark:text-(--accent-ink)"
       >
         <Icon className="size-5" strokeWidth={2} />
       </span>

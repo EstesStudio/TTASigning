@@ -37,6 +37,14 @@ type Rgb = [red: number, green: number, blue: number];
 const WHITE: Rgb = [255, 255, 255];
 const BLACK: Rgb = [0, 0, 0];
 
+/**
+ * The dark theme's surfaces, as globals.css draws them: the page, a card,
+ * and a card raised above the others (menus, dialogs). Keep in step.
+ */
+const DARK_PAGE: Rgb = [17, 18, 25];
+const DARK_PAPER: Rgb = [26, 27, 37];
+const DARK_PAPER_RAISED: Rgb = [34, 35, 47];
+
 /** WCAG AA for normal text. */
 const READABLE_CONTRAST = 4.5;
 
@@ -136,6 +144,46 @@ function darkenUntilReadable(color: Rgb, backgrounds: Rgb[]): Rgb {
   return BLACK;
 }
 
+/**
+ * The color, lightened a little at a time until text in it is readable
+ * against every (dark) background given. White always is, so this ends.
+ */
+function lightenUntilReadable(color: Rgb, backgrounds: Rgb[]): Rgb {
+  for (let step = 0; step <= 100; step += 1) {
+    const candidate = toRgb(toHex(mix(color, WHITE, step / 100)));
+
+    if (
+      backgrounds.every(
+        (background) => contrast(candidate, background) >= READABLE_CONTRAST,
+      )
+    ) {
+      return candidate;
+    }
+  }
+
+  return WHITE;
+}
+
+/**
+ * The lightest shade of the color that white text is still readable on.
+ * A button on a dark page reads better a step lighter than on a white one.
+ */
+function lightenWhileWhiteReads(color: Rgb): Rgb {
+  let lightest = color;
+
+  for (let step = 1; step <= 100; step += 1) {
+    const candidate = toRgb(toHex(mix(color, WHITE, step / 100)));
+
+    if (contrast(candidate, WHITE) < READABLE_CONTRAST) {
+      break;
+    }
+
+    lightest = candidate;
+  }
+
+  return lightest;
+}
+
 /** The shades the pages use, worked out from one color. */
 export function buildBrandPalette(color: string): BrandPalette | null {
   const normalized = normalizeBrandColor(color);
@@ -170,8 +218,56 @@ export function buildBrandPalette(color: string): BrandPalette | null {
 }
 
 /**
- * A style rule that replaces the default accent with this color, or null
- * when the color is not one. Safe to put in a page: every value in it is a
+ * The same shades for the dark theme, worked out from the light palette.
+ * The accent keeps white text readable; the tints are the accent sunk into
+ * a dark card, and the ink is lightened until it reads on all of them.
+ */
+export function buildDarkBrandPalette(light: BrandPalette): BrandPalette {
+  const accent = lightenWhileWhiteReads(toRgb(light.accent));
+  const accentSoft = toRgb(toHex(mix(DARK_PAPER, accent, 0.22)));
+  const accentSoftHover = toRgb(toHex(mix(DARK_PAPER, accent, 0.3)));
+  const accentSofter = toRgb(toHex(mix(DARK_PAPER, accent, 0.14)));
+  const accentHover = toRgb(toHex(mix(accent, BLACK, 0.14)));
+  const accentInk = lightenUntilReadable(accent, [
+    DARK_PAGE,
+    DARK_PAPER,
+    DARK_PAPER_RAISED,
+    accentSofter,
+    accentSoft,
+    accentSoftHover,
+  ]);
+
+  return {
+    accent: toHex(accent),
+    accentHover: toHex(accentHover),
+    accentInk: toHex(accentInk),
+    accentRgb: accent.join(" "),
+    accentSoft: toHex(accentSoft),
+    accentSoftHover: toHex(accentSoftHover),
+    accentSofter: toHex(accentSofter),
+  };
+}
+
+/**
+ * The selectors the dark theme applies under, as globals.css writes them:
+ * the system asks for dark and no one picked light, or someone picked dark.
+ * A `.theme-light` box (a document page) keeps the light shades either way.
+ */
+const LIGHT_SELECTOR = ":root,.theme-light";
+const DARK_RULES = [
+  '@media (prefers-color-scheme:dark){:root:where(:not([data-theme="light"])){%}}',
+  ':root:where([data-theme="dark"]){%}',
+];
+
+function declarations(palette: BrandPalette): string {
+  return Object.entries(brandPaletteVariables(palette))
+    .map(([name, value]) => `${name}:${value};`)
+    .join("");
+}
+
+/**
+ * The style rules that replace the default accent with this color, in the
+ * light theme and the dark one, or null when the color is not one. Safe to put in a page: every value in it is a
  * hex color or three numbers made here.
  */
 export function buildBrandColorCss(color: string | null): string | null {
@@ -181,9 +277,12 @@ export function buildBrandColorCss(color: string | null): string | null {
     return null;
   }
 
-  return `:root{${Object.entries(brandPaletteVariables(palette))
-    .map(([name, value]) => `${name}:${value};`)
-    .join("")}}`;
+  const dark = declarations(buildDarkBrandPalette(palette));
+
+  return [
+    `${LIGHT_SELECTOR}{${declarations(palette)}}`,
+    ...DARK_RULES.map((rule) => rule.replace("%", dark)),
+  ].join("");
 }
 
 /** The palette as the custom properties the stylesheet reads. */
