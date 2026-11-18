@@ -1,6 +1,44 @@
+function noFailures(errors) {
+  return Array.isArray(errors) && errors.length === 0;
+}
+
+function isCompletedSummary(path, summary) {
+  if (
+    !summary ||
+    (summary.status !== undefined && summary.status !== "ran") ||
+    summary.stoppedEarly === true ||
+    summary.schedule?.stoppedEarly === true
+  ) {
+    return false;
+  }
+
+  if (path === "/api/internal/backup") {
+    return (
+      typeof summary.databaseBackup === "string" &&
+      summary.databaseBackup.trim().length > 0 &&
+      summary.stoppedEarly === false &&
+      noFailures(summary.fileFailures)
+    );
+  }
+
+  return (
+    path === "/api/internal/retention" &&
+    Number.isFinite(summary.ranAt) &&
+    summary.schedule?.stoppedEarly === false &&
+    [
+      summary.accountPurgeFailures,
+      summary.draftDeletionFailures,
+      summary.finishedEnvelopeDeletionFailures,
+      summary.schedule.expiryNoticeFailures,
+      summary.schedule.reminderFailures,
+    ].every(noFailures)
+  );
+}
+
 async function main() {
-  const { CRON_SECRET, JOB_URL } = process.env;
-  if (!CRON_SECRET?.trim() || !JOB_URL) {
+  const { JOB_URL } = process.env;
+  const secret = process.env.CRON_SECRET?.trim();
+  if (!secret || !JOB_URL) {
     console.error("Scheduled request is missing its URL or credentials.");
     process.exitCode = 1;
     return;
@@ -9,7 +47,7 @@ async function main() {
   const url = new URL(JOB_URL);
   const response = await fetch(url, {
     method: "POST",
-    headers: { Authorization: `Bearer ${CRON_SECRET}` },
+    headers: { Authorization: `Bearer ${secret}` },
     redirect: "manual",
     signal: AbortSignal.timeout(270_000),
   });
@@ -21,13 +59,7 @@ async function main() {
   }
 
   const summary = await response.json();
-  const completed =
-    url.pathname === "/api/internal/backup"
-      ? typeof summary?.databaseBackup === "string" &&
-        summary.stoppedEarly === false
-      : Number.isFinite(summary?.ranAt) &&
-        summary.schedule?.stoppedEarly === false;
-  if (!completed) {
+  if (!isCompletedSummary(url.pathname, summary)) {
     console.error("Scheduled request did not return a completed run summary.");
     process.exitCode = 1;
   }

@@ -78,7 +78,29 @@ Visit `/setup` to create the first administrator. The startup and liveness probe
 
 Object storage deployments use no document PVC. The default 0.4.0 app code supports local and Blob storage. Select a build that includes the S3 driver explicitly before choosing `s3`. Changing the driver does not copy existing PDFs. During a storage move, stop writes and verify that existing object keys remain readable in the new backend before reopening the app.
 
+Before switching a local install to object storage, verify a backup of the claim. If you use Argo CD, confirm the `Prune=false,Delete=false` annotation is on the live PVC first. Argo CD can prune an unprotected claim when the storage switch removes it from the desired resources. Remove the old claim manually only after verifying the migration and backup.
+
 With shared PostgreSQL and object storage, replicas can serve the same documents. Budget database connections for each replica. Rate limits share the database and fall back to per-process memory during a database outage. Next.js caches are per pod. Email uses the shared Resend account and its delivery limits. Document finalization and other work can be interrupted by a hard kill, including eviction. Check application and provider logs before retrying an interrupted operation whose outcome is unknown.
+
+## Place replicas on separate nodes
+
+Use `affinity`, `nodeSelector` and `tolerations` to control scheduling for the app Deployment. Empty values leave placement to Kubernetes. This example requires two Blob-backed replicas to run on separate nodes. Change `app.kubernetes.io/instance` to the Helm release name.
+
+```yaml
+storage:
+  driver: blob
+replicaCount: 2
+affinity:
+  podAntiAffinity:
+    requiredDuringSchedulingIgnoredDuringExecution:
+      - labelSelector:
+          matchLabels:
+            app.kubernetes.io/name: signudoc
+            app.kubernetes.io/instance: signudoc
+        topologyKey: kubernetes.io/hostname
+```
+
+Hard anti-affinity requires enough eligible nodes for every replica. With two replicas, the default rolling update also needs a spare eligible node for the new pod. If capacity is limited to the replica count, `strategy: Recreate` permits upgrades with planned downtime. [Kubernetes affinity and anti-affinity](https://kubernetes.io/docs/concepts/scheduling-eviction/assign-pod-node/#inter-pod-affinity-and-anti-affinity).
 
 ## Migrations and recovery
 
@@ -88,7 +110,7 @@ For Argo CD, set `migration.mode: argocd`. A `PreSync` Job at wave `-1` must com
 
 Back up the database and documents before upgrading. Old app pods may still be serving while new migrations run, so check schema compatibility or take a maintenance window. A Helm rollback changes workloads without undoing applied SQL. For recovery, restore a compatible database and document snapshot together and reuse the backed-up auth and seal secrets.
 
-Use your database provider or operator for database backups and test restores. With S3, enable object versioning and set retention appropriate for your restore window. For local storage, include the PVC in your backups. Helm retains a chart-created claim on uninstall. Keep the PVC and volume reclaim policies in mind when removing the namespace or moving the install.
+Use your database provider or operator for database backups and test restores. With S3, enable object versioning and set retention appropriate for your restore window. For local storage, include the PVC in your backups. Helm retains a chart-created claim on uninstall, and the chart marks the claim for retention during Argo CD pruning and application deletion. A retained claim can leave an Argo CD application OutOfSync until you manage or remove it. Check the PVC and volume reclaim policy before removing the namespace. [Argo CD sync options](https://argo-cd.readthedocs.io/en/stable/user-guide/sync-options/#no-prune-resources).
 
 ## Scheduled maintenance
 

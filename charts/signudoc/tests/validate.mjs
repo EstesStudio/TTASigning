@@ -36,11 +36,23 @@ const local = render();
 const localDeployment = workload(local, "Deployment");
 const localPod = localDeployment.spec.template.spec;
 const [app] = localPod.containers;
+for (const option of ["affinity", "nodeSelector", "tolerations"]) {
+  assert.equal(localPod[option], undefined);
+}
 assert.equal(localDeployment.spec.replicas, 1);
 assert.equal(localDeployment.spec.strategy.type, "Recreate");
-assert.deepEqual(workload(local, "PersistentVolumeClaim").spec.accessModes, [
-  "ReadWriteOnce",
-]);
+const localClaim = workload(local, "PersistentVolumeClaim");
+assert.deepEqual(localClaim.spec.accessModes, ["ReadWriteOnce"]);
+assert.equal(
+  localClaim.metadata.annotations["helm.sh/resource-policy"],
+  "keep",
+);
+assert.deepEqual(
+  localClaim.metadata.annotations["argocd.argoproj.io/sync-options"]
+    ?.split(",")
+    .sort(),
+  ["Delete=false", "Prune=false"],
+);
 assert.ok(localPod.volumes.some((volume) => volume.persistentVolumeClaim));
 assert.ok(localPod.securityContext.runAsNonRoot);
 assert.ok(app.securityContext.readOnlyRootFilesystem);
@@ -83,6 +95,56 @@ assert.throws(
   () => render(...s3, "--set", "cron.backup.enabled=true"),
   /backup requires blob storage/,
 );
+
+const placement = {
+  affinity: {
+    podAntiAffinity: {
+      requiredDuringSchedulingIgnoredDuringExecution: [
+        {
+          labelSelector: {
+            matchLabels: {
+              "app.kubernetes.io/name": "signudoc",
+              "app.kubernetes.io/instance": "demo",
+            },
+          },
+          topologyKey: "kubernetes.io/hostname",
+        },
+      ],
+    },
+  },
+  nodeSelector: { "example.com/node-pool": "signing" },
+  tolerations: [
+    {
+      key: "example.com/dedicated",
+      operator: "Equal",
+      value: "signing",
+      effect: "NoSchedule",
+    },
+  ],
+};
+const placed = render(
+  "--set",
+  "storage.driver=s3,replicaCount=2",
+  ...Object.entries(placement).flatMap(([key, value]) => [
+    "--set-json",
+    key + "=" + JSON.stringify(value),
+  ]),
+);
+const placedDeployment = workload(placed, "Deployment");
+assert.equal(placedDeployment.spec.replicas, 2);
+const placedPod = placedDeployment.spec.template;
+for (const [option, expected] of Object.entries(placement)) {
+  assert.deepEqual(placedPod.spec[option], expected);
+  assert.equal(workload(placed, "Job").spec.template.spec[option], undefined);
+}
+const [antiAffinity] =
+  placedPod.spec.affinity.podAntiAffinity
+    .requiredDuringSchedulingIgnoredDuringExecution;
+for (const [label, value] of Object.entries(
+  antiAffinity.labelSelector.matchLabels,
+)) {
+  assert.equal(placedPod.metadata.labels[label], value);
+}
 
 const provisioned = render(
   "--set",
@@ -241,8 +303,35 @@ const backupReport = {
   stoppedEarly: false,
 };
 const cases = [
-  ["retention", 200, retentionReport, 0],
-  ["backup", 200, backupReport, 0],
+  ["retention", 200, { ...retentionReport, futureCounter: 1 }, 0],
+  ["backup", 200, { ...backupReport, futureCounter: 1 }, 0],
+  ["retention", 200, { ...retentionReport, stoppedEarly: true }, 1],
+  ["retention", 200, { ...retentionReport, status: "skipped" }, 1],
+  ["retention", 200, { ...retentionReport, status: "failed" }, 1],
+  ["retention", 200, { ranAt: 1, schedule: { stoppedEarly: false } }, 1],
+  [
+    "retention",
+    200,
+    { ...retentionReport, draftDeletionFailures: ["private-body"] },
+    1,
+  ],
+  [
+    "retention",
+    200,
+    {
+      ...retentionReport,
+      schedule: {
+        ...retentionReport.schedule,
+        reminderFailures: ["private-body"],
+      },
+    },
+    1,
+  ],
+  ["backup", 200, { ...backupReport, databaseBackup: "" }, 1],
+  ["backup", 200, { ...backupReport, databaseBackup: "  " }, 1],
+  ["backup", 200, { ...backupReport, schedule: { stoppedEarly: true } }, 1],
+  ["backup", 200, { ...backupReport, fileFailures: ["private-body"] }, 1],
+  ["backup", 200, { databaseBackup: "private-body", stoppedEarly: false }, 1],
   ["retention", 204, undefined, 1],
   ["retention", 200, "private-body", 1],
   ["retention", 200, { status: "skipped", reason: "already_running" }, 1],
@@ -290,7 +379,7 @@ try {
       {
         env: {
           ...process.env,
-          CRON_SECRET: "test-bearer",
+          CRON_SECRET: "  test-bearer  ",
           JOB_URL: `http://127.0.0.1:${server.address().port}/api/internal/${route}`,
         },
         stdio: ["ignore", "pipe", "pipe"],

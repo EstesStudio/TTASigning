@@ -5,6 +5,7 @@ metadata:
   name: {{ include "signudoc.fullname" . }}-documents
   annotations:
     helm.sh/resource-policy: keep
+    argocd.argoproj.io/sync-options: Prune=false,Delete=false
 spec:
   accessModes: [ReadWriteOnce]
   {{- if ne .Values.storage.storageClassName nil }}

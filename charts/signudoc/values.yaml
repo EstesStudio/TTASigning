@@ -16,6 +16,10 @@ extraVolumeMounts: []
 
 replicaCount: 1
 strategy: "" # Recreate for local, RollingUpdate for object storage.
+# Optional scheduling constraints for app pods.
+affinity: {}
+nodeSelector: {}
+tolerations: []
 terminationGracePeriodSeconds: 30
 resources:
   requests:
