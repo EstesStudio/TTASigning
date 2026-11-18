@@ -16,6 +16,10 @@ import {
   type TransactionalEmailMessage,
 } from "../services/email.ts";
 import { withUserEmailLegalFooter } from "../services/email-legal-footer.ts";
+import {
+  buildSignInCodeMessage,
+  SIGN_IN_CODE_MINUTES,
+} from "../services/sign-in-code-email.ts";
 import { consumeRateLimit } from "../security/rate-limit.ts";
 import { getClientIpHeaderNames } from "../security/request.ts";
 import {
@@ -360,10 +364,16 @@ export function createAppAuth({
           }),
         ]
       : []),
-    // Two-step sign-in with an authenticator app, and ten single-use backup
-    // codes for when the phone is not at hand. Both are stored encrypted
-    // with BETTER_AUTH_SECRET. "Trust this device" is not offered, so every
+    // Two-step sign-in: a 6-digit code from an authenticator app, or one
+    // emailed to the person's own address, and ten single-use backup codes
+    // for when the phone is not at hand. Both are stored encrypted with
+    // BETTER_AUTH_SECRET. "Trust this device" is not offered, so every
     // sign-in asks for the second step.
+    //
+    // The plugin rate-limits its own two-factor routes (three requests per
+    // ten seconds) and locks the second step for fifteen minutes after ten
+    // wrong codes; the emailed code itself allows five tries before a new
+    // one must be requested.
     twoFactor({
       accountLockout: {
         durationSeconds: 15 * 60,
@@ -371,6 +381,27 @@ export function createAppAuth({
         maxFailedAttempts: 10,
       },
       backupCodeOptions: { amount: 10, length: 10 },
+      otpOptions: {
+        digits: 6,
+        period: SIGN_IN_CODE_MINUTES,
+        sendOTP: async ({ user, otp }) => {
+          // Sent in the background like the other auth emails, so asking
+          // for a code is never slowed by the mail provider. The code
+          // itself never reaches a log.
+          sendAuthEmailInBackground({
+            buildContent: (branding) =>
+              buildSignInCodeMessage({
+                branding,
+                code: otp,
+                name: user.name,
+              }),
+            env,
+            getEmailService: emailService,
+            template: "sign_in_code",
+            to: user.email,
+          });
+        },
+      },
       skipVerificationOnEnable: false,
     }),
     // After the two-factor plugin: see sign-in-events.ts.
