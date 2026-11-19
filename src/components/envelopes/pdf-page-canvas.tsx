@@ -6,6 +6,7 @@ import {
   loadPdfJsModule,
   PDF_JS_STANDARD_FONT_DATA_URL,
 } from "@/lib/pdfjs-client";
+import { tr } from "@/lib/petsky/locale";
 
 type PdfJsModule = Awaited<ReturnType<typeof loadPdfJsModule>>;
 type PdfDocumentProxy = Awaited<
@@ -249,13 +250,15 @@ export function PdfPageCanvas({
           <div className="well max-w-[320px] px-5 py-4">
             <p className="text-sm font-bold text-(--fg)">
               {renderState === "error"
-                ? "We couldn't render this PDF page."
-                : "Rendering document page..."}
+                ? tr("We couldn't render this PDF page.")
+                : tr("Rendering document page...")}
             </p>
             <p className="mt-1.5 text-sm leading-6 text-(--secondary)">
               {renderState === "error"
-                ? "Reload the page or try this draft again in a moment."
-                : "Preparing the source PDF so placed fields stay aligned with the stored page size."}
+                ? tr("Reload the page or try this draft again in a moment.")
+                : tr(
+                    "Preparing the source PDF so placed fields stay aligned with the stored page size.",
+                  )}
             </p>
           </div>
         </div>

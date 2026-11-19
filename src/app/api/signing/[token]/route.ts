@@ -19,6 +19,7 @@ import {
   getClientIpAddress,
   getRequestUserAgent,
 } from "@/lib/security/request";
+import { tr } from "@/lib/petsky/locale";
 
 type SigningRouteContext = {
   params: Promise<{
@@ -89,7 +90,7 @@ export async function GET(request: Request, context: SigningRouteContext) {
 
     return NextResponse.json(
       {
-        error: "Unable to load this signing link.",
+        error: tr("Unable to load this signing link."),
       },
       {
         headers: {

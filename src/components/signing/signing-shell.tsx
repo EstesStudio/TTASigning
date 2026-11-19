@@ -1,5 +1,6 @@
 "use client";
 
+import { tr } from "@/lib/petsky/locale";
 import type {
   SigningPayload,
   SigningVerificationState,
@@ -73,8 +74,8 @@ export function SigningShell({
 
   return (
     <SigningStateScreen
-      description={tokenState.description}
-      title={tokenState.title}
+      description={tr(tokenState.description)}
+      title={tr(tokenState.title)}
     />
   );
 }

@@ -23,6 +23,7 @@ import {
 } from "@/lib/signing";
 import { verifiedMethodsForRequest } from "@/lib/signing-route";
 import { resolveAppUrl } from "@/lib/utils/env";
+import { tr } from "@/lib/petsky/locale";
 
 type VerifyRouteContext = {
   params: Promise<{
@@ -80,7 +81,7 @@ export async function POST(request: Request, context: VerifyRouteContext) {
   } catch (error) {
     if (error instanceof ZodError) {
       return NextResponse.json(
-        { error: "Enter the code." },
+        { error: tr("Enter the code.") },
         { headers: NO_STORE, status: 400 },
       );
     }
@@ -107,7 +108,7 @@ export async function POST(request: Request, context: VerifyRouteContext) {
     });
 
     return NextResponse.json(
-      { error: "The code could not be checked right now." },
+      { error: tr("The code could not be checked right now.") },
       { headers: NO_STORE, status: 500 },
     );
   }

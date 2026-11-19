@@ -18,6 +18,7 @@ import {
   buildRateLimitKey,
 } from "@/lib/security/route-controls";
 import { getClientIpAddress } from "@/lib/security/request";
+import { tr } from "@/lib/petsky/locale";
 
 // Preparing the signer's revision of the PDF and handing its hash to the
 // signing provider can take a while on a long document.
@@ -103,7 +104,7 @@ export async function POST(
     });
 
     return NextResponse.json(
-      { error: "Unable to start signing." },
+      { error: tr("Unable to start signing.") },
       { headers: NO_STORE, status: 500 },
     );
   }

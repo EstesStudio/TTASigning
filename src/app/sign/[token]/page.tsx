@@ -1,7 +1,14 @@
 import { cookies, headers } from "next/headers";
 
+import { BrandingProvider } from "@/components/layout/branding-provider";
 import { SigningShell } from "@/components/signing/signing-shell";
 import { getDb } from "@/lib/db/connection";
+import {
+  applyDocumentBranding,
+  getDocumentBranding,
+  getDocumentBrandingForToken,
+} from "@/lib/petsky/document-branding";
+import { getBranding } from "@/lib/settings";
 import { getClientIpAddress } from "@/lib/security/request";
 import type { SigningVerificationState } from "@/lib/schemas/signing";
 import { verifiedMethodsFromCookies } from "@/lib/signer-checks";
@@ -59,14 +66,24 @@ export default async function SignPage({
     }
   }
 
+  // PetskySign: the business that sent the document, over the install's
+  // own name, logo and color.
+  const documentBranding = record
+    ? await getDocumentBranding(record.envelopeId, getDb())
+    : await getDocumentBrandingForToken(token, getDb()).catch(() => null);
+
   return (
-    <SigningShell
-      initialState={initialState}
-      key={token}
-      record={record ?? undefined}
-      signatureProblem={signatureProblem}
-      token={token}
-      verification={verification ?? undefined}
-    />
+    <BrandingProvider
+      branding={applyDocumentBranding(await getBranding(), documentBranding)}
+    >
+      <SigningShell
+        initialState={initialState}
+        key={token}
+        record={record ?? undefined}
+        signatureProblem={signatureProblem}
+        token={token}
+        verification={verification ?? undefined}
+      />
+    </BrandingProvider>
   );
 }

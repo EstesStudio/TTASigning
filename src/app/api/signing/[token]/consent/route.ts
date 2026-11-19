@@ -21,6 +21,7 @@ import {
   verificationRequiredResponse,
   verifiedMethodsForRequest,
 } from "@/lib/signing-route";
+import { tr } from "@/lib/petsky/locale";
 
 type ConsentRouteContext = {
   params: Promise<{
@@ -63,7 +64,7 @@ export async function POST(request: Request, context: ConsentRouteContext) {
   } catch (error) {
     if (error instanceof ZodError) {
       return NextResponse.json(
-        { error: "Invalid request." },
+        { error: tr("Invalid request.") },
         { headers: NO_STORE, status: 400 },
       );
     }
@@ -94,7 +95,7 @@ export async function POST(request: Request, context: ConsentRouteContext) {
     });
 
     return NextResponse.json(
-      { error: "Your agreement could not be saved right now." },
+      { error: tr("Your agreement could not be saved right now.") },
       { headers: NO_STORE, status: 500 },
     );
   }

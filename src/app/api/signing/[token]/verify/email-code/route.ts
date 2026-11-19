@@ -12,6 +12,7 @@ import {
   SigningMutationError,
   sendSignerEmailCode,
 } from "@/lib/signing";
+import { tr } from "@/lib/petsky/locale";
 
 type EmailCodeRouteContext = {
   params: Promise<{
@@ -64,7 +65,7 @@ export async function POST(request: Request, context: EmailCodeRouteContext) {
     });
 
     return NextResponse.json(
-      { error: "The code could not be sent right now." },
+      { error: tr("The code could not be sent right now.") },
       { headers: NO_STORE, status: 500 },
     );
   }

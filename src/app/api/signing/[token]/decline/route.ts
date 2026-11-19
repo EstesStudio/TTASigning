@@ -21,6 +21,7 @@ import {
   getClientIpAddress,
   getRequestUserAgent,
 } from "@/lib/security/request";
+import { tr } from "@/lib/petsky/locale";
 
 type SigningDeclineRouteContext = {
   params: Promise<{
@@ -125,7 +126,7 @@ export async function POST(
 
     return NextResponse.json(
       {
-        error: "Unable to decline this document.",
+        error: tr("Unable to decline this document."),
       },
       {
         headers: {

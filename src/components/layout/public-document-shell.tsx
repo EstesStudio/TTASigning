@@ -7,6 +7,7 @@ import { PublicLegalFooter } from "@/components/layout/public-legal-links";
 import { PublicSessionMenu } from "@/components/layout/public-session-menu";
 import { buildBranding, type Branding } from "@/lib/branding";
 import { getBranding, resolveSettings } from "@/lib/settings";
+import { tr } from "@/lib/petsky/locale";
 
 type PublicDocumentShellProps = {
   children: ReactNode;
@@ -80,7 +81,7 @@ function PublicDocumentPage({
             <div className="px-6 pb-2 pt-9 sm:px-12 sm:pt-12">
               {lastUpdated ? (
                 <p className="section-eyebrow mb-3">
-                  Last updated {lastUpdated}
+                  {tr("Last updated {date}", { date: lastUpdated })}
                 </p>
               ) : null}
               <h1 className="max-w-[20ch] text-[clamp(2rem,4.5vw,3rem)] font-extrabold leading-[1.06] tracking-[-0.035em] text-(--fg)">

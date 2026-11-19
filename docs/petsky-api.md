@@ -39,18 +39,45 @@ Cria o documento e envia. Aceita dois formatos:
 ```json
 {
   "title": "Contrato de creche - Rex",
-  "signer": { "name": "Maria Tutora", "channel": "link", "email": "opcional@x.com" },
+  "signer": {
+    "name": "Maria Tutora",
+    "channel": "link",
+    "email": "opcional@x.com"
+  },
   "fields": [
-    { "type": "signature", "page": -1, "x": 0.08, "y": 0.84, "width": 0.38, "height": 0.07 },
-    { "type": "date", "page": -1, "x": 0.6, "y": 0.84, "width": 0.25, "height": 0.05 }
+    {
+      "type": "signature",
+      "page": -1,
+      "x": 0.08,
+      "y": 0.84,
+      "width": 0.38,
+      "height": 0.07
+    },
+    {
+      "type": "date",
+      "page": -1,
+      "x": 0.6,
+      "y": 0.84,
+      "width": 0.25,
+      "height": 0.05
+    }
   ],
   "expiresInDays": 7,
   "reminderIntervalDays": null,
   "externalRef": "id do contrato no petsky",
   "companyRef": "id da casa no petsky",
+  "branding": {
+    "name": "Creche Patinhas",
+    "color": "#1f7a5a",
+    "contact": "(11) 99999-0000",
+    "logo": { "contentBase64": "<PNG, JPEG ou WebP até 512 KB>" }
+  },
   "permittedUseConfirmed": true
 }
 ```
+
+- `branding` é opcional. Com ele, o tutor vê a casa como remetente, com nome, logo e cor, na tela de assinatura, no termo e na tela final. O contato (e-mail ou telefone) entra no termo como o canal para pedir papel, desistir ou exercer direitos da LGPD. Esses dados ficam gravados no documento como estavam no envio.
+- Os logos são guardados pelo hash do conteúdo, então o mesmo logo enviado em muitos contratos ocupa espaço uma vez só.
 
 - `fields` é opcional. Sem ele, entra uma caixa de assinatura no pé da última página. Os tipos aceitos são `signature`, `initials`, `name` e `date`. Precisa haver pelo menos uma `signature`.
 - As coordenadas são frações da página (de 0 a 1), contadas a partir do canto superior esquerdo. Em `page`, a contagem começa em 1, e um número negativo conta do fim: `-1` é a última página.
@@ -83,14 +110,25 @@ Status do documento e do signatário:
   "title": "...",
   "externalRef": "...",
   "companyRef": "...",
-  "createdAt": "...", "sentAt": "...", "completedAt": null,
-  "declinedAt": null, "voidedAt": null, "expiresAt": "...",
-  "signers": [{
-    "signerId": "uuid", "name": "Maria Tutora", "email": null,
-    "status": "sent | viewed | signed | declined",
-    "viewedAt": "...", "consentedAt": "...", "signedAt": null,
-    "declinedAt": null, "declineReason": null
-  }]
+  "createdAt": "...",
+  "sentAt": "...",
+  "completedAt": null,
+  "declinedAt": null,
+  "voidedAt": null,
+  "expiresAt": "...",
+  "signers": [
+    {
+      "signerId": "uuid",
+      "name": "Maria Tutora",
+      "email": null,
+      "status": "sent | viewed | signed | declined",
+      "viewedAt": "...",
+      "consentedAt": "...",
+      "signedAt": null,
+      "declinedAt": null,
+      "declineReason": null
+    }
+  ]
 }
 ```
 
@@ -121,14 +159,14 @@ Mostra a conta e a chave em uso. Serve para testar a configuração.
 
 O corpo do erro é sempre `{ "error": "mensagem" }`.
 
-| Código | Quando |
-| --- | --- |
-| `400` | Dados inválidos ou PDF ilegível |
-| `401` | Chave inválida, revogada ou ausente |
-| `404` | O documento não existe ou é de outra conta |
-| `409` | O estado não permite a ação, por exemplo gerar link de um documento já assinado |
-| `413` | Arquivo grande demais |
-| `429` | Limite de requisições |
+| Código | Quando                                                                          |
+| ------ | ------------------------------------------------------------------------------- |
+| `400`  | Dados inválidos ou PDF ilegível                                                 |
+| `401`  | Chave inválida, revogada ou ausente                                             |
+| `404`  | O documento não existe ou é de outra conta                                      |
+| `409`  | O estado não permite a ação, por exemplo gerar link de um documento já assinado |
+| `413`  | Arquivo grande demais                                                           |
+| `429`  | Limite de requisições                                                           |
 
 ## Webhooks
 
@@ -148,15 +186,15 @@ npm run api-key -- deliveries --failed   # só as que desistiram
 
 ### Eventos
 
-| Evento | Quando |
-| --- | --- |
-| `document.viewed` | O tutor abriu o link pela primeira vez |
-| `document.consented` | O tutor aceitou o termo de registros eletrônicos |
-| `document.signed` | O tutor assinou |
-| `document.completed` | Todos assinaram e o PDF foi selado. Neste ponto os arquivos já podem ser baixados |
-| `document.declined` | O tutor recusou |
-| `document.voided` | O documento foi anulado |
-| `document.expired` | O prazo passou. Esse aviso sai na tarefa diária, então pode chegar até cerca de 1 hora depois do prazo |
+| Evento               | Quando                                                                                                 |
+| -------------------- | ------------------------------------------------------------------------------------------------------ |
+| `document.viewed`    | O tutor abriu o link pela primeira vez                                                                 |
+| `document.consented` | O tutor aceitou o termo de registros eletrônicos                                                       |
+| `document.signed`    | O tutor assinou                                                                                        |
+| `document.completed` | Todos assinaram e o PDF foi selado. Neste ponto os arquivos já podem ser baixados                      |
+| `document.declined`  | O tutor recusou                                                                                        |
+| `document.voided`    | O documento foi anulado                                                                                |
+| `document.expired`   | O prazo passou. Esse aviso sai na tarefa diária, então pode chegar até cerca de 1 hora depois do prazo |
 
 O envio do documento não gera aviso, porque o próprio petsky fez a chamada.
 
@@ -202,12 +240,32 @@ Use o corpo exatamente como chegou, antes de qualquer parse. A função `verifyW
 curl -fsS -X POST -H "Authorization: Bearer $RETENTION_JOB_SECRET" https://assinar.petsky.com.br/api/internal/webhooks
 ```
 
-  Ela usa o mesmo segredo da tarefa diária (`CRON_SECRET` ou `RETENTION_JOB_SECRET`).
+Ela usa o mesmo segredo da tarefa diária (`CRON_SECRET` ou `RETENTION_JOB_SECRET`).
+
 - A ordem de chegada não é garantida, e o mesmo aviso pode chegar mais de uma vez. Use `PetskySign-Delivery` para descartar repetidos.
+
+## Idioma (pt-BR)
+
+Com `NEXT_PUBLIC_APP_LOCALE=pt-BR` no build, tudo o que o tutor vê sai em português:
+
+- tela de assinatura e telas de estado do link;
+- termo de consentimento;
+- tela final, com texto próprio para o canal `link`;
+- rodapé;
+- página "Para que serve";
+- certificado de auditoria;
+- campo de data no formato brasileiro.
+
+A variável é lida no build (`NEXT_PUBLIC_`). No Coolify, ela precisa estar disponível no momento do build.
+
+- As traduções ficam em `src/lib/petsky/pt-br.ts`, indexadas pelo texto original em inglês (`tr("Finish signing")`). Um texto novo que venha de uma atualização do SignuDoc aparece em inglês até ser traduzido. O teste `locale.test.ts` confere os placeholders.
+- O termo em português (`src/lib/petsky/disclosure-pt-br.ts`) tem versão própria, `2026-11-19-pt-BR`, que fica gravada com o aceite de cada tutor. **Precisa de revisão jurídica antes de produção.** Se o texto mudar, a versão também tem que mudar.
+- As telas da casa e do administrador (painel, configurações) continuam em inglês, porque só a equipe do petsky as usa.
+- Os e-mails para o tutor continuam em inglês. No canal `link` nenhum é enviado.
+- Para o link "Privacidade" do rodapé apontar para a política do petsky, configure a URL em Settings → Organization.
 
 ## Ainda não tem
 
-- **Telas em pt-BR e marca da casa** (Fase 3). A tela final ainda diz que o tutor vai receber um e-mail, o que não vale no canal `link`.
 - **Separação por casa** (Fase 4). `companyRef` já é gravado e indexado, mas ainda não filtra nem limita nada.
 
 ## Variáveis de produção

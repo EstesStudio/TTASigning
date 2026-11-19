@@ -28,6 +28,11 @@ import { recordAuditEvent } from "../services/audit.ts";
 import { DocumentImportError } from "../services/document-import.ts";
 import { issueSigningLink } from "../services/signing-links.ts";
 import type { ApiKeyPrincipal } from "./api-keys.ts";
+import {
+  DocumentBrandingError,
+  documentBrandingSchema,
+  prepareDocumentBranding,
+} from "./document-branding.ts";
 import { displayEmail, placeholderEmailFor } from "./placeholder-email.ts";
 
 /**
@@ -106,6 +111,8 @@ export const createApiDocumentSchema = z
     externalRef: z.string().trim().min(1).max(200).optional(),
     /** The caller's own id for the business the document belongs to. */
     companyRef: z.string().trim().min(1).max(200).optional(),
+    /** The business shown to the signer: name, color, logo, contact. */
+    branding: documentBrandingSchema.optional(),
     /**
      * The caller confirms the document is an ordinary agreement that may be
      * signed electronically. Recorded in the audit trail, as in the app.
@@ -171,6 +178,10 @@ export async function createApiDocument(
   database: DbPool,
 ): Promise<CreatedApiDocument> {
   const userId = principal.user.id;
+  // Checked (and the logo stored) before anything else is made.
+  const branding = input.branding
+    ? await prepareDocumentBranding(input.branding)
+    : null;
   const draft = await createDraftEnvelope(
     userId,
     { sourcePdf: file, title: input.title },
@@ -182,7 +193,14 @@ export async function createApiDocument(
     await database.query(
       `
         UPDATE envelopes
-        SET external_ref = $1, company_ref = $2, api_key_id = $3
+        SET
+          external_ref = $1,
+          company_ref = $2,
+          api_key_id = $3,
+          brand_name = $6,
+          brand_color = $7,
+          brand_logo_key = $8,
+          brand_contact = $9
         WHERE id = $4 AND user_id = $5
       `,
       [
@@ -191,6 +209,10 @@ export async function createApiDocument(
         principal.keyId,
         envelopeId,
         userId,
+        branding?.brandName ?? null,
+        branding?.brandColor ?? null,
+        branding?.brandLogoKey ?? null,
+        branding?.brandContact ?? null,
       ],
     );
 
@@ -699,6 +721,10 @@ export function describeApiError(
 
   if (error instanceof ReminderMutationError) {
     return { message: error.message, status: error.statusCode };
+  }
+
+  if (error instanceof DocumentBrandingError) {
+    return { message: error.message, status: 400 };
   }
 
   if (error instanceof DocumentImportError) {

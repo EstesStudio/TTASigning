@@ -4,6 +4,7 @@ import { Plus_Jakarta_Sans } from "next/font/google";
 import { TooltipProvider } from "@/components/ui/tooltip";
 
 import "./globals.css";
+import { appLocale } from "@/lib/petsky/locale";
 
 const plusJakartaSans = Plus_Jakarta_Sans({
   display: "swap",
@@ -27,7 +28,7 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en">
+    <html lang={appLocale() === "pt-BR" ? "pt-BR" : "en"}>
       <body className={`${plusJakartaSans.variable} antialiased`}>
         <TooltipProvider>{children}</TooltipProvider>
       </body>
