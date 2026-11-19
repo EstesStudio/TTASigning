@@ -127,23 +127,24 @@ The graft only lives in your local clone. The merge itself is a normal commit th
 
 A deployment made with the button needs no environment variables. These are there if you want them, under Settings, Environment Variables in the Vercel project. Deploy again after changing one.
 
-| Variable                                            | What it does                                                                                                                                                                                           |
-| --------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| `SETUP_TOKEN`                                       | A secret the setup page asks for. See [Lock down a new install](#lock-down-a-new-install).                                                                                                             |
-| `CRON_SECRET`                                       | Closes the daily cleanup route to everyone but Vercel's own cron call. See [Daily cleanup](#daily-cleanup).                                                                                            |
-| `BOTID`                                             | `1` turns on Vercel BotID for sign-in, sign-up and setup. See [Bot protection](#bot-protection).                                                                                                       |
-| `RESEND_FROM_EMAIL`, `SUPPORT_EMAIL`                | Fix the sender and support addresses from the environment instead of in Settings.                                                                                                                      |
-| `BETTER_AUTH_SECRET`                                | Your own secret for signing sessions. Without it one is derived from the database password, so changing that password signs everyone out.                                                              |
-| `APP_URL`                                           | The site's public address, if it should not be the project's production domain.                                                                                                                        |
-| `HOSTED_MODE`                                       | `1` runs SignuDoc as a public service under its own name. See [Hosted mode](#hosted-mode).                                                                                                             |
-| `RESEND_REGION`                                     | Where Resend sends from when the app adds your domain, for example `eu-west-1`. See [Running in the EU](#running-in-the-eu).                                                                           |
-| `SEAL_P12_BASE64`, `SEAL_P12_PASSWORD`              | Seal finished PDFs with a certificate from a certificate authority instead of the install's own. See [Signed PDFs and the seal](#signed-pdfs-and-the-seal).                                            |
-| `SEAL_TIMESTAMP_URL`                                | An RFC 3161 timestamp server that adds a trusted time to each seal, and long-term validation. See [Long-term validation](#long-term-validation).                                                       |
-| `EIDEASY_CLIENT_ID`, `EIDEASY_SECRET`               | Let senders ask for advanced or qualified signatures in the signers' own names, through eID Easy. See [Signatures in the signers' own names](#signatures-in-the-signers-own-names-eidas-ades-and-qes). |
-| `CSC_API_URL`, `CSC_CLIENT_ID`, `CSC_CLIENT_SECRET` | The same through a trust service provider's remote signing service (CSC API v2). See [Signatures in the signers' own names](#signatures-in-the-signers-own-names-eidas-ades-and-qes).                  |
-| `BACKUP_BLOB_READ_WRITE_TOKEN`, `BACKUP_KEEP_DAYS`  | A daily backup of the database and files to a second Blob store. See [Backup and restore](backup-and-restore.md).                                                                                      |
-| `AUDIT_LOG`                                         | `off` keeps audit rows out of the function logs. See [Send the audit trail to your SIEM](#send-the-audit-trail-to-your-siem).                                                                          |
-| `SSO_ISSUER`, `SSO_CLIENT_ID`, `SSO_CLIENT_SECRET`  | Sign in through your organization's identity provider (Okta, Entra ID, Google Workspace). `PASSWORD_SIGN_IN=off` then turns passwords off. See [Single sign-on](#single-sign-on).                      |
+| Variable                                                                | What it does                                                                                                                                                                                           |
+| ----------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `SETUP_TOKEN`                                                           | A secret the setup page asks for. See [Lock down a new install](#lock-down-a-new-install).                                                                                                             |
+| `CRON_SECRET`                                                           | Closes the daily cleanup route to everyone but Vercel's own cron call. See [Daily cleanup](#daily-cleanup).                                                                                            |
+| `BOTID`                                                                 | `1` turns on Vercel BotID for sign-in, sign-up and setup. See [Bot protection](#bot-protection).                                                                                                       |
+| `RESEND_FROM_EMAIL`, `SUPPORT_EMAIL`                                    | Fix the sender and support addresses from the environment instead of in Settings.                                                                                                                      |
+| `BETTER_AUTH_SECRET`                                                    | Your own secret for signing sessions. Without it one is derived from the database password, so changing that password signs everyone out.                                                              |
+| `APP_URL`                                                               | The site's public address, if it should not be the project's production domain.                                                                                                                        |
+| `HOSTED_MODE`                                                           | `1` runs SignuDoc as a public service under its own name. See [Hosted mode](#hosted-mode).                                                                                                             |
+| `RESEND_REGION`                                                         | Where Resend sends from when the app adds your domain, for example `eu-west-1`. See [Running in the EU](#running-in-the-eu).                                                                           |
+| `SEAL_P12_BASE64`, `SEAL_P12_PASSWORD`                                  | Seal finished PDFs with a certificate from a certificate authority instead of the install's own. See [Signed PDFs and the seal](#signed-pdfs-and-the-seal).                                            |
+| `SEAL_TIMESTAMP_URL`                                                    | An RFC 3161 timestamp server that adds a trusted time to each seal, and long-term validation. See [Long-term validation](#long-term-validation).                                                       |
+| `EIDEASY_CLIENT_ID`, `EIDEASY_SECRET`                                   | Let senders ask for advanced or qualified signatures in the signers' own names, through eID Easy. See [Signatures in the signers' own names](#signatures-in-the-signers-own-names-eidas-ades-and-qes). |
+| `CSC_API_URL`, `CSC_CLIENT_ID`, `CSC_CLIENT_SECRET`                     | The same through a trust service provider's remote signing service (CSC API v2). See [Signatures in the signers' own names](#signatures-in-the-signers-own-names-eidas-ades-and-qes).                  |
+| `BACKUP_BLOB_READ_WRITE_TOKEN`, `BACKUP_KEEP_DAYS`                      | A daily backup of the database and files to a second Blob store. See [Backup and restore](backup-and-restore.md).                                                                                      |
+| `AUDIT_LOG`                                                             | `off` keeps audit rows out of the function logs. See [Send the audit trail to your SIEM](#send-the-audit-trail-to-your-siem).                                                                          |
+| `SSO_ISSUER`, `SSO_CLIENT_ID`, `SSO_CLIENT_SECRET`                      | Sign in through your organization's identity provider (Okta, Entra ID, Google Workspace). `PASSWORD_SIGN_IN=off` then turns passwords off. See [Single sign-on](#single-sign-on).                      |
+| `MICROSOFT_CLIENT_ID`, `MICROSOFT_CLIENT_SECRET`, `MICROSOFT_TENANT_ID` | Sign in with a Microsoft 365 or Microsoft account, alongside or instead of the provider above. See [Microsoft 365 sign-in](#microsoft-365-sign-in).                                                    |
 
 ## Set the site up
 
@@ -161,7 +162,7 @@ The first time you open a new install it takes you to `/setup`. There you name y
 
 These cover the people with an account (senders and administrators). Signers who are only sent a document open it from their emailed link and are not affected.
 
-- **Two-step sign-in.** Anyone can turn it on under Settings, Two-step sign-in: after the password, the site asks for a 6-digit code from an authenticator app such as 1Password, Google Authenticator or Microsoft Authenticator. Setting it up gives ten single-use backup codes for when the phone is not at hand. The key and the backup codes are stored encrypted with `BETTER_AUTH_SECRET`, so keep that secret the same: a new one makes every authenticator stop working. If it has to change (it leaked, or it was derived from a database password that changed), clear everyone's two-step setup in the same step, or nobody who used it can sign in, administrators included. In the Neon console's SQL editor, run:
+- **Two-step sign-in.** Anyone can turn it on under Settings, Two-step sign-in: after the password, the site asks for a 6-digit code. Each person picks their way when they set it up: an authenticator app such as 1Password, Google Authenticator or Microsoft Authenticator, or a code emailed to their own address (it works for 10 minutes, and asking for one sends no email until the person asks at the sign-in page). Setting it up gives ten single-use backup codes for when the phone is not at hand. The key and the backup codes are stored encrypted with `BETTER_AUTH_SECRET`, so keep that secret the same: a new one makes every authenticator stop working. If it has to change (it leaked, or it was derived from a database password that changed), clear everyone's two-step setup in the same step, or nobody who used it can sign in, administrators included. In the Neon console's SQL editor, run:
 
   ```sql
   update "user" set "twoFactorEnabled" = false;
@@ -170,10 +171,10 @@ These cover the people with an account (senders and administrators). Signers who
 
   Then change the secret and deploy. Everyone signs in with their password alone once, and sets up two-step sign-in again (an install that requires it asks at once). The site audit trail does not show this reset, so record it with the incident.
 
-- **Requiring it.** An administrator can require two-step sign-in of everyone under Settings, Organization, Sign-in security. They have to use it themselves first. From then on anyone who has not set it up sees only the setup page until they have, the API refuses their requests too, and nobody can turn theirs off.
-- **Lost phone.** If someone loses their phone and their backup codes, an administrator can reset their two-step sign-in under People. That turns it off and signs them out everywhere at once; they sign in with their password and set it up again (at once, if it is required).
+- **Requiring it.** An administrator can require two-step sign-in of everyone under Settings, Organization, Sign-in security. They have to use it themselves first. From then on anyone who has not set it up sees only the setup page until they have, the API refuses their requests too, and nobody can turn theirs off. Either way of doing the second step — authenticator app or emailed code — satisfies the requirement; the emailed code needs the install's email to be working (see Email under "Set the site up"). With `EMAIL_DRIVER=capture`, the code is written to the `.data/outbox` directory instead of being sent, which is how it can be read on a machine running the app locally.
+- **Lost phone.** If someone loses their phone and their backup codes, an administrator can reset their two-step sign-in under People. That turns it off — both ways of doing it — and signs them out everywhere at once; they sign in with their password and set it up again (at once, if it is required).
 - **Sessions.** A session lasts 7 days by default. Under Settings, Organization, Sign-in security an administrator can sign people out after 15 minutes to 8 hours without use, and at the latest 8 hours to 3 days after they signed in. A change applies to sessions that are already open, from their next click. Anyone can sign out on every device at once under Settings, Signed-in devices.
-- **Wrong passwords.** Ten wrong passwords for one email address within 15 minutes stop sign-in for that address until the 15 minutes are up. This happens whether or not the address has an account, so it says nothing about which ones do. Ten wrong codes at the second step lock that step for 15 minutes in the same way.
+- **Wrong passwords.** Ten wrong passwords for one email address within 15 minutes stop sign-in for that address until the 15 minutes are up. This happens whether or not the address has an account, so it says nothing about which ones do. Ten wrong codes at the second step lock that step for 15 minutes in the same way; an emailed code allows five tries before a new one must be asked for.
 - **The site audit trail** (Settings, Organization, Sign-in security) records each sign-in and failed sign-in with the address it came from, lockouts, sign-outs, password changes and resets, two-step sign-in being turned on, off or reset, new backup codes, and changes to settings, roles, the logo, the email domain, identity confirmations and signing locks. The rows form one hash chain, so a changed or removed row shows, and the trail downloads as CSV.
 
 ### Send the audit trail to your SIEM
@@ -208,6 +209,23 @@ How it behaves:
 - A missing or broken setting (one of the three left out, an issuer that is not `https://`) turns single sign-on off and leaves a warning in the function logs, so password sign-in keeps working.
 
 SAML is not supported. Okta, Entra ID and Google all offer OIDC for the same application.
+
+### Microsoft 365 sign-in
+
+A dedicated "Continue with Microsoft" button for installs whose people are in Microsoft 365, without touching the generic single sign-on above; both buttons show when both are set up. It uses the same OpenID Connect wiring, so accounts, the sign-up rule and the audit trail behave the same way (see "How it behaves" above).
+
+1. In Microsoft Entra ID, under Identity, Applications, App registrations, register an application (or use an existing one). Under Authentication, add the web redirect URI `https://<your site>/api/auth/callback/microsoft`.
+2. Under Certificates and secrets, make a client secret. Under Overview, copy the Application (client) ID.
+3. In the Vercel project, under Settings, Environment Variables, set:
+   - `MICROSOFT_CLIENT_ID` and `MICROSOFT_CLIENT_SECRET`: from the application you registered.
+   - `MICROSOFT_TENANT_ID` (optional): who may sign in. `common` (the default) allows any Microsoft account, `organizations` only work and school accounts, `consumers` only personal ones. To allow only your own directory, use its tenant GUID instead, so people cannot sign in with a personal account and get past your directory's rules.
+4. Deploy again. The sign-in and sign-up pages show "Continue with Microsoft".
+
+Notes:
+
+- With `common` or `consumers`, anyone with a Microsoft account can press the button: the install's sign-up rule (Settings, Organization, Who can sign up) still decides who gets an account.
+- `PASSWORD_SIGN_IN=off` works the same as with the provider above, and the addresses in `PASSWORD_SIGN_IN_ALLOWED_EMAILS` keep their password. A broken setting (one of the two left out, a tenant id that is neither `common`, `organizations`, `consumers` nor a GUID) turns the button off and leaves a warning in the function logs.
+- The sign-in and sign-up rule enforcement, the audit trail entries and the skipping of this app's own two-step sign-in are exactly those of the generic provider: see "How it behaves" above.
 
 ## Your responsibilities
 

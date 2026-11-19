@@ -33,12 +33,12 @@ export function TwoStepSetupRequired({ email }: { email: string }) {
         </h1>
         <p className="text-sm leading-6 text-(--secondary)">
           Your organization requires two-step sign-in on {productName}. Set it
-          up for {email} to continue. It takes about a minute with an
-          authenticator app on your phone.
+          up for {email} to continue: use an authenticator app on your phone, or
+          have 6-digit codes emailed to your address.
         </p>
       </section>
 
-      <TwoFactorPanel enabled={false} required />
+      <TwoFactorPanel authenticatorSet={false} enabled={false} required />
 
       <ShellButton
         className="w-fit"

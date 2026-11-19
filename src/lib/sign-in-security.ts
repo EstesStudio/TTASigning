@@ -146,6 +146,25 @@ export function usesTwoFactor(user: object): boolean {
   );
 }
 
+/**
+ * Whether the person's second step is an authenticator app, rather than the
+ * emailed code, which needs no per-person setup. An app only counts once
+ * its key has been confirmed, so someone who set up emailed codes first can
+ * still add the app afterwards.
+ */
+export async function hasAuthenticatorApp(
+  userId: string,
+  database: DbExecutor = getDb(),
+): Promise<boolean> {
+  const row = await queryOne<{ found: number }>(
+    database,
+    `SELECT 1 AS found FROM "twoFactor" WHERE "userId" = $1 AND verified LIMIT 1`,
+    [userId],
+  );
+
+  return row !== null;
+}
+
 type Actor = {
   email: string;
   ipAddress?: string | null;

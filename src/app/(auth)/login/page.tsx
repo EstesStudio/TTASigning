@@ -1,5 +1,10 @@
 import { LoginShell } from "@/components/auth/login-shell";
 import { redirectIfSignedIn } from "@/lib/auth/server";
+import {
+  MICROSOFT_NAME,
+  MICROSOFT_PROVIDER_ID,
+  readMicrosoftConfig,
+} from "@/lib/auth/microsoft";
 import { readPasswordSignInPolicy, readSsoConfig } from "@/lib/auth/sso";
 
 type LoginPageProps = {
@@ -20,10 +25,16 @@ export default async function LoginPage({ searchParams }: LoginPageProps) {
 
   const error = resolvedSearchParams?.error ?? null;
   const sso = readSsoConfig();
+  const microsoft = readMicrosoftConfig();
   const passwordPolicy = readPasswordSignInPolicy();
 
   return (
     <LoginShell
+      microsoft={
+        microsoft
+          ? { name: MICROSOFT_NAME, providerId: MICROSOFT_PROVIDER_ID }
+          : null
+      }
       passwordSignIn={
         passwordPolicy.enabled
           ? "on"

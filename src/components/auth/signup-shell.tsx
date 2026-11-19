@@ -34,6 +34,8 @@ const SIGNUP_RULE_ERROR_CODES = new Set([
 ]);
 
 type SignupShellProps = {
+  /** Microsoft 365 sign-in, when the install has it (lib/auth/microsoft.ts). */
+  microsoft?: SsoOption | null;
   /** False when password sign-in is turned off, so accounts come from SSO. */
   passwordSignIn?: boolean;
   /** Single sign-on, when the install has it (lib/auth/sso.ts). */
@@ -80,6 +82,7 @@ type SignupFormCardProps = {
   formLocked: boolean;
   isResendingVerification?: boolean;
   isSubmitting: boolean;
+  microsoft: SsoOption | null;
   onEmailChange: ChangeEventHandler<HTMLInputElement>;
   onFullNameChange: ChangeEventHandler<HTMLInputElement>;
   onPasswordChange: ChangeEventHandler<HTMLInputElement>;
@@ -100,6 +103,7 @@ function SignupFormCard({
   formLocked,
   isResendingVerification = false,
   isSubmitting,
+  microsoft,
   onEmailChange,
   onFullNameChange,
   onPasswordChange,
@@ -148,7 +152,15 @@ function SignupFormCard({
           />
         ) : null}
 
-        {sso && passwordSignIn ? (
+        {microsoft ? (
+          <SsoButton
+            onError={onSsoError}
+            sso={microsoft}
+            variant={passwordSignIn || sso ? "secondary" : "primary"}
+          />
+        ) : null}
+
+        {(sso || microsoft) && passwordSignIn ? (
           <p className="text-center text-xs font-semibold uppercase tracking-[0.12em] text-(--secondary)">
             or
           </p>
@@ -242,6 +254,7 @@ function SignupFormCard({
 }
 
 export function SignupShell({
+  microsoft = null,
   passwordSignIn = true,
   signupAvailable = true,
   signupRule = null,
@@ -253,7 +266,8 @@ export function SignupShell({
 
   return (
     <LiveSignupShell
-      passwordSignIn={passwordSignIn || !sso}
+      microsoft={microsoft}
+      passwordSignIn={passwordSignIn || (!sso && !microsoft)}
       signupRule={signupRule}
       sso={sso}
     />
@@ -284,10 +298,12 @@ function SignupClosedCard() {
 }
 
 function LiveSignupShell({
+  microsoft,
   passwordSignIn,
   signupRule,
   sso,
 }: {
+  microsoft: SsoOption | null;
   passwordSignIn: boolean;
   signupRule: string | null;
   sso: SsoOption | null;
@@ -452,6 +468,7 @@ function LiveSignupShell({
       formLocked={isSubmitting || isResendingVerification}
       isResendingVerification={isResendingVerification}
       isSubmitting={isSubmitting}
+      microsoft={microsoft}
       onEmailChange={handleChange("email")}
       onFullNameChange={handleChange("fullName")}
       onPasswordChange={handleChange("password")}
