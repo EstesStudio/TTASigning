@@ -31,7 +31,7 @@ export function NotFoundShell({
         className="panel w-full max-w-[560px] px-6 py-14 text-center sm:px-12 sm:py-16"
         data-animate="enter"
       >
-        <p className="text-[4.5rem] font-extrabold leading-none tracking-[-0.05em] text-(--accent)">
+        <p className="text-[4.5rem] font-extrabold leading-none tracking-[-0.05em] text-(--accent) dark:text-(--accent-ink)">
           404
         </p>
         <h1 className="mt-4 text-[clamp(1.875rem,5vw,2.5rem)] font-extrabold leading-[1.08] tracking-[-0.035em] text-(--fg)">

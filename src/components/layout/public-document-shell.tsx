@@ -2,6 +2,7 @@ import type { ReactNode } from "react";
 import { connection } from "next/server";
 
 import { Brand } from "@/components/layout/brand";
+import { ThemeMenu } from "@/components/theme/theme-menu";
 import { BrandingProvider } from "@/components/layout/branding-provider";
 import { PublicLegalFooter } from "@/components/layout/public-legal-links";
 import { PublicSessionMenu } from "@/components/layout/public-session-menu";
@@ -67,7 +68,10 @@ function PublicDocumentPage({
       <header>
         <div className="page-width flex items-center justify-between gap-4 py-4">
           <Brand href="/" />
-          <PublicSessionMenu />
+          <div className="flex items-center gap-2">
+            <ThemeMenu />
+            <PublicSessionMenu />
+          </div>
         </div>
       </header>
 

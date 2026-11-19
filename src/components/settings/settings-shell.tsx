@@ -674,7 +674,7 @@ export function SettingsShell({
                 {closureCopy}
               </p>
               <ShellButton
-                className="w-fit border-[rgba(180,35,24,0.35)] text-(--danger) hover:border-(--danger) hover:bg-(--danger-soft) hover:text-(--danger)"
+                className="w-fit border-(--danger)/35 text-(--danger) hover:border-(--danger) hover:bg-(--danger-soft) hover:text-(--danger)"
                 disabled={isBusy}
                 onClick={openClosureDialog}
                 variant="secondary"

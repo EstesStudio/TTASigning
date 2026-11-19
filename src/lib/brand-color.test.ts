@@ -4,6 +4,7 @@ import test from "node:test";
 import {
   buildBrandColorCss,
   buildBrandPalette,
+  buildDarkBrandPalette,
   contrastRatio,
   normalizeBrandColor,
 } from "./brand-color.ts";
@@ -84,6 +85,51 @@ test("every palette is readable, whatever color it starts from", () => {
   }
 });
 
+test("every dark palette is readable, whatever color it starts from", () => {
+  // The dark theme's page, card and raised card, as globals.css draws them.
+  const darkSurfaces = ["#111219", "#1a1b25", "#22232f"];
+
+  for (const color of [
+    "#000000",
+    "#ffffff",
+    "#ffd400",
+    "#00e676",
+    "#ff0000",
+    "#1a73e8",
+    "#0b3d2e",
+    "#ff69b4",
+    "#808080",
+    "#00ffff",
+  ]) {
+    const light = buildBrandPalette(color);
+
+    assert.ok(light, color);
+
+    const dark = buildDarkBrandPalette(light);
+
+    // White text on a button, still.
+    assert.ok(contrastRatio(dark.accent, "#ffffff") >= 4.5, color);
+    assert.ok(contrastRatio(dark.accentHover, "#ffffff") >= 4.5, color);
+
+    // Brand-colored text on the dark surfaces and on the dark tints.
+    for (const background of [
+      ...darkSurfaces,
+      dark.accentSoft,
+      dark.accentSofter,
+      dark.accentSoftHover,
+    ]) {
+      assert.ok(
+        contrastRatio(dark.accentInk, background) >= 4.5,
+        `${color} dark ink on ${background}`,
+      );
+    }
+
+    for (const shade of Object.values(dark)) {
+      assert.match(shade, /^(#[0-9a-f]{6}|\d{1,3} \d{1,3} \d{1,3})$/);
+    }
+  }
+});
+
 test("a light color is darkened rather than refused", () => {
   const palette = buildBrandPalette("#ffd400");
 
@@ -92,7 +138,7 @@ test("a light color is darkened rather than refused", () => {
   assert.ok(contrastRatio(palette.accent, "#ffffff") >= 4.5);
 });
 
-test("buildBrandColorCss writes one rule made only of colors", () => {
+test("buildBrandColorCss writes rules made only of colors", () => {
   assert.equal(buildBrandColorCss(null), null);
   assert.equal(buildBrandColorCss("not a color"), null);
   assert.equal(buildBrandColorCss("#fff;}*{display:none}"), null);
@@ -100,9 +146,21 @@ test("buildBrandColorCss writes one rule made only of colors", () => {
   const css = buildBrandColorCss("#1A73E8");
 
   assert.ok(css);
+
+  const block = String.raw`\{(--accent(-[a-z]+)*:(#[0-9a-f]{6}|\d{1,3} \d{1,3} \d{1,3});)+\}`;
+
   assert.match(
     css,
-    /^:root\{(--accent(-[a-z]+)*:(#[0-9a-f]{6}|\d{1,3} \d{1,3} \d{1,3});)+\}$/,
+    new RegExp(
+      "^" +
+        String.raw`:root,\.theme-light` +
+        block +
+        String.raw`@media \(prefers-color-scheme:dark\)\{:root:where\(:not\(\[data-theme="light"\]\)\)` +
+        block +
+        String.raw`\}:root:where\(\[data-theme="dark"\]\)` +
+        block +
+        "$",
+    ),
   );
   assert.ok(css.includes("--accent:#1a73e8;"));
 });
@@ -120,5 +178,22 @@ test("the default palette is the one the stylesheet ships with", async () => {
     brandPaletteVariables(DEFAULT_BRAND_PALETTE),
   )) {
     assert.ok(css.includes(`${name}: ${value};`), `${name}: ${value}`);
+  }
+});
+
+test("the default dark palette is the one the stylesheet ships with", async () => {
+  const { readFile } = await import("node:fs/promises");
+  const css = await readFile(
+    new URL("../app/globals.css", import.meta.url),
+    "utf8",
+  );
+  const darkBlock = css.slice(css.indexOf("@variant dark {"));
+  const { DEFAULT_BRAND_PALETTE, brandPaletteVariables } =
+    await import("./brand-color.ts");
+
+  for (const [name, value] of Object.entries(
+    brandPaletteVariables(buildDarkBrandPalette(DEFAULT_BRAND_PALETTE)),
+  )) {
+    assert.ok(darkBlock.includes(`${name}: ${value};`), `${name}: ${value}`);
   }
 });

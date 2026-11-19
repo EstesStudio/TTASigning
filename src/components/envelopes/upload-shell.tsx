@@ -124,7 +124,7 @@ function UploadShellLayout({
   const dropzoneClasses = isBusy
     ? "border-(--accent) bg-(--accent-softer)"
     : errorMessage
-      ? "border-[rgba(180,35,24,0.4)] bg-(--danger-soft)"
+      ? "border-(--danger)/40 bg-(--danger-soft)"
       : isDragActive
         ? "border-(--accent) bg-(--accent-softer)"
         : "border-(--border-strong) bg-(--surface) hover:border-(--accent) hover:bg-(--accent-softer)";
@@ -177,7 +177,7 @@ function UploadShellLayout({
                 <>
                   <div
                     aria-label="Upload progress"
-                    className="h-2 w-full max-w-sm overflow-hidden rounded-full bg-white"
+                    className="h-2 w-full max-w-sm overflow-hidden rounded-full bg-(--paper)"
                     role="progressbar"
                   >
                     <div className="h-full w-2/3 animate-pulse rounded-full bg-(--accent)" />
@@ -193,7 +193,7 @@ function UploadShellLayout({
                 </>
               ) : (
                 <>
-                  <span className="inline-flex size-12 items-center justify-center rounded-2xl bg-(--accent-soft) text-(--accent)">
+                  <span className="inline-flex size-12 items-center justify-center rounded-2xl bg-(--accent-soft) text-(--accent) dark:text-(--accent-ink)">
                     <UploadIcon
                       aria-hidden="true"
                       className="size-5"
@@ -238,11 +238,11 @@ function UploadShellLayout({
                   // eslint-disable-next-line @next/next/no-img-element
                   <img
                     alt=""
-                    className="max-h-full max-w-full rounded-[0.375rem] bg-white shadow-[0_1px_2px_rgba(28,29,43,0.08),0_4px_10px_rgba(28,29,43,0.10)] ring-1 ring-[rgba(28,29,43,0.06)]"
+                    className="max-h-full max-w-full rounded-[0.375rem] bg-white shadow-[0_1px_2px_rgb(var(--shadow-rgb)/0.08),0_4px_10px_rgb(var(--shadow-rgb)/0.10)] ring-1 ring-[rgb(var(--ink-rgb)/0.06)]"
                     src={previewUrl}
                   />
                 ) : (
-                  <span className="inline-flex size-11 items-center justify-center rounded-xl bg-white text-(--accent)">
+                  <span className="inline-flex size-11 items-center justify-center rounded-xl bg-(--paper) text-(--accent) dark:text-(--accent-ink)">
                     <FileTextIcon aria-hidden="true" className="size-5" />
                   </span>
                 )}

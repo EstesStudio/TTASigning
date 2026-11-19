@@ -9,6 +9,7 @@ import {
 } from "react";
 
 import { Brand } from "@/components/layout/brand";
+import { ThemeMenu } from "@/components/theme/theme-menu";
 import { PublicLegalFooter } from "@/components/layout/public-legal-links";
 import { FieldShell, ShellButton } from "@/components/shared/form-shell";
 import { Input } from "@/components/ui/input";
@@ -81,7 +82,10 @@ export function SetupShell({
       <header>
         <div className="page-width flex items-center justify-between gap-4 py-4">
           <Brand href="/setup" />
-          <span className="pill pill-accent">Setup</span>
+          <div className="flex items-center gap-2">
+            <ThemeMenu />
+            <span className="pill pill-accent">Setup</span>
+          </div>
         </div>
       </header>
 
