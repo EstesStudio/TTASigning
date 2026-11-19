@@ -15,6 +15,16 @@ function firstAddress(value: string | null): string | null {
  * them, so the usual proxy headers are used instead.
  */
 export function getClientIpHeaderNames(env: IpEnv = process.env): string[] {
+  // PetskySign: behind a proxy that rewrites one header itself (Cloudflare's
+  // cf-connecting-ip), that header is the only one to trust. The others keep
+  // whatever the visitor sent: Cloudflare appends to X-Forwarded-For, so its
+  // first address can be forged, and it ends up in the audit trail.
+  const trusted = env.TRUSTED_CLIENT_IP_HEADER?.trim().toLowerCase();
+
+  if (trusted) {
+    return [trusted];
+  }
+
   return env.VERCEL === "1"
     ? ["x-vercel-forwarded-for", "x-real-ip", "x-forwarded-for"]
     : ["x-forwarded-for", "cf-connecting-ip", "x-real-ip"];

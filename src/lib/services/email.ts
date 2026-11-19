@@ -4,6 +4,7 @@ import path from "node:path";
 
 import { Resend } from "resend";
 
+import { isPlaceholderEmail } from "../petsky/placeholder-email.ts";
 import { getSettings } from "../settings.ts";
 import { type EmailTemplateKind } from "../types/domain.ts";
 import { getEnv, isLocalDeployment, type EnvSource } from "../utils/env.ts";
@@ -314,7 +315,49 @@ export function isEmailNotConnectedError(error: unknown): boolean {
   );
 }
 
-export function createEmailService({
+/**
+ * PetskySign: a signer reached only by link is stored with an address that
+ * cannot receive mail (see petsky/placeholder-email.ts). Messages to it are
+ * dropped here, so no caller has to check, and reported as rejected.
+ */
+export function withoutPlaceholderRecipients(
+  service: EmailService,
+): EmailService {
+  return {
+    async send(message, options) {
+      if (isPlaceholderEmail(message.to)) {
+        return { accepted: [], rejected: [message.to] };
+      }
+
+      return service.send(message, options);
+    },
+
+    async sendBatch(messages, options) {
+      const deliverable = messages.filter(
+        (message) => !isPlaceholderEmail(message.to),
+      );
+      const delivered =
+        deliverable.length > 0
+          ? await service.sendBatch(deliverable, options)
+          : [];
+      let next = 0;
+
+      return messages.map((message) =>
+        isPlaceholderEmail(message.to)
+          ? { accepted: [], rejected: [message.to] }
+          : (delivered[next++] ?? { accepted: [], rejected: [message.to] }),
+      );
+    },
+  };
+}
+
+export function createEmailService(
+  options: CreateEmailServiceOptions = {},
+): EmailService {
+  return withoutPlaceholderRecipients(createDeliveringEmailService(options));
+}
+
+function createDeliveringEmailService({
   env = process.env,
   resolveAddresses = () => resolveEmailAddresses(env),
   resendClient,

@@ -42,6 +42,8 @@ export const systemAuditEventTypes = [
   "two_factor_requirement_changed",
   "logo_changed",
   "email_domain_changed",
+  // PetskySign: documents erased through the API (petsky/erasure.ts).
+  "documents_erased",
 ] as const;
 
 export type SystemAuditEventType = (typeof systemAuditEventTypes)[number];

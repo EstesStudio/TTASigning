@@ -6,6 +6,7 @@ import { useState, type FormEvent } from "react";
 import { Brand } from "@/components/layout/brand";
 import { PublicLegalFooter } from "@/components/layout/public-legal-links";
 import { FieldShell, ShellButton } from "@/components/shared/form-shell";
+import { tr } from "@/lib/petsky/locale";
 import type { SigningVerificationState } from "@/lib/schemas/signing";
 
 type Method = SigningVerificationState["required"][number];
@@ -60,7 +61,7 @@ export function SignerVerificationScreen({
       } | null;
 
       if (!response.ok) {
-        setError(payload?.error ?? "The code could not be sent right now.");
+        setError(payload?.error ?? tr("The code could not be sent right now."));
         return;
       }
 
@@ -68,7 +69,7 @@ export function SignerVerificationScreen({
         `A code was sent to ${payload?.maskedEmail ?? state.maskedEmail}.`,
       );
     } catch {
-      setError("The code could not be sent right now.");
+      setError(tr("The code could not be sent right now."));
     } finally {
       setIsSending(false);
     }
@@ -94,7 +95,9 @@ export function SignerVerificationScreen({
       } | null;
 
       if (!response.ok) {
-        setError(payload?.error ?? "The code could not be checked right now.");
+        setError(
+          payload?.error ?? tr("The code could not be checked right now."),
+        );
         return;
       }
 
@@ -102,7 +105,7 @@ export function SignerVerificationScreen({
       // document.
       window.location.reload();
     } catch {
-      setError("The code could not be checked right now.");
+      setError(tr("The code could not be checked right now."));
     } finally {
       setIsChecking(false);
     }
@@ -130,21 +133,25 @@ export function SignerVerificationScreen({
             <ShieldCheckIcon className="size-6" strokeWidth={2.2} />
           </span>
           <h1 className="mt-6 text-[clamp(1.625rem,4vw,2rem)] font-extrabold leading-tight tracking-[-0.03em] text-(--fg)">
-            Confirm it&apos;s you
+            {tr("Confirm it's you")}
           </h1>
           <p className="mt-3 text-base leading-7 text-(--secondary)">
-            {state.senderName} asked for a check before you open &ldquo;
-            {state.envelopeTitle}&rdquo;.
+            {tr("{sender} asked for a check before you open “{title}”.", {
+              sender: state.senderName,
+              title: state.envelopeTitle,
+            })}
             {state.required.length > 1
-              ? ` Step ${String(step)} of ${String(state.required.length)}.`
+              ? ` ${tr("Step {step} of {count}.", { count: state.required.length, step })}`
               : ""}
           </p>
           <form className="mt-8 grid gap-5" onSubmit={handleSubmit}>
             {method === "account" ? (
               <FieldShell
                 autoComplete="username"
-                helper={`The address this document was sent to (${state.maskedEmail}).`}
-                label="Email address"
+                helper={tr("The address this document was sent to ({email}).", {
+                  email: state.maskedEmail,
+                })}
+                label={tr("Email address")}
                 name="signer-email"
                 onChange={(event) => setEmail(event.target.value)}
                 readOnly={false}
@@ -156,8 +163,8 @@ export function SignerVerificationScreen({
               autoComplete={
                 method === "account" ? "current-password" : "one-time-code"
               }
-              helper={copy.helper}
-              label={copy.label}
+              helper={tr(copy.helper)}
+              label={tr(copy.label)}
               name="signer-code"
               onChange={(event) => setCode(event.target.value)}
               readOnly={false}
@@ -183,7 +190,7 @@ export function SignerVerificationScreen({
                 loading={isChecking}
                 type="submit"
               >
-                Continue
+                {tr("Continue")}
               </ShellButton>
               {method === "email_code" ? (
                 <ShellButton
@@ -191,7 +198,7 @@ export function SignerVerificationScreen({
                   onClick={sendCode}
                   variant="secondary"
                 >
-                  {notice ? "Send a new code" : "Email me a code"}
+                  {notice ? tr("Send a new code") : tr("Email me a code")}
                 </ShellButton>
               ) : null}
             </div>

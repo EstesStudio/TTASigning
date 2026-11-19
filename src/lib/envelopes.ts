@@ -126,6 +126,7 @@ import {
 import { PERMITTED_USE_VERSION } from "./permitted-uses.ts";
 import { hashAccessCode } from "./signer-checks.ts";
 import { escapeHtml } from "./utils/html.ts";
+import { isPlaceholderEmail } from "./petsky/placeholder-email.ts";
 
 type CreateDraftEnvelopeOptions = {
   database?: DbPool;
@@ -151,6 +152,11 @@ type SendDraftEnvelopeInput = {
    * own name through the install's signing provider. Simple by default.
    */
   signatureLevel?: "advanced" | "qualified" | "simple";
+  /**
+   * PetskySign. "link": the first signer is not emailed; the signing link is
+   * returned (as signingUrl) for the sender to pass on. Email by default.
+   */
+  delivery?: "email" | "link";
   ipAddress?: string | null;
   senderEmail: string;
   senderName: string;
@@ -1422,8 +1428,12 @@ function buildDashboardContextLine(
   signers: readonly PersistedSignerRecord[],
   fields: readonly PersistedFieldRecord[],
 ): string {
+  // PetskySign: a link-only signer has no address to show; their name stands in.
+  const who = (signer: PersistedSignerRecord) =>
+    isPlaceholderEmail(signer.email) ? signer.name : signer.email;
+
   if (envelope.status === "completed") {
-    const sentTo = signers.map((signer) => signer.email).join(", ");
+    const sentTo = signers.map(who).join(", ");
     return sentTo.length > 0 ? `Sent to: ${sentTo}` : "Sent to: —";
   }
 
@@ -1433,17 +1443,17 @@ function buildDashboardContextLine(
       signers.find((signer) => signer.status === "pending");
 
     if (isEnvelopeExpired(envelope, Math.floor(Date.now() / 1000))) {
-      return `Expired ${formatShortDate(envelope.expiresAt!)} · was waiting on: ${currentSigner?.email ?? "—"}`;
+      return `Expired ${formatShortDate(envelope.expiresAt!)} · was waiting on: ${currentSigner ? who(currentSigner) : "—"}`;
     }
 
-    return `Waiting on: ${currentSigner?.email ?? "—"}`;
+    return `Waiting on: ${currentSigner ? who(currentSigner) : "—"}`;
   }
 
   if (envelope.status === "declined") {
     const declinedSigner = signers.find(
       (signer) => signer.status === "declined",
     );
-    return `Declined by: ${declinedSigner?.email ?? "—"}`;
+    return `Declined by: ${declinedSigner ? who(declinedSigner) : "—"}`;
   }
 
   if (envelope.status === "voided") {
@@ -1875,7 +1885,9 @@ export async function listEnvelopesForUser(
       searchableEmails: [
         ...signers,
         ...(copyRecipientsByEnvelope.get(envelope.id) ?? []),
-      ].map((recipient) => recipient.email),
+      ]
+        .map((recipient) => recipient.email)
+        .filter((email) => !isPlaceholderEmail(email)),
       status: envelope.status,
       statusLabel: buildDashboardStatusLabel(envelope, signers),
       title: envelope.title,
@@ -2455,7 +2467,9 @@ export async function sendDraftEnvelope(
     );
   }
 
-  const emailService = createEmailServiceForSending();
+  const deliverByLink = input.delivery === "link";
+  // A link send emails no one, so it needs no email provider.
+  const emailService = deliverByLink ? null : createEmailServiceForSending();
   const storageService = createStorageService();
   const sourcePdfHead = await storageService.headObject(envelope.sourcePdfKey);
 
@@ -2485,7 +2499,8 @@ export async function sendDraftEnvelope(
             updated_at = $2,
             expires_at = $5,
             expiry_notified_at = NULL,
-            reminder_interval_days = $6
+            reminder_interval_days = $6,
+            delivery_channel = $7
           WHERE id = $3
             AND user_id = $4
             AND status = 'draft'
@@ -2497,6 +2512,7 @@ export async function sendDraftEnvelope(
           userId,
           expiresAt,
           input.reminderIntervalDays ?? null,
+          deliverByLink ? "link" : "email",
         ],
       );
 
@@ -2625,6 +2641,7 @@ export async function sendDraftEnvelope(
             reminderIntervalDays: input.reminderIntervalDays ?? null,
             permittedUseConfirmed: true,
             permittedUseVersion: PERMITTED_USE_VERSION,
+            ...(deliverByLink ? { deliveryChannel: "link" } : {}),
             ...(part11 ? { part11: true } : {}),
             ...(signingProvider
               ? {
@@ -2643,6 +2660,17 @@ export async function sendDraftEnvelope(
     }, database);
   } catch (error) {
     throw error;
+  }
+
+  if (!emailService) {
+    return sendEnvelopeResponseSchema.parse({
+      envelopeId,
+      expiresAt,
+      notifiedSignerName: firstSigner.name,
+      redirectPath: `/envelopes/${envelopeId}`,
+      sentAt,
+      signingUrl: issuedLink.url,
+    });
   }
 
   let invitationMessageId: string | undefined;

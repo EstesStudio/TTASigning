@@ -114,6 +114,7 @@ import {
   type SignerCheckMethod,
   type SignerCheckState,
 } from "./signer-checks.ts";
+import { intlLocale, tr } from "./petsky/locale.ts";
 
 export type SigningRequestMeta = {
   ipAddress?: string | null;
@@ -211,6 +212,10 @@ type SigningPageRow = {
 type SenderRow = {
   email: string;
   name: string | null;
+  /** PetskySign: the business that sent the document (document-branding.ts). */
+  brandName?: string | null;
+  /** PetskySign: how to reach that business. */
+  brandContact?: string | null;
 };
 
 type ResolvedSigningContext = {
@@ -295,14 +300,14 @@ function getSigningUnavailableMessage(
 ): string {
   switch (state) {
     case "already-signed":
-      return "You've already signed.";
+      return tr("You've already signed.");
     case "declined":
-      return "This envelope has been declined.";
+      return tr("This envelope has been declined.");
     case "voided":
-      return "This envelope has been voided.";
+      return tr("This envelope has been voided.");
     case "expired":
     default:
-      return "This link has expired.";
+      return tr("This link has expired.");
   }
 }
 
@@ -325,16 +330,31 @@ function getSigningDeclineUrl(token: string): string {
 function getSigningDoneRedirectPath(
   token: string,
   envelopeTitle: string,
+  envelopeId?: string,
 ): string {
   const searchParams = new URLSearchParams();
 
   searchParams.set("title", envelopeTitle);
+
+  // PetskySign: the done page shows the business that sent it.
+  if (envelopeId) {
+    searchParams.set("d", envelopeId);
+  }
 
   return `/sign/${encodeURIComponent(token)}/done?${searchParams.toString()}`;
 }
 
 function normalizeSenderName(sender: SenderRow): string {
   return sender.name?.trim() ? sender.name : sender.email;
+}
+
+/**
+ * PetskySign: who the signer is told sent the document: the business it was
+ * sent for, when there is one. Messages to the sender's own account keep the
+ * account's name (normalizeSenderName).
+ */
+function signerFacingSenderName(sender: SenderRow): string {
+  return sender.brandName?.trim() || normalizeSenderName(sender);
 }
 
 function getEnvelopeUrl(envelopeId: string): string {
@@ -717,18 +737,24 @@ async function listPageRows(
 async function getSenderRow(
   userId: string,
   database: DbExecutor,
+  envelopeId?: string,
 ): Promise<SenderRow | undefined> {
+  // PetskySign: the business a document was sent for (document-branding.ts)
+  // comes along, for what its signer is shown (signerFacingSenderName).
   return (
     (await queryOne<SenderRow>(
       database,
       `
         SELECT
-          name,
-          email
-        FROM "user"
-        WHERE id = $1
+          u.name,
+          u.email,
+          e.brand_name AS "brandName",
+          e.brand_contact AS "brandContact"
+        FROM "user" u
+        LEFT JOIN envelopes e ON e.id = $2
+        WHERE u.id = $1
       `,
-      [userId],
+      [userId, envelopeId ?? null],
     )) ?? undefined
   );
 }
@@ -870,7 +896,7 @@ function formatLocalSigningDate(
     submittedAt * 1000 - timezoneOffsetMinutes * 60 * 1000,
   );
 
-  return new Intl.DateTimeFormat("en-US", {
+  return new Intl.DateTimeFormat(intlLocale(), {
     day: "numeric",
     month: "long",
     timeZone: "UTC",
@@ -1153,6 +1179,7 @@ async function sendCompletionEmails(input: {
   ];
   const attach = fitsAsAttachments(attachments);
   const senderName = normalizeSenderName(input.sender);
+  const signerFacingName = signerFacingSenderName(input.sender);
   const issuedAt = Math.floor(Date.now() / 1000);
   const branding = await getBranding();
   // Signers first, then the people who only get a copy: the place in this
@@ -1208,7 +1235,7 @@ async function sendCompletionEmails(input: {
             envelopeId: input.envelopeId,
             envelopeTitle: input.envelopeTitle,
             evidenceDownloadUrl: redactedEvidenceLink.url,
-            senderName,
+            senderName: signerFacingName,
             signedDownloadUrl: signedLink.url,
             signerEmail: signer.email,
             signerName: signer.name,
@@ -1268,7 +1295,8 @@ export class SigningMutationError extends Error {
   readonly statusCode: number;
 
   constructor(message: string, statusCode: number) {
-    super(message);
+    // PetskySign: the signer reads this; shown in the app's language.
+    super(tr(message));
     this.name = "SigningMutationError";
     this.statusCode = statusCode;
   }
@@ -1304,7 +1332,7 @@ async function assertSignerChecksPassed(
       maskedEmail: maskEmailAddress(context.signer.email),
       pending,
       required,
-      senderName: normalizeSenderName(context.sender),
+      senderName: signerFacingSenderName(context.sender),
     });
   }
 
@@ -1770,7 +1798,11 @@ async function resolveSigningContext(
     throw new SigningAccessError("expired");
   }
 
-  const sender = await getSenderRow(envelopeRow.userId, database);
+  const sender = await getSenderRow(
+    envelopeRow.userId,
+    database,
+    envelopeRow.id,
+  );
 
   if (!sender) {
     throw new SigningAccessError("expired");
@@ -1874,8 +1906,11 @@ export async function getSigningPayloadForToken(
     currentSignerFields,
     disclosure: {
       sections: buildElectronicRecordsDisclosure({
-        contactAddress: branding.supportAddress ?? context.sender.email,
-        senderName: normalizeSenderName(context.sender),
+        contactAddress:
+          context.sender.brandContact ??
+          branding.supportAddress ??
+          context.sender.email,
+        senderName: signerFacingSenderName(context.sender),
       }),
       statement: CONSENT_STATEMENT,
       version: ELECTRONIC_RECORDS_DISCLOSURE_VERSION,
@@ -1908,7 +1943,7 @@ export async function getSigningPayloadForToken(
             startUrl: `/api/signing/${encodeURIComponent(token)}/provider/start`,
           }
         : null,
-    senderName: normalizeSenderName(context.sender),
+    senderName: signerFacingSenderName(context.sender),
     signer: {
       email: context.signer.email,
       id: context.signer.id,
@@ -2646,7 +2681,7 @@ export async function submitSigningForToken(
             branding: await getBranding(),
             envelopeTitle: context.envelope.title,
             expiresAt: nextSignerDeadline,
-            senderName: normalizeSenderName(context.sender),
+            senderName: signerFacingSenderName(context.sender),
             signerEmail: nextSignerDelivery.email,
             signerName: nextSignerDelivery.name,
             signingUrl: nextSignerLink.url,
@@ -2672,7 +2707,11 @@ export async function submitSigningForToken(
 
       return signingSubmitResponseSchema.parse({
         envelopeId: context.envelope.id,
-        redirectPath: getSigningDoneRedirectPath(token, context.envelope.title),
+        redirectPath: getSigningDoneRedirectPath(
+          token,
+          context.envelope.title,
+          context.envelope.id,
+        ),
         submittedAt,
       });
     }
@@ -2937,7 +2976,11 @@ export async function submitSigningForToken(
 
     return signingSubmitResponseSchema.parse({
       envelopeId: context.envelope.id,
-      redirectPath: getSigningDoneRedirectPath(token, context.envelope.title),
+      redirectPath: getSigningDoneRedirectPath(
+        token,
+        context.envelope.title,
+        context.envelope.id,
+      ),
       submittedAt,
     });
   } catch (error) {

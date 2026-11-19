@@ -16,6 +16,7 @@ import {
   buildRateLimitKey,
 } from "@/lib/security/route-controls";
 import { getClientIpAddress } from "@/lib/security/request";
+import { tr } from "@/lib/petsky/locale";
 
 type SigningDocumentRouteContext = {
   params: Promise<{
@@ -97,7 +98,7 @@ export async function GET(
 
     return NextResponse.json(
       {
-        error: "Unable to load this document.",
+        error: tr("Unable to load this document."),
       },
       {
         headers: {

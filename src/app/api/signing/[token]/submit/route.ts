@@ -21,6 +21,7 @@ import {
   getClientIpAddress,
   getRequestUserAgent,
 } from "@/lib/security/request";
+import { tr } from "@/lib/petsky/locale";
 
 type SigningSubmitRouteContext = {
   params: Promise<{
@@ -125,7 +126,7 @@ export async function POST(
 
     return NextResponse.json(
       {
-        error: "Unable to finish signing.",
+        error: tr("Unable to finish signing."),
       },
       {
         headers: {

@@ -1,17 +1,28 @@
+"use client";
+
 import { Brand } from "@/components/layout/brand";
 import { PublicLegalFooter } from "@/components/layout/public-legal-links";
-
-const fallbackEnvelopeTitle = "this document";
+import { useBranding } from "@/components/layout/branding-provider";
+import { tr } from "@/lib/petsky/locale";
 
 type SigningDoneShellProps = {
+  /**
+   * PetskySign: "link" when the signer was not reached by email, so no
+   * email with the signed copy is coming either.
+   */
+  deliveryChannel?: "email" | "link";
   envelopeTitle?: string | null;
 };
 
-export function SigningDoneShell({ envelopeTitle }: SigningDoneShellProps) {
+export function SigningDoneShell({
+  deliveryChannel = "email",
+  envelopeTitle,
+}: SigningDoneShellProps) {
+  const { productName } = useBranding();
   const resolvedEnvelopeTitle =
     envelopeTitle && envelopeTitle.trim().length > 0
       ? envelopeTitle.trim()
-      : fallbackEnvelopeTitle;
+      : tr("this document");
 
   return (
     <div className="flex min-h-screen flex-col">
@@ -47,21 +58,27 @@ export function SigningDoneShell({ envelopeTitle }: SigningDoneShellProps) {
           </div>
 
           <h1 className="mt-7 text-[clamp(1.875rem,4.5vw,2.375rem)] font-extrabold tracking-[-0.035em] text-(--fg)">
-            You&apos;re all done.
+            {tr("You're all done.")}
           </h1>
           <p className="mx-auto mt-4 max-w-[480px] text-base leading-7 text-(--secondary)">
-            Your signature has been recorded for{" "}
+            {tr("Your signature has been recorded for")}{" "}
             <span className="font-bold text-(--fg)">
               &quot;{resolvedEnvelopeTitle}&quot;
             </span>
             .
           </p>
           <p className="mx-auto mt-3 max-w-[480px] text-base leading-7 text-(--secondary)">
-            You&apos;ll receive an email with the signed document once all
-            parties have signed.
+            {deliveryChannel === "link"
+              ? tr(
+                  "{business} will send you the signed document once all parties have signed.",
+                  { business: productName },
+                )
+              : tr(
+                  "You'll receive an email with the signed document once all parties have signed.",
+                )}
           </p>
           <p className="mt-8 inline-flex rounded-full bg-(--surface) px-4 py-2 text-sm font-semibold text-(--secondary)">
-            You can close this tab.
+            {tr("You can close this tab.")}
           </p>
         </section>
       </main>

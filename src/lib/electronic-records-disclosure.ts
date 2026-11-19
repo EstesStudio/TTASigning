@@ -4,7 +4,18 @@
 // each signer's agreement, so the record shows which words they saw. Change
 // the version whenever the words change.
 
-export const ELECTRONIC_RECORDS_DISCLOSURE_VERSION = "2026-11-13";
+import { appLocale } from "./petsky/locale.ts";
+import {
+  buildPortugueseDisclosure,
+  PORTUGUESE_CONSENT_STATEMENT,
+  PORTUGUESE_DISCLOSURE_VERSION,
+} from "./petsky/disclosure-pt-br.ts";
+
+// PetskySign: with NEXT_PUBLIC_APP_LOCALE=pt-BR the signer sees (and agrees
+// to) the Brazilian text in petsky/disclosure-pt-br.ts, under its own
+// version, so each signer's record shows which words they saw.
+export const ELECTRONIC_RECORDS_DISCLOSURE_VERSION =
+  appLocale() === "pt-BR" ? PORTUGUESE_DISCLOSURE_VERSION : "2026-11-13";
 
 export type DisclosureParty = {
   /** Who to ask for a paper copy or to withdraw: the organization or sender. */
@@ -17,6 +28,10 @@ export type DisclosureSection = { heading: string; text: string };
 export function buildElectronicRecordsDisclosure(
   party: DisclosureParty,
 ): DisclosureSection[] {
+  if (appLocale() === "pt-BR") {
+    return buildPortugueseDisclosure(party);
+  }
+
   const contact = party.contactAddress
     ? `${party.senderName} at ${party.contactAddress}`
     : party.senderName;
@@ -46,4 +61,6 @@ export function buildElectronicRecordsDisclosure(
 }
 
 export const CONSENT_STATEMENT =
-  "I have read the disclosure above, I can open and save PDF files on this device, and I agree to use electronic records and signatures for this document.";
+  appLocale() === "pt-BR"
+    ? PORTUGUESE_CONSENT_STATEMENT
+    : "I have read the disclosure above, I can open and save PDF files on this device, and I agree to use electronic records and signatures for this document.";

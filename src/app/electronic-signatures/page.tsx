@@ -9,6 +9,8 @@ import {
   WHAT_IT_IS,
   WHAT_IT_IS_NOT,
 } from "@/lib/permitted-uses";
+import { ElectronicSignaturesPtBrPage } from "@/components/petsky/electronic-signatures-pt-br";
+import { appLocale } from "@/lib/petsky/locale";
 import { getBranding } from "@/lib/settings";
 
 export const metadata: Metadata = {
@@ -33,6 +35,16 @@ export default async function ElectronicSignaturesPage() {
   await connection();
 
   const { productName } = await getBranding();
+
+  // PetskySign: the Brazilian version of this page.
+  if (appLocale() === "pt-BR") {
+    return (
+      <ElectronicSignaturesPtBrPage
+        lastUpdated={PERMITTED_USE_VERSION}
+        productName={productName}
+      />
+    );
+  }
 
   return (
     <PublicDocumentShell

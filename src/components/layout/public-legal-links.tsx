@@ -7,6 +7,7 @@ import { SIGNUDOC_NAME, SIGNUDOC_URL } from "@/lib/branding";
 import { PUBLIC_COPYRIGHT_YEAR, publicFooterLinks } from "@/lib/legal";
 import { cn } from "@/lib/cn";
 import { PERMITTED_USE_PATH } from "@/lib/permitted-uses";
+import { tr } from "@/lib/petsky/locale";
 
 type PublicLegalFooterProps = {
   className?: string;
@@ -45,7 +46,9 @@ export function PublicLegalFooter({
               {
                 external: true,
                 href: branding.termsUrl,
-                label: labelVariant === "long" ? "Terms of Service" : "Terms",
+                label: tr(
+                  labelVariant === "long" ? "Terms of Service" : "Terms",
+                ),
               },
             ]
           : []),
@@ -55,12 +58,12 @@ export function PublicLegalFooter({
           ? {
               external: true,
               href: branding.privacyUrl,
-              label: labelVariant === "long" ? "Privacy Policy" : "Privacy",
+              label: tr(labelVariant === "long" ? "Privacy Policy" : "Privacy"),
             }
           : {
               external: false,
               href: "/signer-privacy",
-              label: labelVariant === "long" ? "Privacy notice" : "Privacy",
+              label: tr(labelVariant === "long" ? "Privacy notice" : "Privacy"),
             },
       ];
 
@@ -68,7 +71,7 @@ export function PublicLegalFooter({
   links.push({
     external: false,
     href: PERMITTED_USE_PATH,
-    label: labelVariant === "long" ? "What this is for" : "E-signatures",
+    label: tr(labelVariant === "long" ? "What this is for" : "E-signatures"),
   });
 
   return (
@@ -115,7 +118,7 @@ export function PublicLegalFooter({
               rel="noreferrer"
               target="_blank"
             >
-              Powered by {SIGNUDOC_NAME}
+              {tr("Powered by {name}", { name: SIGNUDOC_NAME })}
             </a>
           )}
         </div>

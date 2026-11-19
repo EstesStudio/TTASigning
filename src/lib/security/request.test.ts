@@ -57,3 +57,20 @@ test("an empty header is passed over, and no header at all gives no address", ()
   );
   assert.equal(getClientIpAddress(new Headers(), onVercel), null);
 });
+
+test("behind Cloudflare, only the header it rewrites is trusted", () => {
+  const env = { TRUSTED_CLIENT_IP_HEADER: "CF-Connecting-IP" };
+  // The visitor sent a forged X-Forwarded-For; Cloudflare appended the real
+  // address to it and wrote cf-connecting-ip itself.
+  const headers = new Headers({
+    "cf-connecting-ip": "198.51.100.7",
+    "x-forwarded-for": "1.2.3.4, 198.51.100.7",
+  });
+
+  assert.deepEqual(getClientIpHeaderNames(env), ["cf-connecting-ip"]);
+  assert.equal(getClientIpAddress(headers, env), "198.51.100.7");
+  assert.equal(
+    getClientIpAddress(new Headers({ "x-forwarded-for": "1.2.3.4" }), env),
+    null,
+  );
+});

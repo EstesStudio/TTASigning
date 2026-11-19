@@ -167,7 +167,8 @@ async function listEnvelopeArtifactsForUser(
   );
 }
 
-async function listFieldImagesForEnvelopeIds(
+// Exported for PetskySign's erasure by business (petsky/erasure.ts).
+export async function listFieldImagesForEnvelopeIds(
   envelopeIds: readonly string[],
   database: DbExecutor,
 ): Promise<Map<string, string[]>> {
@@ -232,7 +233,7 @@ function thumbnailKeyOf(
  * once more after the row has gone. An upload that finishes later than this
  * finds no row and removes its own picture.
  */
-async function deleteThumbnailStoredMeanwhile(
+export async function deleteThumbnailStoredMeanwhile(
   envelope: Pick<EnvelopeArtifactRow, "id" | "sourcePdfKey" | "userId">,
   storageService: StorageService,
 ) {
@@ -244,7 +245,7 @@ async function deleteThumbnailStoredMeanwhile(
   });
 }
 
-function buildEnvelopeStorageKeys(
+export function buildEnvelopeStorageKeys(
   envelope: Pick<
     EnvelopeArtifactRow,
     "evidenceKey" | "id" | "signedPdfKey" | "sourcePdfKey" | "status" | "userId"
@@ -269,7 +270,7 @@ function buildEnvelopeStorageKeys(
   return [...keys];
 }
 
-async function deleteStorageKeys(
+export async function deleteStorageKeys(
   keys: readonly string[],
   storageService: StorageService,
 ) {

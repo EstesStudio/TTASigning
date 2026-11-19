@@ -31,6 +31,8 @@ import {
   type StorageObjectRef,
   type StorageService,
 } from "./storage.ts";
+import { tr } from "../petsky/locale.ts";
+import { isPlaceholderEmail } from "../petsky/placeholder-email.ts";
 
 const DEFAULT_AUDIT_PAGE_SIZE = {
   height: 792,
@@ -160,18 +162,23 @@ function redactAuditEventForRecipients(
  */
 export function describeAuditActor(event: AuditEventRecord): string {
   if (event.actorType !== "signer") {
-    return event.actorEmail ?? event.actorType;
+    return event.actorEmail ?? tr(event.actorType);
   }
 
   const actor =
     event.actorEmail ??
     (typeof event.metadata?.signerEmail === "string"
       ? event.metadata.signerEmail
-      : event.actorType);
+      : tr(event.actorType));
   const signerName =
     typeof event.metadata?.signerName === "string"
       ? event.metadata.signerName
       : null;
+
+  // PetskySign: a link-only signer has no address to show.
+  if (isPlaceholderEmail(actor)) {
+    return signerName ?? "signer";
+  }
 
   return signerName && actor !== signerName
     ? `${signerName} <${actor}>`
@@ -341,18 +348,26 @@ function stripCompletedAuditEvents(
   return auditEvents.filter((event) => event.event !== "completed");
 }
 
+/** PetskySign: an audit event's name in the app's language. */
+function auditEventLabel(event: string): string {
+  const key = `audit event: ${event}`;
+  const label = tr(key);
+
+  return label === key ? event : label;
+}
+
 function getEnvelopeStatusLabel(status: EnvelopeRecord["status"]): string {
   switch (status) {
     case "completed":
-      return "Completed";
+      return tr("Completed");
     case "declined":
-      return "Declined";
+      return tr("Declined");
     case "voided":
-      return "Voided";
+      return tr("Voided");
     case "sent":
-      return "Sent";
+      return tr("Sent");
     case "draft":
-      return "Draft";
+      return tr("Draft");
     default:
       return status;
   }
@@ -360,20 +375,20 @@ function getEnvelopeStatusLabel(status: EnvelopeRecord["status"]): string {
 
 function getCertificateTitle(envelope: EnvelopeRecord): string {
   return envelope.status === "completed"
-    ? "SignuDoc Certificate of Completion"
-    : "SignuDoc Audit Certificate";
+    ? tr("SignuDoc Certificate of Completion")
+    : tr("SignuDoc Audit Certificate");
 }
 
 function getTerminalTimestampLabel(envelope: EnvelopeRecord): string {
   switch (envelope.status) {
     case "completed":
-      return "Completed at";
+      return tr("Completed at");
     case "declined":
-      return "Declined at";
+      return tr("Declined at");
     case "voided":
-      return "Voided at";
+      return tr("Voided at");
     default:
-      return "Recorded at";
+      return tr("Recorded at");
   }
 }
 
@@ -696,28 +711,28 @@ function buildAuditLines(input: {
     },
   );
   pushParagraph(
-    `Envelope ID: ${input.envelope.id}`,
+    tr("Envelope ID: {id}", { id: input.envelope.id }),
     input.fonts.regular,
     bodyFontSize,
   );
   pushParagraph(
-    `Document title: ${input.envelope.title}`,
+    tr("Document title: {title}", { title: input.envelope.title }),
     input.fonts.regular,
     bodyFontSize,
   );
   pushParagraph(
-    `Source PDF: ${input.envelope.sourcePdfFilename}`,
+    tr("Source PDF: {file}", { file: input.envelope.sourcePdfFilename }),
     input.fonts.regular,
     bodyFontSize,
   );
   pushParagraph(
-    `Source document hash: ${input.envelope.sourcePdfHash}`,
+    tr("Source document hash: {hash}", { hash: input.envelope.sourcePdfHash }),
     input.fonts.regular,
     bodyFontSize,
   );
   if (input.signedPdfSha256) {
     pushParagraph(
-      `Signed document SHA-256: ${input.signedPdfSha256}`,
+      tr("Signed document SHA-256: {hash}", { hash: input.signedPdfSha256 }),
       input.fonts.regular,
       bodyFontSize,
     );
@@ -725,14 +740,18 @@ function buildAuditLines(input: {
 
   if (input.auditFingerprint) {
     pushParagraph(
-      `Audit trail fingerprint (SHA-256): ${input.auditFingerprint}`,
+      tr("Audit trail fingerprint (SHA-256): {hash}", {
+        hash: input.auditFingerprint,
+      }),
       input.fonts.regular,
       bodyFontSize,
     );
   }
 
   pushParagraph(
-    `Status: ${getEnvelopeStatusLabel(input.envelope.status)}`,
+    tr("Status: {status}", {
+      status: getEnvelopeStatusLabel(input.envelope.status),
+    }),
     input.fonts.regular,
     bodyFontSize,
   );
@@ -745,15 +764,16 @@ function buildAuditLines(input: {
     },
   );
 
-  pushParagraph("Signers", input.fonts.bold, sectionFontSize, {
+  pushParagraph(tr("Signers"), input.fonts.bold, sectionFontSize, {
     gapAfter: 4,
   });
 
   for (const signer of input.signers) {
     const actionLabel = getSignerCertificateActionLabel(input.envelope, signer);
-    const signerLabel = input.redactForRecipients
-      ? `${signer.signOrder}. ${signer.name} | ${actionLabel}`
-      : `${signer.signOrder}. ${signer.name} <${signer.email}> | ${actionLabel}`;
+    const signerLabel =
+      input.redactForRecipients || isPlaceholderEmail(signer.email)
+        ? `${signer.signOrder}. ${signer.name} | ${actionLabel}`
+        : `${signer.signOrder}. ${signer.name} <${signer.email}> | ${actionLabel}`;
 
     pushParagraph(signerLabel, input.fonts.regular, bodyFontSize);
 
@@ -767,12 +787,12 @@ function buildAuditLines(input: {
   }
 
   if (input.copyRecipients && input.copyRecipients.length > 0) {
-    pushParagraph("Copy recipients", input.fonts.bold, sectionFontSize, {
+    pushParagraph(tr("Copy recipients"), input.fonts.bold, sectionFontSize, {
       gapAfter: 4,
       gapBefore: 10,
     });
     pushParagraph(
-      "Sent a copy of the finished document. They did not sign it.",
+      tr("Sent a copy of the finished document. They did not sign it."),
       input.fonts.regular,
       bodyFontSize,
     );
@@ -788,7 +808,7 @@ function buildAuditLines(input: {
     }
   }
 
-  pushParagraph("Audit events", input.fonts.bold, sectionFontSize, {
+  pushParagraph(tr("Audit events"), input.fonts.bold, sectionFontSize, {
     gapAfter: 4,
     gapBefore: 10,
   });
@@ -796,7 +816,9 @@ function buildAuditLines(input: {
   for (const event of auditEvents) {
     const actorLabel = describeAuditActor(event);
     const eventLabel =
-      event.event === "signer_corrected" ? "Signer corrected" : event.event;
+      event.event === "signer_corrected"
+        ? tr("Signer corrected")
+        : auditEventLabel(event.event);
 
     pushParagraph(
       `${formatAuditTimestamp(event.createdAt)} | ${eventLabel} | ${actorLabel}`,
@@ -809,12 +831,19 @@ function buildAuditLines(input: {
     }
   }
 
-  pushParagraph("How to check this record", input.fonts.bold, sectionFontSize, {
-    gapAfter: 4,
-    gapBefore: 10,
-  });
   pushParagraph(
-    "The signed document and this certificate are each sealed with a digital signature. A PDF reader shows the seal as valid only if the file has not changed since it was sealed. The SHA-256 values above can also be checked on this site's Verify page.",
+    tr("How to check this record"),
+    input.fonts.bold,
+    sectionFontSize,
+    {
+      gapAfter: 4,
+      gapBefore: 10,
+    },
+  );
+  pushParagraph(
+    tr(
+      "The signed document and this certificate are each sealed with a digital signature. A PDF reader shows the seal as valid only if the file has not changed since it was sealed. The SHA-256 values above can also be checked on this site's Verify page.",
+    ),
     input.fonts.regular,
     bodyFontSize,
   );
@@ -962,7 +991,7 @@ function describeSignerEvidence(
   }
 
   const checks = [
-    "possession of the emailed signing link",
+    tr("possession of the emailed signing link"),
     ...readStringArray(signed?.metadata?.authMethods).map(
       (method) => AUTHENTICATION_LABELS[method] ?? method,
     ),
@@ -978,7 +1007,7 @@ function describeSignerEvidence(
   }
 
   if (signed || signer.status === "declined") {
-    details.push(`Identified by: ${checks.join(", ")}`);
+    details.push(tr("Identified by: {checks}", { checks: checks.join(", ") }));
   }
 
   const manifestation = buildSignatureManifestation(signer);
@@ -995,24 +1024,29 @@ function describeSignerEvidence(
 
   if (consented) {
     details.push(
-      `Agreed to use electronic records and signatures at ${formatAuditTimestamp(consented.createdAt)}${
-        typeof consented.metadata?.disclosureVersion === "string"
-          ? ` (disclosure ${consented.metadata.disclosureVersion})`
-          : ""
-      }`,
+      tr("Agreed to use electronic records and signatures at {time}", {
+        time: formatAuditTimestamp(consented.createdAt),
+      }) +
+        (typeof consented.metadata?.disclosureVersion === "string"
+          ? ` (${tr("disclosure {version}", { version: consented.metadata.disclosureVersion })})`
+          : ""),
     );
   }
 
   const methods = readStringArray(signed?.metadata?.signatureMethods);
 
   if (methods.length > 0) {
-    details.push(`Signature adopted by: ${methods.join(", ")}`);
+    details.push(
+      tr("Signature adopted by: {methods}", {
+        methods: methods.map((method) => tr(method)).join(", "),
+      }),
+    );
   }
 
   details.push(...describeProviderSignatureEvidence(signed, redacted));
 
   if (!redacted && signed?.ipAddress) {
-    details.push(`Signed from IP ${signed.ipAddress}`);
+    details.push(tr("Signed from IP {ip}", { ip: signed.ipAddress }));
   }
 
   return details;
@@ -1026,7 +1060,9 @@ function describeEventEvidence(event: AuditEventRecord): string[] {
     details.push(
       [
         event.ipAddress ? `IP ${event.ipAddress}` : null,
-        event.userAgent ? `browser ${event.userAgent.slice(0, 160)}` : null,
+        event.userAgent
+          ? `${tr("browser")} ${event.userAgent.slice(0, 160)}`
+          : null,
       ]
         .filter(Boolean)
         .join(" | "),
@@ -1040,7 +1076,9 @@ function describeEventEvidence(event: AuditEventRecord): string[] {
     const minutes = Math.abs(offset) % 60;
 
     details.push(
-      `signer's clock: UTC${sign}${String(hours).padStart(2, "0")}:${String(minutes).padStart(2, "0")}`,
+      tr("signer's clock: {offset}", {
+        offset: `UTC${sign}${String(hours).padStart(2, "0")}:${String(minutes).padStart(2, "0")}`,
+      }),
     );
   }
 
@@ -1091,21 +1129,25 @@ function getSignerCertificateActionLabel(
 ): string {
   switch (signer.status) {
     case "signed":
-      return `Signed at ${formatAuditTimestamp(signer.signedAt)}`;
+      return tr("Signed at {time}", {
+        time: formatAuditTimestamp(signer.signedAt),
+      });
     case "declined":
-      return `Declined at ${formatAuditTimestamp(signer.declinedAt)}`;
+      return tr("Declined at {time}", {
+        time: formatAuditTimestamp(signer.declinedAt),
+      });
     case "notified":
       if (envelope.status === "voided") {
-        return "Awaiting signature when envelope was voided";
+        return tr("Awaiting signature when envelope was voided");
       }
 
       if (envelope.status === "declined") {
-        return "Awaiting signature when envelope was declined";
+        return tr("Awaiting signature when envelope was declined");
       }
 
-      return "Awaiting signature";
+      return tr("Awaiting signature");
     case "pending":
-      return "Not reached";
+      return tr("Not reached");
     default: {
       const exhaustiveStatus: never = signer.status;
       return exhaustiveStatus;
@@ -1291,7 +1333,9 @@ export async function renderEnvelopeCertificatePdf(
     signedPdfSha256: input.signedPdfSha256,
     signers: input.signers,
   });
-  pdfDocument.setTitle(`Audit certificate: ${input.envelope.title}`);
+  pdfDocument.setTitle(
+    tr("Audit certificate: {title}", { title: input.envelope.title }),
+  );
   pdfDocument.setProducer("SignuDoc");
 
   return seal(pdfDocument, "certificate");

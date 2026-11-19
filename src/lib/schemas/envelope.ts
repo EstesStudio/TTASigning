@@ -79,6 +79,8 @@ export const sendEnvelopeResponseSchema = z.object({
   notifiedSignerName: z.string().trim().min(1).max(160),
   redirectPath: z.string().trim().min(1),
   sentAt: unixTimestampSchema,
+  /** PetskySign: only for a link send, where no invitation is emailed. */
+  signingUrl: z.string().url().optional(),
 });
 
 export const voidEnvelopeResponseSchema = z.object({
