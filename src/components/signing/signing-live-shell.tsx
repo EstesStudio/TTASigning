@@ -53,6 +53,7 @@ import {
   isNumberEntry,
   NUMBER_ENTRY_MESSAGE,
 } from "@/lib/field-choices";
+import { displayEmail } from "@/lib/petsky/placeholder-email";
 
 const typedSignatureFont =
   '"Snell Roundhand", "Brush Script MT", "Segoe Script", cursive';
@@ -1058,7 +1059,7 @@ export function SigningLiveShell({
                     {record.signer.name}
                   </p>
                   <p className="truncate text-sm text-(--secondary)">
-                    {record.signer.email}
+                    {displayEmail(record.signer.email)}
                   </p>
                 </div>
               </div>

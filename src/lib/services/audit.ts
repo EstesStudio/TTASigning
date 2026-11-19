@@ -13,6 +13,7 @@ import {
 } from "../db/connection.ts";
 import { logAuditRecord } from "../security/logging.ts";
 import { canonicalJson } from "../utils/canonical-json.ts";
+import { isPlaceholderEmail } from "../petsky/placeholder-email.ts";
 
 export type AuditEventMetadata = Record<string, unknown> | null;
 
@@ -354,6 +355,12 @@ export async function recordEmailSent(
   },
   database: DbExecutor = getDb(),
 ): Promise<void> {
+  // PetskySign: nothing goes to a link-only signer's placeholder address
+  // (the email service drops it), so there is nothing to note.
+  if (isPlaceholderEmail(input.recipient)) {
+    return;
+  }
+
   try {
     await recordAuditEvent(
       {

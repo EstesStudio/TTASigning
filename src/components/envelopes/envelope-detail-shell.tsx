@@ -35,6 +35,7 @@ import {
   ENVELOPE_REMINDER_DAY_OPTIONS,
 } from "@/lib/types/domain";
 import { getSignerPalette } from "./signer-palette";
+import { displayEmail } from "@/lib/petsky/placeholder-email";
 
 type EnvelopeDetailShellProps = {
   envelopeId: string;
@@ -724,7 +725,7 @@ export function EnvelopeDetailShell({
                             {signer.name}
                           </p>
                           <p className="truncate text-sm text-(--secondary)">
-                            {signer.email}
+                            {displayEmail(signer.email)}
                           </p>
                         </div>
 

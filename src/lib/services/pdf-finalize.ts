@@ -31,6 +31,7 @@ import {
   type StorageObjectRef,
   type StorageService,
 } from "./storage.ts";
+import { isPlaceholderEmail } from "../petsky/placeholder-email.ts";
 
 const DEFAULT_AUDIT_PAGE_SIZE = {
   height: 792,
@@ -172,6 +173,11 @@ export function describeAuditActor(event: AuditEventRecord): string {
     typeof event.metadata?.signerName === "string"
       ? event.metadata.signerName
       : null;
+
+  // PetskySign: a link-only signer has no address to show.
+  if (isPlaceholderEmail(actor)) {
+    return signerName ?? "signer";
+  }
 
   return signerName && actor !== signerName
     ? `${signerName} <${actor}>`
@@ -751,9 +757,10 @@ function buildAuditLines(input: {
 
   for (const signer of input.signers) {
     const actionLabel = getSignerCertificateActionLabel(input.envelope, signer);
-    const signerLabel = input.redactForRecipients
-      ? `${signer.signOrder}. ${signer.name} | ${actionLabel}`
-      : `${signer.signOrder}. ${signer.name} <${signer.email}> | ${actionLabel}`;
+    const signerLabel =
+      input.redactForRecipients || isPlaceholderEmail(signer.email)
+        ? `${signer.signOrder}. ${signer.name} | ${actionLabel}`
+        : `${signer.signOrder}. ${signer.name} <${signer.email}> | ${actionLabel}`;
 
     pushParagraph(signerLabel, input.fonts.regular, bodyFontSize);
 

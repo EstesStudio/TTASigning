@@ -237,6 +237,8 @@ async function listEnvelopesDueForReminder(
         AND s.status = 'notified'
       WHERE e.status = 'sent'
         AND e.reminder_interval_days IS NOT NULL
+        -- PetskySign: a link-only envelope's signer is reached by the sender.
+        AND e.delivery_channel = 'email'
         AND (e.expires_at IS NULL OR e.expires_at > $1)
         AND GREATEST(
           COALESCE(s.last_notified_at, 0),

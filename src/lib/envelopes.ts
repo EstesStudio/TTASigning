@@ -151,6 +151,11 @@ type SendDraftEnvelopeInput = {
    * own name through the install's signing provider. Simple by default.
    */
   signatureLevel?: "advanced" | "qualified" | "simple";
+  /**
+   * PetskySign. "link": the first signer is not emailed; the signing link is
+   * returned (as signingUrl) for the sender to pass on. Email by default.
+   */
+  delivery?: "email" | "link";
   ipAddress?: string | null;
   senderEmail: string;
   senderName: string;
@@ -2455,7 +2460,9 @@ export async function sendDraftEnvelope(
     );
   }
 
-  const emailService = createEmailServiceForSending();
+  const deliverByLink = input.delivery === "link";
+  // A link send emails no one, so it needs no email provider.
+  const emailService = deliverByLink ? null : createEmailServiceForSending();
   const storageService = createStorageService();
   const sourcePdfHead = await storageService.headObject(envelope.sourcePdfKey);
 
@@ -2485,7 +2492,8 @@ export async function sendDraftEnvelope(
             updated_at = $2,
             expires_at = $5,
             expiry_notified_at = NULL,
-            reminder_interval_days = $6
+            reminder_interval_days = $6,
+            delivery_channel = $7
           WHERE id = $3
             AND user_id = $4
             AND status = 'draft'
@@ -2497,6 +2505,7 @@ export async function sendDraftEnvelope(
           userId,
           expiresAt,
           input.reminderIntervalDays ?? null,
+          deliverByLink ? "link" : "email",
         ],
       );
 
@@ -2625,6 +2634,7 @@ export async function sendDraftEnvelope(
             reminderIntervalDays: input.reminderIntervalDays ?? null,
             permittedUseConfirmed: true,
             permittedUseVersion: PERMITTED_USE_VERSION,
+            ...(deliverByLink ? { deliveryChannel: "link" } : {}),
             ...(part11 ? { part11: true } : {}),
             ...(signingProvider
               ? {
@@ -2643,6 +2653,17 @@ export async function sendDraftEnvelope(
     }, database);
   } catch (error) {
     throw error;
+  }
+
+  if (!emailService) {
+    return sendEnvelopeResponseSchema.parse({
+      envelopeId,
+      expiresAt,
+      notifiedSignerName: firstSigner.name,
+      redirectPath: `/envelopes/${envelopeId}`,
+      sentAt,
+      signingUrl: issuedLink.url,
+    });
   }
 
   let invitationMessageId: string | undefined;
