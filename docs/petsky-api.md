@@ -130,8 +130,86 @@ O corpo do erro é sempre `{ "error": "mensagem" }`.
 | `413` | Arquivo grande demais |
 | `429` | Limite de requisições |
 
+## Webhooks
+
+Quando algo acontece com um documento criado por uma chave que tem URL de webhook, o PetskySign faz um `POST` nessa URL. O aviso diz **que algo mudou**, não qual é o estado atual. O petsky deve reler `GET /documents/:id` antes de agir, como já faz com a D4Sign.
+
+### Configurar
+
+```bash
+npm run api-key -- webhook <id-da-chave> --url https://app.petsky.com.br/api/webhooks/petskysign
+npm run api-key -- webhook <id-da-chave> --clear
+npm run api-key -- deliveries            # últimas 50 entregas
+npm run api-key -- deliveries --failed   # só as que desistiram
+```
+
+- A URL precisa ser `https`. `http` só é aceito para `localhost`, em desenvolvimento.
+- Cada vez que a URL é configurada, um segredo novo (`whsec_...`) é gerado e mostrado uma vez só. Ele vai para o petsky como `PETSKYSIGN_WEBHOOK_SECRET`.
+
+### Eventos
+
+| Evento | Quando |
+| --- | --- |
+| `document.viewed` | O tutor abriu o link pela primeira vez |
+| `document.consented` | O tutor aceitou o termo de registros eletrônicos |
+| `document.signed` | O tutor assinou |
+| `document.completed` | Todos assinaram e o PDF foi selado. Neste ponto os arquivos já podem ser baixados |
+| `document.declined` | O tutor recusou |
+| `document.voided` | O documento foi anulado |
+| `document.expired` | O prazo passou. Esse aviso sai na tarefa diária, então pode chegar até cerca de 1 hora depois do prazo |
+
+O envio do documento não gera aviso, porque o próprio petsky fez a chamada.
+
+### Formato
+
+```http
+POST /api/webhooks/petskysign
+Content-Type: application/json
+PetskySign-Event: document.signed
+PetskySign-Delivery: <id da entrega>
+PetskySign-Signature: t=1795050000,v1=<hex>
+
+{
+  "id": "<id da entrega>",
+  "event": "document.signed",
+  "occurredAt": "2026-11-19T01:19:32Z",
+  "data": {
+    "documentId": "uuid",
+    "externalRef": "contrato-42",
+    "companyRef": "casa-7",
+    "signerId": "uuid"
+  }
+}
+```
+
+### Conferir a assinatura
+
+Para conferir:
+
+1. Calcule `HMAC-SHA256(segredo, "<t>.<corpo cru>")` em hexadecimal.
+2. Compare com `v1` em tempo constante.
+3. Recuse se `t` estiver a mais de 5 minutos do relógio.
+
+Use o corpo exatamente como chegou, antes de qualquer parse. A função `verifyWebhookSignature` em `src/lib/petsky/webhook-delivery.ts` faz essa conta e serve de referência.
+
+### Entregas e novas tentativas
+
+- A entrega é gravada na mesma transação do evento. Por isso só existe aviso de algo que de fato aconteceu: se a assinatura falha e a transação volta atrás, nenhum aviso sai.
+- O PetskySign tenta entregar logo depois do commit. Qualquer resposta `2xx` conta como entregue. Qualquer outra resposta, ou falta de resposta em 10 s, agenda nova tentativa: 30 s, 2 min, 10 min, 30 min, 1 h, 3 h, 6 h, 12 h e 24 h. Depois de 10 tentativas, a entrega vira `failed`.
+- As novas tentativas dependem de uma tarefa agendada no Coolify, uma por minuto:
+
+```bash
+curl -fsS -X POST -H "Authorization: Bearer $RETENTION_JOB_SECRET" https://assinar.petsky.com.br/api/internal/webhooks
+```
+
+  Ela usa o mesmo segredo da tarefa diária (`CRON_SECRET` ou `RETENTION_JOB_SECRET`).
+- A ordem de chegada não é garantida, e o mesmo aviso pode chegar mais de uma vez. Use `PetskySign-Delivery` para descartar repetidos.
+
 ## Ainda não tem
 
-- **Webhook de saída** (Fase 2). Por enquanto, o petsky consulta `GET /documents/:id`.
 - **Telas em pt-BR e marca da casa** (Fase 3). A tela final ainda diz que o tutor vai receber um e-mail, o que não vale no canal `link`.
 - **Separação por casa** (Fase 4). `companyRef` já é gravado e indexado, mas ainda não filtra nem limita nada.
+
+## Variáveis de produção
+
+`BETTER_AUTH_SECRET` é obrigatória. Sem ela, o selo dos PDFs falha em produção quando a senha do banco tem menos de 12 caracteres, e a assinatura do tutor dá erro.

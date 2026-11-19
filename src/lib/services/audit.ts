@@ -14,6 +14,8 @@ import {
 import { logAuditRecord } from "../security/logging.ts";
 import { canonicalJson } from "../utils/canonical-json.ts";
 import { isPlaceholderEmail } from "../petsky/placeholder-email.ts";
+import { scheduleWebhookDelivery } from "../petsky/webhook-delivery.ts";
+import { enqueueWebhookForAuditEvent } from "../petsky/webhook-queue.ts";
 
 export type AuditEventMetadata = Record<string, unknown> | null;
 
@@ -259,6 +261,23 @@ async function insertChainedAuditEvent(
   afterCommit(database, () => {
     logAuditRecord({ ...fields, rowHash, trail: "envelope" });
   });
+
+  // PetskySign: the webhook for this event, if the envelope came through the
+  // API, is written with the event and sent once both are committed.
+  if (
+    await enqueueWebhookForAuditEvent(
+      {
+        auditEventId: id,
+        createdAt,
+        envelopeId: input.envelopeId,
+        event: input.event,
+        metadata: fields.metadata,
+      },
+      database,
+    )
+  ) {
+    afterCommit(database, scheduleWebhookDelivery);
+  }
 
   return auditEventRecordSchema.parse({
     actorEmail: fields.actorEmail,
