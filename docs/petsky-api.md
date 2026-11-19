@@ -264,9 +264,70 @@ A variável é lida no build (`NEXT_PUBLIC_`). No Coolify, ela precisa estar dis
 - Os e-mails para o tutor continuam em inglês. No canal `link` nenhum é enviado.
 - Para o link "Privacidade" do rodapé apontar para a política do petsky, configure a URL em Settings → Organization.
 
-## Ainda não tem
+## Separação por casa
 
-- **Separação por casa** (Fase 4). `companyRef` já é gravado e indexado, mas ainda não filtra nem limita nada.
+Toda chamada fica restrita à conta da chave. Uma casa nunca vê documentos de outra conta, seja qual for o `companyRef` enviado. Dentro da conta, o `companyRef` separa as casas.
+
+### `GET /api/v1/documents`
+
+Lista os documentos, do mais novo para o mais antigo. Documentos criados no mesmo segundo saem em ordem de id.
+
+| Parâmetro     | Uso                                                             |
+| ------------- | --------------------------------------------------------------- |
+| `companyRef`  | só os documentos da casa                                        |
+| `externalRef` | só o contrato com esse id no petsky                             |
+| `status`      | `sent`, `expired`, `completed`, `declined`, `voided` ou `draft` |
+| `limit`       | de 1 a 100, padrão 50                                           |
+| `cursor`      | o `nextCursor` da página anterior                               |
+
+Resposta: `{ documents: [...], nextCursor }`. Quando `nextCursor` vem `null`, não há mais páginas.
+
+### `GET /api/v1/companies/:companyRef/usage?from=&to=`
+
+Quantos documentos a casa enviou no período e em que situação cada um está agora:
+
+```json
+{
+  "companyRef": "casa-7",
+  "from": "2026-11-01T00:00:00.000Z",
+  "to": "2026-11-19T01:38:47.000Z",
+  "sent": 2,
+  "byStatus": {
+    "sent": 2,
+    "completed": 0,
+    "declined": 0,
+    "expired": 0,
+    "voided": 0
+  }
+}
+```
+
+O período padrão é o mês corrente, em UTC. Serve para cobrança e para acompanhar o uso de cada casa.
+
+### Limite de envios por casa
+
+Cada casa pode enviar até `PETSKY_COMPANY_DAILY_LIMIT` documentos por dia (padrão 200; `0` desliga o limite). Depois disso, a resposta é `429` com `retry-after`, e as outras casas continuam enviando normalmente. O limite só vale para envios com `companyRef`. Sem ele, conta apenas o limite geral da chave.
+
+### Exclusão (LGPD)
+
+- `DELETE /api/v1/documents/:id`: apaga um documento. Serve para o pedido de exclusão de um tutor.
+- `DELETE /api/v1/companies/:companyRef/documents` com o corpo `{ "confirm": "<companyRef>" }`: apaga **todos** os documentos de uma casa. Serve para uma casa que sai do petsky. A confirmação precisa repetir o `companyRef`, para evitar apagar a casa errada.
+
+A exclusão é **definitiva**. Ela remove:
+
+- o PDF original;
+- o PDF assinado;
+- o certificado;
+- as imagens de assinatura;
+- os dados do signatário;
+- o histórico de auditoria;
+- as entregas de webhook pendentes.
+
+O link de assinatura para de funcionar na hora. Como isso destrói a prova do contrato, quem decide quando excluir é o petsky (por exemplo, pedindo confirmação à casa). Os logos das casas ficam, porque são compartilhados entre documentos.
+
+Resposta: `{ deleted, documentIds, failed }`. Se um id aparece em `failed`, a linha já foi apagada, mas algum arquivo ficou no disco e precisa ser removido à mão.
+
+Cada exclusão fica registrada no histórico do sistema como `documents_erased`, com os ids apagados e sem dados pessoais. Ela aparece em Settings → Security no painel.
 
 ## Variáveis de produção
 

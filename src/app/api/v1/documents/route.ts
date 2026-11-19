@@ -4,6 +4,43 @@ import {
   createApiDocumentSchema,
 } from "@/lib/petsky/api-documents";
 import { apiError, apiJson, runApiRoute } from "@/lib/petsky/api-route";
+import {
+  listApiDocuments,
+  listDocumentsQuerySchema,
+} from "@/lib/petsky/companies";
+import {
+  applyRateLimit,
+  buildRateLimitKey,
+} from "@/lib/security/route-controls";
+
+/**
+ * Documents one business may send per day. PETSKY_COMPANY_DAILY_LIMIT
+ * changes it; 0 turns the limit off.
+ */
+function companyDailyLimit(): number {
+  const configured = Number(process.env.PETSKY_COMPANY_DAILY_LIMIT);
+
+  return Number.isInteger(configured) && configured >= 0 ? configured : 200;
+}
+
+/**
+ * GET /api/v1/documents?companyRef=&externalRef=&status=&limit=&cursor=
+ * Newest first. Pass `nextCursor` back as `cursor` for the next page.
+ */
+export async function GET(request: Request) {
+  return runApiRoute(
+    request,
+    { category: "document_list", limit: 300 },
+    async ({ principal }) => {
+      const url = new URL(request.url);
+      const query = listDocumentsQuerySchema.parse(
+        Object.fromEntries(url.searchParams.entries()),
+      );
+
+      return apiJson(await listApiDocuments(principal, query, getDb()));
+    },
+  );
+}
 
 /** Larger PDFs are refused before they are read. */
 const MAX_FILE_BYTES = 20 * 1024 * 1024;
@@ -41,6 +78,29 @@ export async function POST(request: Request) {
       }
 
       const input = createApiDocumentSchema.parse(read.data);
+      const dailyLimit = companyDailyLimit();
+
+      // One business cannot use up what the others share.
+      if (input.companyRef && dailyLimit > 0) {
+        const limited = await applyRateLimit({
+          category: "api_company_daily_limit",
+          key: buildRateLimitKey([
+            "api-company",
+            principal.keyId,
+            input.companyRef,
+          ]),
+          limit: dailyLimit,
+          message: `This business reached its limit of ${dailyLimit} documents a day.`,
+          request,
+          userId: principal.user.id,
+          windowMs: 24 * 60 * 60 * 1000,
+        });
+
+        if (limited) {
+          limited.headers.set("cache-control", "private, no-store");
+          return limited;
+        }
+      }
       const created = await createApiDocument(
         principal,
         input,
