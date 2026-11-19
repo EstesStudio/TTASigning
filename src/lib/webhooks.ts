@@ -783,17 +783,28 @@ export async function updateWebhookEndpoint(
     throw new WebhooksError(firstIssueMessage(parsed.error), 400);
   }
 
+  // Check a new URL (a DNS lookup) before taking the row lock, so the lock
+  // is not held across the network.
+  const checkedUrl =
+    parsed.data.url === undefined
+      ? undefined
+      : (await assertWebhookUrlAllowed(parsed.data.url)).toString();
+
   return withTransaction(async (tx) => {
-    const existing = await readEndpoint(id, tx);
+    // Lock the row before reading it: the fields this request leaves out are
+    // written back from this read, so another admin's change committed in
+    // between must not be overwritten with a stale value.
+    const existing = await queryOne<EndpointRow>(
+      tx,
+      `SELECT ${ENDPOINT_COLUMNS} FROM webhook_endpoints WHERE id = $1 FOR UPDATE`,
+      [id],
+    );
 
     if (!existing) {
       throw new WebhooksError("That endpoint was not found.", 404);
     }
 
-    const url =
-      parsed.data.url === undefined
-        ? existing.url
-        : (await assertWebhookUrlAllowed(parsed.data.url)).toString();
+    const url = checkedUrl ?? existing.url;
     let description = existing.description;
     if (parsed.data.description !== undefined) {
       const trimmed = parsed.data.description?.trim() ?? "";

@@ -919,6 +919,51 @@ test("turning an endpoint off stops further automatic attempts", async () => {
   }
 });
 
+test("an edit does not write back a change another admin committed meanwhile", async () => {
+  const endpoint = await createWebhookEndpoint(
+    { events: ["envelope.completed"], url: "http://127.0.0.1:1/first" },
+    actor,
+    database,
+  );
+  const other = await database.connect();
+
+  try {
+    // Another admin turns the endpoint off and has not committed yet.
+    await other.query("begin");
+    await other.query(
+      `update webhook_endpoints set enabled = false where id = $1`,
+      [endpoint.id],
+    );
+
+    const edit = updateWebhookEndpoint(
+      endpoint.id,
+      { url: "http://127.0.0.1:1/second" },
+      actor,
+      database,
+    );
+
+    // Wait until the edit is queued behind the other admin's row lock.
+    for (let tries = 0; ; tries += 1) {
+      const waiting = await database.query(
+        `select 1 from pg_stat_activity
+         where wait_event_type = 'Lock' and query ilike '%webhook_endpoints%'`,
+      );
+      if (waiting.rowCount) break;
+      assert.ok(tries < 200, "the edit never waited for the row lock");
+      await new Promise((resolve) => setTimeout(resolve, 10));
+    }
+
+    await other.query("commit");
+    const updated = await edit;
+
+    assert.equal(updated.url, "http://127.0.0.1:1/second");
+    assert.equal(updated.enabled, false);
+  } finally {
+    await other.query("rollback").catch(() => undefined);
+    other.release();
+  }
+});
+
 // A receiver that holds the first request open until release() is called and
 // answers every later request at once with laterStatus.
 async function listenHoldingFirst(laterStatus: number): Promise<{
