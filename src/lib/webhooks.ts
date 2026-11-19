@@ -982,6 +982,10 @@ async function enqueueEnvelopeWebhookEventInner(
   },
   database: DbExecutor,
 ): Promise<string[]> {
+  // FOR KEY SHARE holds each endpoint until the caller commits, so an admin
+  // deleting one waits instead of breaking the delivery insert and rolling
+  // back the envelope change. An endpoint whose delete is already pending is
+  // skipped once that delete commits.
   const endpoints = await queryMany<{ id: string }>(
     database,
     `
@@ -989,6 +993,8 @@ async function enqueueEnvelopeWebhookEventInner(
       FROM webhook_endpoints
       WHERE enabled = true
         AND $1 = ANY(events)
+      ORDER BY id
+      FOR KEY SHARE
     `,
     [input.eventType],
   );

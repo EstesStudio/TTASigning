@@ -919,6 +919,63 @@ test("turning an endpoint off stops further automatic attempts", async () => {
   }
 });
 
+test("deleting an endpoint mid-void skips it and the void still commits", async () => {
+  const endpoint = await createWebhookEndpoint(
+    { events: ["envelope.voided"], url: "http://127.0.0.1:1/gone" },
+    actor,
+    database,
+  );
+  const envelope = await createSignableEnvelope();
+  const other = await database.connect();
+
+  try {
+    // An admin deletes the endpoint and has not committed yet.
+    await other.query("begin");
+    await other.query(`delete from webhook_endpoints where id = $1`, [
+      endpoint.id,
+    ]);
+
+    const voided = withLocalStorage(
+      envelope.storageDir,
+      envelope.storageService,
+      () =>
+        voidSentEnvelope(
+          envelope.userId,
+          envelope.envelopeId,
+          {
+            senderEmail: `${envelope.userId}@example.test`,
+            senderName: "Sam Sender",
+          },
+          { database },
+        ),
+    );
+
+    // Wait until the void is queued behind the admin's row lock.
+    for (let tries = 0; ; tries += 1) {
+      const waiting = await database.query(
+        `select 1 from pg_stat_activity where wait_event_type = 'Lock'`,
+      );
+      if (waiting.rowCount) break;
+      assert.ok(tries < 200, "the void never waited for the endpoint row");
+      await new Promise((resolve) => setTimeout(resolve, 10));
+    }
+
+    await other.query("commit");
+    await voided;
+
+    const status = await database.query<{ status: string }>(
+      `select status from envelopes where id = $1`,
+      [envelope.envelopeId],
+    );
+
+    assert.equal(status.rows[0]?.status, "voided");
+    assert.equal((await deliveriesFor(envelope.envelopeId)).length, 0);
+  } finally {
+    await other.query("rollback").catch(() => undefined);
+    other.release();
+  }
+});
+
 test("an edit does not write back a change another admin committed meanwhile", async () => {
   const endpoint = await createWebhookEndpoint(
     { events: ["envelope.completed"], url: "http://127.0.0.1:1/first" },
