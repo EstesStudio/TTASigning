@@ -4,7 +4,7 @@ import pg from "pg";
 import { e2eDatabaseUrl, e2eSetupToken } from "../playwright.config";
 import { extractLink, extractLinks, waitForEmail } from "./support/outbox";
 import { totpCode } from "./support/totp";
-import { writeSamplePdf } from "./support/sample-pdf";
+import { writeLargePdf, writeSamplePdf } from "./support/sample-pdf";
 
 const PASSWORD = "correct horse battery staple 42";
 // The ampersand is on purpose: the name goes into HTML emails and page titles.
@@ -1484,6 +1484,65 @@ test("a signer who declines is told the decline was recorded, not that the link 
       events.find((event) => event.event === "envelope_deletion_cancelled")
         ?.metadata,
     ).toMatchObject({ envelopeId, ownerEmail: memberEmail });
+  });
+});
+
+test("with local disk storage a PDF just under 20 MB uploads, and a larger request is refused", async ({
+  page,
+}, testInfo) => {
+  const database = new pg.Client({ connectionString: e2eDatabaseUrl });
+  let adminEmail = "";
+
+  await database.connect();
+
+  try {
+    const admin = await database.query<{ email: string }>(
+      `select email from public."user" where role = 'admin' limit 1`,
+    );
+
+    adminEmail = admin.rows[0]?.email ?? "";
+  } finally {
+    await database.end();
+  }
+
+  expect(adminEmail).not.toBe("");
+
+  await page.goto("/login");
+  await page.getByLabel("Email").fill(adminEmail);
+  await page.getByLabel("Password").fill(PASSWORD);
+  await page.getByRole("button", { name: "Log in" }).click();
+  await expect(page).toHaveURL(/\/dashboard$/);
+
+  await test.step("a 19 MB PDF, over Next.js's 10 MB default, makes a draft", async () => {
+    const pdfPath = await writeLargePdf(
+      testInfo.outputPath("large.pdf"),
+      19 * 1024 * 1024,
+    );
+
+    await page.goto("/envelopes/new");
+    await page.getByLabel("Envelope title").fill("Large agreement");
+    await page.getByLabel("Upload PDF").setInputFiles(pdfPath);
+    await page.getByRole("button", { name: "Next ->" }).click();
+    await expect(page).toHaveURL(/\/envelopes\/[^/]+\/signers$/);
+  });
+
+  await test.step("a request over the limit gets the size message", async () => {
+    const response = await page.request.post("/api/envelopes", {
+      headers: { origin: new URL(page.url()).origin },
+      multipart: {
+        file: {
+          buffer: Buffer.alloc(22 * 1024 * 1024),
+          mimeType: "application/pdf",
+          name: "too-large.pdf",
+        },
+        title: "Too large",
+      },
+    });
+
+    expect(response.status()).toBe(413);
+    expect(await response.json()).toEqual({
+      error: "This file exceeds the 20 MB limit.",
+    });
   });
 });
 

@@ -2,6 +2,13 @@ export const MAX_SIGNERS_PER_ENVELOPE = 10;
 /** People who get a copy of the finished document without signing. */
 export const MAX_COPY_RECIPIENTS_PER_ENVELOPE = 10;
 export const MAX_UPLOAD_SIZE_BYTES = 20 * 1024 * 1024;
+/**
+ * The largest request body the app reads in full: a PDF at the upload limit
+ * plus room for the rest of the multipart form (the title and the part
+ * headers). Next.js cuts every body that passes through the Proxy at this
+ * size (next.config.ts), so it must stay above MAX_UPLOAD_SIZE_BYTES.
+ */
+export const MAX_REQUEST_BODY_BYTES = MAX_UPLOAD_SIZE_BYTES + 1024 * 1024;
 export const SIGNING_LINK_TTL_SECONDS = 7 * 24 * 60 * 60;
 export const RECIPIENT_DOWNLOAD_LINK_TTL_SECONDS = 7 * 24 * 60 * 60;
 export const MANUAL_NUDGE_COOLDOWN_SECONDS = 24 * 60 * 60;

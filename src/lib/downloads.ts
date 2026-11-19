@@ -10,6 +10,7 @@ import {
   envelopeRecordSchema,
   type EnvelopeRecord,
 } from "./schemas/envelope.ts";
+import { truncateToWholeCharacters } from "./text-truncate.ts";
 import { fieldRecordSchema, type FieldRecord } from "./schemas/field.ts";
 import { signerRecordSchema, type SignerRecord } from "./schemas/signer.ts";
 import { listAuditEventsForEnvelope } from "./services/audit.ts";
@@ -507,31 +508,6 @@ async function listPageSizesForEnvelope(
 }
 
 const MAX_FILE_NAME_SEGMENT_LENGTH = 120;
-
-const graphemeSegmenter = new Intl.Segmenter(undefined, {
-  granularity: "grapheme",
-});
-
-// Cuts at a whole character, so an emoji (or a letter with its accent) is
-// kept or dropped in one piece. A plain slice can leave half of a surrogate
-// pair, and encodeURIComponent then throws on the file name.
-function truncateToWholeCharacters(value: string, maxLength: number): string {
-  if (value.length <= maxLength) {
-    return value;
-  }
-
-  let result = "";
-
-  for (const { segment } of graphemeSegmenter.segment(value)) {
-    if (result.length + segment.length > maxLength) {
-      break;
-    }
-
-    result += segment;
-  }
-
-  return result;
-}
 
 export function sanitizeFileNameSegment(value: string): string {
   const cleaned = value
