@@ -8,6 +8,7 @@ import { getSettings } from "../settings.ts";
 import { type EmailTemplateKind } from "../types/domain.ts";
 import { getEnv, isLocalDeployment, type EnvSource } from "../utils/env.ts";
 import { buildEmailAddresses, type EmailAddresses } from "./email-addresses.ts";
+import { CAPTURED_MESSAGE_ID_PREFIX } from "./captured-email.ts";
 import {
   assertServiceConfig,
   ServiceConfigurationError,
@@ -228,7 +229,7 @@ function createCaptureEmailService(
     message: TransactionalEmailMessage,
   ): Promise<EmailDeliveryResult> {
     const config = await resolveAddresses();
-    const messageId = `capture-${randomUUID()}`;
+    const messageId = `${CAPTURED_MESSAGE_ID_PREFIX}${randomUUID()}`;
     const filePath = path.join(
       /*turbopackIgnore: true*/ captureDir,
       `${String(Date.now())}-${messageId}.json`,
@@ -312,6 +313,22 @@ export function isEmailNotConnectedError(error: unknown): boolean {
     error instanceof ServiceConfigurationError &&
     error.message.startsWith("email service ")
   );
+}
+
+/**
+ * Whether this install has an email provider to send with. Without one,
+ * a flow that would tell someone to check their inbox says that email is
+ * not set up instead (issue #95).
+ */
+export function canSendEmail(env: EnvSource = process.env): boolean {
+  try {
+    createEmailService({ env });
+    return true;
+  } catch {
+    // No provider key, or a driver this deployment cannot use: either way
+    // nothing would be sent.
+    return false;
+  }
 }
 
 /**

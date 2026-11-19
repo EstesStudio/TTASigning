@@ -17,6 +17,7 @@ import {
 export const signingUnavailableStateSchema = z.enum([
   "expired",
   "already-signed",
+  "completed",
   "voided",
   "declined",
 ]);

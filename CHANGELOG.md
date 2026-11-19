@@ -17,6 +17,42 @@ release says when it does.
   a migration step: `20261117110000_webhooks.sql` adds `webhook_endpoints`
   and `webhook_deliveries`.
 
+## [0.5.1] - 2026-11-19
+
+Six bug fixes, all reported by @coygeek. There are no database changes and no
+new settings.
+
+### Fixes
+
+- A completed envelope whose title has an emoji near the 120th character can
+  be downloaded again. Its signed PDF and certificate returned a server error,
+  because the file name was cut in the middle of the emoji (#89, PR #142).
+  The email sender's name and the seal certificate's names are now cut at
+  whole characters too, so an emoji in an organization name cannot break the
+  seal or the From line (PR #148).
+- A long answer in a Text, Number or Dropdown field wraps onto as many lines
+  as it needs inside its box on the signed PDF, at the largest size that fits,
+  instead of running past the box and off the page. While typing, the signer
+  sees a "box is full" warning with how many characters fit, and Finish stays
+  off until the answer is shortened. Answers accepted before this release are
+  still drawn whole (#90, PR #146).
+- With local disk storage, PDFs between 10 and 20 MB upload instead of failing
+  with a misleading title error. An upload over the limit gets the usual size
+  message (#92, PR #147).
+- The certificate lists audit events in the order they were recorded, so
+  events from the same second no longer swap places, for example "completed"
+  above the last "signed". Existing certificates still verify (#97, PR #143).
+- The last signer can finish, and a signer can decline, when the install's
+  email setup has been removed. The envelope used to stay incomplete with a
+  server error (#96, PR #145).
+- Voiding an envelope emails the signers who already signed, telling them the
+  document will not be completed. Signers still waiting for their turn were
+  never invited and still get nothing. The void dialog says who will be told
+  (#93, PR #144).
+
+Thanks to @coygeek for six clear, careful reports, each with the cause and a
+way to reproduce it, which made every one of these fixes straightforward.
+
 ## [0.5.0] - 2026-11-18
 
 Administrators can now see every member's envelopes and delete finished ones
@@ -313,6 +349,7 @@ checked against the real services:
 
 SignuDoc is software, not legal advice. See the README's legal disclaimer.
 
+[0.5.1]: https://github.com/NYLLON-SOFTWARE/SignuDoc/releases/tag/v0.5.1
 [0.5.0]: https://github.com/NYLLON-SOFTWARE/SignuDoc/releases/tag/v0.5.0
 [0.4.0]: https://github.com/NYLLON-SOFTWARE/SignuDoc/releases/tag/v0.4.0
 [0.3.0]: https://github.com/NYLLON-SOFTWARE/SignuDoc/releases/tag/v0.3.0

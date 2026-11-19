@@ -6,6 +6,7 @@ import {
   queryOne,
   withTransaction,
 } from "./db/connection.ts";
+import type { RequestClient } from "./security/request.ts";
 import { recordSystemAuditEvent } from "./services/system-audit.ts";
 
 // The accounts on this install and who among them is an administrator.
@@ -16,7 +17,7 @@ import { recordSystemAuditEvent } from "./services/system-audit.ts";
 // account is not on its way to being closed.
 
 /** Serializes role changes, so two removals cannot both leave "one more". */
-const ROLE_CHANGE_LOCK_ID = 746108324;
+export const ROLE_CHANGE_LOCK_ID = 746108324;
 const MAX_LISTED_PEOPLE = 500;
 const MAX_SEARCH_LENGTH = 100;
 
@@ -222,6 +223,7 @@ export async function setPersonRole(
   targetUserId: string,
   role: PersonRole,
   database: DbPool = getDb(),
+  client: RequestClient = {},
 ): Promise<Person> {
   return withTransaction(async (tx) => {
     await tx.query("SELECT pg_advisory_xact_lock($1)", [ROLE_CHANGE_LOCK_ID]);
@@ -287,6 +289,7 @@ export async function setPersonRole(
         actorEmail: actor.email,
         actorUserId: actingUserId,
         event: "role_changed",
+        ipAddress: client.ipAddress ?? null,
         metadata: {
           from: target.role,
           targetEmail: target.email,
@@ -294,6 +297,7 @@ export async function setPersonRole(
           to: role,
         },
         targetUserId,
+        userAgent: client.userAgent ?? null,
       },
       tx,
     );

@@ -63,8 +63,17 @@ export type SystemAuditEvent = {
   userAgent: string | null;
 };
 
+export type SystemAuditActorType = "system" | "user";
+
 export type RecordSystemAuditEventInput = {
   actorEmail?: string | null;
+  /**
+   * Who did it, for the JSON audit line only (it is not a column and is
+   * not hashed). "system" is the install's own scheduled jobs, such as the
+   * daily cleanup deleting a closed account. Left out, it is "user": a
+   * person did it, even an unknown one, such as a failed sign-in.
+   */
+  actorType?: SystemAuditActorType;
   actorUserId?: string | null;
   createdAt?: number;
   event: SystemAuditEventType;
@@ -155,7 +164,7 @@ async function insertChained(
   afterCommit(database, () => {
     logAuditRecord({
       ...fields,
-      actorType: "user",
+      actorType: input.actorType ?? "user",
       rowHash,
       trail: "site",
     });

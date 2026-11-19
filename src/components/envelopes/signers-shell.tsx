@@ -1116,7 +1116,10 @@ export function SignersShell({
           </div>
 
           <div className="flex flex-col-reverse gap-3 pt-2 sm:flex-row sm:justify-end">
-            <ShellButton href="/envelopes/new" variant="secondary">
+            {/* The document is part of the draft and is not uploaded again,
+                so Back goes to this draft's own page, where it can be
+                continued or deleted, not to a blank upload form. */}
+            <ShellButton href={`/envelopes/${envelopeId}`} variant="secondary">
               ← Back
             </ShellButton>
             <ShellButton

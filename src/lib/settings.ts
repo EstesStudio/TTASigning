@@ -1,5 +1,6 @@
 import { buildBranding, type Branding } from "./branding.ts";
 import {
+  afterCommit,
   type DbExecutor,
   type DbPool,
   getDb,
@@ -183,6 +184,13 @@ const SETTINGS_CACHE_MS = 30_000;
 const SETUP_COMPLETE_CACHE_MS = 60_000;
 
 type SettingsCache = {
+  /**
+   * Counts the clears, so a read that was already under way when the
+   * settings changed does not put what it read back into the cache.
+   * Optional because a cache made by an earlier copy of this module in the
+   * same process (a dev reload) has none.
+   */
+  generation?: number;
   settings: { expiresAt: number; value: AppSettings | null } | null;
   setupCompleteUntil: number;
 };
@@ -194,11 +202,13 @@ declare global {
 // Kept on globalThis, like the rate limit store, so every copy of this
 // module in one process shares it and a change clears it for all of them.
 const cache: SettingsCache = (globalThis.__signudocSettingsCache ??= {
+  generation: 0,
   settings: null,
   setupCompleteUntil: 0,
 });
 
 export function invalidateSettingsCache() {
+  cache.generation = (cache.generation ?? 0) + 1;
   cache.settings = null;
   cache.setupCompleteUntil = 0;
 }
@@ -295,9 +305,14 @@ async function getStoredSettings(): Promise<AppSettings | null> {
     return cache.settings.value;
   }
 
+  const generation = cache.generation ?? 0;
   const value = await readStoredSettings();
 
-  cache.settings = { expiresAt: now + SETTINGS_CACHE_MS, value };
+  // Settings saved while this read waited may be newer than what it read:
+  // use it for this request, but leave the cache to the next read.
+  if ((cache.generation ?? 0) === generation) {
+    cache.settings = { expiresAt: now + SETTINGS_CACHE_MS, value };
+  }
 
   return value;
 }
@@ -448,7 +463,9 @@ async function saveSettingsLocked(
     ],
   );
 
-  invalidateSettingsCache();
+  // Inside a transaction, clear once it commits: a page that read the old row
+  // in between would otherwise keep it cached.
+  afterCommit(database, invalidateSettingsCache);
 
   return row ? mapSettingsRow(row) : next;
 }

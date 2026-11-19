@@ -17,7 +17,10 @@ import {
 } from "../services/email.ts";
 import { withUserEmailLegalFooter } from "../services/email-legal-footer.ts";
 import { consumeRateLimit } from "../security/rate-limit.ts";
-import { getClientIpHeaderNames } from "../security/request.ts";
+import {
+  getClientIpHeaderNames,
+  getRequestClient,
+} from "../security/request.ts";
 import {
   requireConfigValue,
   ServiceConfigurationError,
@@ -409,7 +412,7 @@ export function createAppAuth({
       minPasswordLength: 15,
       requireEmailVerification: true,
       revokeSessionsOnPasswordReset: true,
-      onPasswordReset: async ({ user }) => {
+      onPasswordReset: async ({ user }, request) => {
         try {
           // The new password ends a lockout from wrong guesses at the old one.
           await clearFailedSignIns(user.email);
@@ -418,6 +421,7 @@ export function createAppAuth({
             actorUserId: user.id,
             event: "password_reset",
             targetUserId: user.id,
+            ...getRequestClient(request?.headers, env),
           });
         } catch (error) {
           console.error("[auth] Could not record a password reset:", error);

@@ -246,6 +246,33 @@ test("a password sign-in is recorded, with where it came from", async () => {
   });
 });
 
+test("a password reset is recorded, with where it came from", async () => {
+  const userId = await createVerifiedUser("pat@acme.com");
+  const token = randomUUID();
+
+  // The token the emailed reset link carries, as Better Auth stores it.
+  await database.query(
+    `insert into verification (id, identifier, value, "expiresAt") values ($1, $2, $3, now() + interval '1 hour')`,
+    [randomUUID(), `reset-password:${token}`, userId],
+  );
+
+  const reset = await call(
+    "/reset-password",
+    { newPassword: "a different long passphrase", token },
+    new Map(),
+    "198.51.100.23",
+  );
+
+  assert.equal(reset.status, 200, JSON.stringify(reset.payload));
+
+  const [event] = await events("password_reset");
+
+  assert.equal(event?.actorUserId, userId);
+  assert.equal(event?.targetUserId, userId);
+  assert.equal(event?.ipAddress, "198.51.100.23");
+  assert.equal(event?.userAgent, "sign-in-security dbtest");
+});
+
 test("ten wrong passwords stop sign-in for the address, even with the right one", async () => {
   await createVerifiedUser("pat@acme.com");
 

@@ -553,7 +553,7 @@ export function EnvelopeDetailShell({
             </span>
             <div className="min-w-0 space-y-2.5">
               <h1
-                className={`text-[clamp(1.5rem,3vw,1.875rem)] font-extrabold leading-tight tracking-[-0.03em] ${
+                className={`text-[clamp(1.5rem,3vw,1.875rem)] font-extrabold leading-tight tracking-[-0.03em] wrap-break-word ${
                   activeRecord.status === "voided"
                     ? "text-(--tertiary)"
                     : "text-(--fg)"
@@ -588,7 +588,7 @@ export function EnvelopeDetailShell({
             </div>
           </div>
 
-          <div className="flex shrink-0 flex-col gap-3 sm:flex-row sm:flex-wrap lg:justify-end">
+          <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap lg:justify-end">
             {isOwnEnvelope && activeRecord.status === "draft" ? (
               <>
                 <ShellButton

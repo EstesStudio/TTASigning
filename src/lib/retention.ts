@@ -635,6 +635,9 @@ async function deleteAccountRows(
   await recordSystemAuditEvent(
     {
       actorEmail: null,
+      // The daily job deletes it, not a person. The account's own
+      // account_closure_requested event names who asked.
+      actorType: "system",
       actorUserId: null,
       event: "account_deleted",
       metadata: {

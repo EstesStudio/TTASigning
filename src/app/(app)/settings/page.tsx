@@ -3,6 +3,7 @@ import { SettingsShell } from "@/components/settings/settings-shell";
 import { UpdatesPanel } from "@/components/settings/updates-panel";
 import { WebhooksPanel } from "@/components/settings/webhooks-panel";
 import { isAdminUser } from "@/lib/auth/admin";
+import { accountClosureBlock } from "@/lib/account";
 import { getAuthSession } from "@/lib/auth/server";
 import { toOrganizationSettingsView } from "@/lib/organization-settings";
 import {
@@ -17,10 +18,14 @@ export default async function SettingsPage() {
   const session = await getAuthSession();
   const isAdmin = session ? await isAdminUser(session.user.id) : false;
   const settings = await getSettings();
+  const closureBlockedReason = session
+    ? await accountClosureBlock(session.user).catch(() => null)
+    : null;
 
   return (
     <div className="space-y-8">
       <SettingsShell
+        closureBlockedReason={closureBlockedReason}
         initialProfile={{
           email: session?.user.email ?? "",
           fullName: session?.user.name ?? "",

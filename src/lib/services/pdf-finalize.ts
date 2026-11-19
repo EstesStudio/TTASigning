@@ -11,6 +11,7 @@ import type { FieldRecord } from "../schemas/field.ts";
 import type { SignerRecord } from "../schemas/signer.ts";
 import { buildSignatureManifestation } from "../signature-meanings.ts";
 import { describeSignerCorrectedEvent } from "./audit.ts";
+import { isCapturedMessageId } from "./captured-email.ts";
 import { canonicalJson } from "../utils/canonical-json.ts";
 import { normalizedRectToPdfRect } from "../utils/pdf-coords.ts";
 import { embedTextFaces, type TextFace } from "./pdf-fonts.ts";
@@ -1375,7 +1376,12 @@ function describeEventEvidence(event: AuditEventRecord): string[] {
       [
         kind ? `email ${kind.replaceAll("_", " ")}` : "email",
         recipient ? `to ${recipient}` : null,
-        messageId ? `accepted by the mail provider as ${messageId}` : null,
+        messageId
+          ? isCapturedMessageId(messageId)
+            ? // The capture driver only wrote it to the local outbox.
+              `captured locally as ${messageId}, not sent`
+            : `accepted by the mail provider as ${messageId}`
+          : null,
       ]
         .filter(Boolean)
         .join(" "),

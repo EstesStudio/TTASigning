@@ -278,6 +278,7 @@ const signingUnavailableStatusCodeMap: Record<
   number
 > = {
   "already-signed": 409,
+  completed: 409,
   declined: 409,
   expired: 410,
   voided: 409,
@@ -304,6 +305,8 @@ function getSigningUnavailableMessage(
   switch (state) {
     case "already-signed":
       return "You've already signed.";
+    case "completed":
+      return "This envelope has been completed.";
     case "declined":
       return "This envelope has been declined.";
     case "voided":
@@ -1332,6 +1335,34 @@ function signerAuditMetadata(context: ResolvedSigningContext) {
   };
 }
 
+export type SignerEmailCodeResult = {
+  emailCodeSentAt: number;
+  maskedEmail: string;
+  /** Seconds until a new code can be sent; 0 when this call sent one. */
+  retryAfterSeconds: number;
+  /**
+   * Whether this call emailed a new code. False during the resend cooldown,
+   * when the code sent a moment ago is still the one to use.
+   */
+  sent: boolean;
+};
+
+function cooldownResult(
+  emailCodeSentAt: number,
+  now: number,
+  maskedEmail: string,
+): SignerEmailCodeResult {
+  return {
+    emailCodeSentAt,
+    maskedEmail,
+    retryAfterSeconds: Math.max(
+      1,
+      emailCodeSentAt + EMAIL_CODE_RESEND_SECONDS - now,
+    ),
+    sent: false,
+  };
+}
+
 /** Emails the signer a one-time code, when the sender asked for one. */
 export async function sendSignerEmailCode(
   token: string,
@@ -1339,7 +1370,7 @@ export async function sendSignerEmailCode(
     database = getDb(),
     emailService = createEmailService(),
   }: { database?: DbPool; emailService?: EmailService } = {},
-): Promise<{ emailCodeSentAt: number; maskedEmail: string }> {
+): Promise<SignerEmailCodeResult> {
   const context = await resolveSigningContext(token, { database });
   const state = await getSignerCheckState(context.signer.id!, database);
   const now = Math.floor(Date.now() / 1000);
@@ -1353,10 +1384,11 @@ export async function sendSignerEmailCode(
     now - state.emailCodeSentAt < EMAIL_CODE_RESEND_SECONDS &&
     state.emailCodeHash
   ) {
-    return {
-      emailCodeSentAt: state.emailCodeSentAt,
-      maskedEmail: maskEmailAddress(context.signer.email),
-    };
+    return cooldownResult(
+      state.emailCodeSentAt,
+      now,
+      maskEmailAddress(context.signer.email),
+    );
   }
 
   const issued = issueEmailCode();
@@ -1408,12 +1440,22 @@ export async function sendSignerEmailCode(
       );
     }
 
+    // Another request claimed the window first. Its code is the one to use,
+    // unless that send failed and cleared it again in the meantime.
     const current = await getSignerCheckState(context.signer.id!, database);
 
-    return {
-      emailCodeSentAt: current.emailCodeSentAt ?? now,
-      maskedEmail: maskEmailAddress(context.signer.email),
-    };
+    if (current.emailCodeHash === null || current.emailCodeSentAt === null) {
+      throw new SigningMutationError(
+        "The code could not be sent right now. Try again.",
+        503,
+      );
+    }
+
+    return cooldownResult(
+      current.emailCodeSentAt,
+      now,
+      maskEmailAddress(context.signer.email),
+    );
   }
 
   const minutes = Math.round(EMAIL_CODE_TTL_SECONDS / 60);
@@ -1474,6 +1516,8 @@ export async function sendSignerEmailCode(
   return {
     emailCodeSentAt: now,
     maskedEmail: maskEmailAddress(context.signer.email),
+    retryAfterSeconds: 0,
+    sent: true,
   };
 }
 
@@ -1760,6 +1804,47 @@ export async function recordSignerConsent(
   return { consentedAt };
 }
 
+/**
+ * What a link that signing, declining or voiding took away should say. It
+ * opens nothing: it only tells the signer what became of the envelope, so
+ * they are not sent to ask for a new link the sender cannot send. Any other
+ * link that opens nothing has expired.
+ */
+async function getSpentSigningLinkState(
+  tokenHash: string,
+  database: DbExecutor,
+): Promise<SigningUnavailableResponse["state"]> {
+  const spent = await queryOne<{
+    envelopeStatus: SigningEnvelopeRow["status"];
+    signerStatus: SigningSignerRow["status"];
+  }>(
+    database,
+    `
+      SELECT
+        envelopes.status AS "envelopeStatus",
+        signers.status AS "signerStatus"
+      FROM signers
+      JOIN envelopes ON envelopes.id = signers.envelope_id
+      WHERE signers.spent_signing_token_hash = $1
+      LIMIT 1
+    `,
+    [tokenHash],
+  );
+
+  switch (spent?.envelopeStatus) {
+    case "completed":
+      return "completed";
+    case "declined":
+      return "declined";
+    case "voided":
+      return "voided";
+    case "sent":
+      return spent.signerStatus === "signed" ? "already-signed" : "expired";
+    default:
+      return "expired";
+  }
+}
+
 async function resolveSigningContext(
   token: string,
   {
@@ -1774,7 +1859,9 @@ async function resolveSigningContext(
   );
 
   if (!signerRow) {
-    throw new SigningAccessError("expired");
+    throw new SigningAccessError(
+      await getSpentSigningLinkState(hashOpaqueToken(token), database),
+    );
   }
 
   const envelopeRow = await getEnvelopeRow(signerRow.envelopeId, database);
@@ -2632,6 +2719,7 @@ export async function submitSigningForToken(
             UPDATE signers
             SET
               status = 'signed',
+              spent_signing_token_hash = signing_token_hash,
               signing_token_hash = NULL,
               signing_token_expires_at = NULL,
               signed_at = $1,
@@ -2899,6 +2987,7 @@ export async function submitSigningForToken(
             UPDATE signers
             SET
               status = 'signed',
+              spent_signing_token_hash = signing_token_hash,
               signing_token_hash = NULL,
               signing_token_expires_at = NULL,
               signed_at = $1,
@@ -3285,6 +3374,7 @@ export async function declineSigningForToken(
         UPDATE signers
         SET
           status = 'declined',
+          spent_signing_token_hash = signing_token_hash,
           signing_token_hash = NULL,
           signing_token_expires_at = NULL,
           declined_at = $1,

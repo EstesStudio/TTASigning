@@ -282,3 +282,45 @@ test("with no administrator to take it, an envelope completed during the deletio
     );
   }
 });
+
+test("the daily job's account deletion is logged as the system's, not a person's", async () => {
+  const leaver = await createUser();
+
+  await closeAccount(leaver);
+
+  // The JSON audit lines go to console.info once the change commits.
+  const lines: Record<string, unknown>[] = [];
+  const originalInfo = console.info;
+
+  console.info = (...args: unknown[]) => {
+    if (typeof args[0] === "string") {
+      try {
+        lines.push(JSON.parse(args[0]) as Record<string, unknown>);
+      } catch {
+        // Not a JSON line.
+      }
+    }
+  };
+
+  try {
+    const summary = await runRetentionSweep({ database, storageService });
+
+    assert.ok(!summary.accountPurgeFailures.includes(leaver));
+  } finally {
+    console.info = originalInfo;
+  }
+
+  assert.equal(await accountExists(leaver), false);
+
+  const deletion = lines.find(
+    (line) =>
+      line.trail === "site" &&
+      line.event === "account_deleted" &&
+      line.targetUserId === leaver,
+  );
+
+  assert.ok(deletion, "no audit line for the account deletion");
+  assert.equal(deletion.actorType, "system");
+  assert.equal(deletion.actorUserId, null);
+  assert.equal(deletion.actorEmail, null);
+});

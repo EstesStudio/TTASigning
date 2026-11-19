@@ -158,6 +158,18 @@ export function isBackupStoreTheAppStore(
   return Boolean(backupStore && appStores.includes(backupStore));
 }
 
+/**
+ * Lets go of a download that was not used up, so its connection is not
+ * held open until it is collected.
+ */
+async function discardStream(stream: ReadableStream<Uint8Array> | undefined) {
+  try {
+    await stream?.cancel();
+  } catch {
+    // Already read, or closed: nothing is held.
+  }
+}
+
 async function listAll(store: BackupStore, prefix?: string) {
   const blobs: BackupBlob[] = [];
   let cursor: string | undefined;
@@ -457,8 +469,10 @@ export async function runBackup({
     // Until this copy is done, the one in the backup is not this version.
     delete copiedFrom[original.pathname];
 
+    let found: Awaited<ReturnType<BackupStore["get"]>> = null;
+
     try {
-      const found = await source.get(original.pathname);
+      found = await source.get(original.pathname);
 
       if (!found) {
         continue;
@@ -470,6 +484,7 @@ export async function runBackup({
       copiedFrom[original.pathname] = version;
       summary.filesCopied += 1;
     } catch (error) {
+      await discardStream(found?.stream);
       summary.fileFailures.push(original.pathname);
       console.error(
         `[backup] Could not copy ${original.pathname}:`,
@@ -724,8 +739,10 @@ export async function restoreFiles({
       continue;
     }
 
+    let found: Awaited<ReturnType<BackupStore["get"]>> = null;
+
     try {
-      const found = await source.get(copy.pathname);
+      found = await source.get(copy.pathname);
 
       if (!found) {
         failures.push(copy.pathname);
@@ -737,6 +754,7 @@ export async function restoreFiles({
       });
       copied += 1;
     } catch {
+      await discardStream(found?.stream);
       failures.push(copy.pathname);
     }
   }

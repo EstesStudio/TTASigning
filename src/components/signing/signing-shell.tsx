@@ -12,7 +12,7 @@ import {
 } from "./signing-live-shell";
 
 type SigningUnavailableState =
-  "already-signed" | "declined" | "error" | "expired" | "voided";
+  "already-signed" | "completed" | "declined" | "error" | "expired" | "voided";
 
 type SigningShellProps = {
   initialState?: SigningUnavailableState;
@@ -39,6 +39,11 @@ const tokenStateCopy: Record<
   "already-signed": {
     title: "You've already signed",
     description: "You already completed your signature for this document.",
+  },
+  completed: {
+    title: "This envelope has been completed",
+    description:
+      "Everyone has signed this document. No further action is needed.",
   },
   voided: {
     title: "This envelope has been voided",
