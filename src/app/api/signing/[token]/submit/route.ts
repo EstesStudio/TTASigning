@@ -33,13 +33,12 @@ export async function POST(
   context: SigningSubmitRouteContext,
 ) {
   const { token } = await context.params;
+  // The count follows the link, not the address: whoever holds the token
+  // spends one quota whatever network they come from, and a changed address
+  // cannot buy more tries.
   const rateLimitResponse = await applyRateLimit({
     category: "signing_submit",
-    key: buildRateLimitKey([
-      "signing-submit",
-      token,
-      getClientIpAddress(request.headers) ?? "unknown",
-    ]),
+    key: buildRateLimitKey(["signing-submit", token]),
     limit: 10,
     request,
     windowMs: 10 * 60 * 1000,

@@ -28,13 +28,11 @@ export async function GET(
   context: SigningDocumentRouteContext,
 ) {
   const { token } = await context.params;
+  // Like the other signing routes, the count follows the link, not the
+  // address, so a changed address cannot buy more reads.
   const rateLimitResponse = await applyRateLimit({
     category: "signing_document_read",
-    key: buildRateLimitKey([
-      "signing-document",
-      token,
-      getClientIpAddress(request.headers) ?? "unknown",
-    ]),
+    key: buildRateLimitKey(["signing-document", token]),
     limit: 60,
     request,
     windowMs: 5 * 60 * 1000,
