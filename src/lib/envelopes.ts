@@ -126,6 +126,7 @@ import {
 import { PERMITTED_USE_VERSION } from "./permitted-uses.ts";
 import { hashAccessCode } from "./signer-checks.ts";
 import { escapeHtml } from "./utils/html.ts";
+import { isPlaceholderEmail } from "./petsky/placeholder-email.ts";
 
 type CreateDraftEnvelopeOptions = {
   database?: DbPool;
@@ -1427,8 +1428,12 @@ function buildDashboardContextLine(
   signers: readonly PersistedSignerRecord[],
   fields: readonly PersistedFieldRecord[],
 ): string {
+  // PetskySign: a link-only signer has no address to show; their name stands in.
+  const who = (signer: PersistedSignerRecord) =>
+    isPlaceholderEmail(signer.email) ? signer.name : signer.email;
+
   if (envelope.status === "completed") {
-    const sentTo = signers.map((signer) => signer.email).join(", ");
+    const sentTo = signers.map(who).join(", ");
     return sentTo.length > 0 ? `Sent to: ${sentTo}` : "Sent to: —";
   }
 
@@ -1438,17 +1443,17 @@ function buildDashboardContextLine(
       signers.find((signer) => signer.status === "pending");
 
     if (isEnvelopeExpired(envelope, Math.floor(Date.now() / 1000))) {
-      return `Expired ${formatShortDate(envelope.expiresAt!)} · was waiting on: ${currentSigner?.email ?? "—"}`;
+      return `Expired ${formatShortDate(envelope.expiresAt!)} · was waiting on: ${currentSigner ? who(currentSigner) : "—"}`;
     }
 
-    return `Waiting on: ${currentSigner?.email ?? "—"}`;
+    return `Waiting on: ${currentSigner ? who(currentSigner) : "—"}`;
   }
 
   if (envelope.status === "declined") {
     const declinedSigner = signers.find(
       (signer) => signer.status === "declined",
     );
-    return `Declined by: ${declinedSigner?.email ?? "—"}`;
+    return `Declined by: ${declinedSigner ? who(declinedSigner) : "—"}`;
   }
 
   if (envelope.status === "voided") {
@@ -1880,7 +1885,9 @@ export async function listEnvelopesForUser(
       searchableEmails: [
         ...signers,
         ...(copyRecipientsByEnvelope.get(envelope.id) ?? []),
-      ].map((recipient) => recipient.email),
+      ]
+        .map((recipient) => recipient.email)
+        .filter((email) => !isPlaceholderEmail(email)),
       status: envelope.status,
       statusLabel: buildDashboardStatusLabel(envelope, signers),
       title: envelope.title,

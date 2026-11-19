@@ -233,7 +233,7 @@ Use o corpo exatamente como chegou, antes de qualquer parse. A função `verifyW
 ### Entregas e novas tentativas
 
 - A entrega é gravada na mesma transação do evento. Por isso só existe aviso de algo que de fato aconteceu: se a assinatura falha e a transação volta atrás, nenhum aviso sai.
-- O PetskySign tenta entregar logo depois do commit. Qualquer resposta `2xx` conta como entregue. Qualquer outra resposta, ou falta de resposta em 10 s, agenda nova tentativa: 30 s, 2 min, 10 min, 30 min, 1 h, 3 h, 6 h, 12 h e 24 h. Depois de 10 tentativas, a entrega vira `failed`.
+- O PetskySign tenta entregar logo depois do commit. Qualquer resposta `2xx` conta como entregue. Qualquer outra resposta, ou falta de resposta em 10 s, agenda nova tentativa: 30 s, 2 min, 10 min, 30 min, 1 h, 3 h, 6 h, 12 h e 24 h. Depois de 10 tentativas, a entrega vira `failed`. Se a chave for revogada ou ficar sem URL, as entregas pendentes viram `failed` na hora, porque tentar de novo não adianta.
 - As novas tentativas dependem de uma tarefa agendada no Coolify, uma por minuto:
 
 ```bash
@@ -306,7 +306,7 @@ O período padrão é o mês corrente, em UTC. Serve para cobrança e para acomp
 
 ### Limite de envios por casa
 
-Cada casa pode enviar até `PETSKY_COMPANY_DAILY_LIMIT` documentos por dia (padrão 200; `0` desliga o limite). Depois disso, a resposta é `429` com `retry-after`, e as outras casas continuam enviando normalmente. O limite só vale para envios com `companyRef`. Sem ele, conta apenas o limite geral da chave.
+Cada casa pode enviar até `PETSKY_COMPANY_DAILY_LIMIT` documentos por dia (padrão 200; `0` desliga o limite). A contagem é dos documentos criados nas últimas 24 horas, então envio recusado não gasta a cota. Depois do limite, a resposta é `429` com `retry-after`, e as outras casas continuam enviando normalmente. O limite só vale para envios com `companyRef`. Sem ele, conta apenas o limite geral da chave.
 
 ### Exclusão (LGPD)
 
@@ -325,8 +325,7 @@ A exclusão é **definitiva**. Ela remove:
 
 O link de assinatura para de funcionar na hora. Como isso destrói a prova do contrato, quem decide quando excluir é o petsky (por exemplo, pedindo confirmação à casa). Os logos das casas ficam, porque são compartilhados entre documentos.
 
-Resposta: `{ deleted, documentIds, failed }`. Se um id aparece em `failed`, a linha já foi apagada, mas algum arquivo ficou no disco e precisa ser removido à mão.
-
+Resposta: `{ deleted, documentIds, failed }`. Os arquivos são apagados antes da linha, como na rotina de retenção. Se o armazenamento falhar, o documento fica intacto e aparece só em `failed`. Pedir de novo termina o serviço, e nenhum arquivo fica no disco sem um registro apontando para ele.
 Cada exclusão fica registrada no histórico do sistema como `documents_erased`, com os ids apagados e sem dados pessoais. Ela aparece em Settings → Security no painel.
 
 ## Variáveis de produção

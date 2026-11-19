@@ -348,6 +348,23 @@ test("a failing receiver is retried later, then given up on", async () => {
   }
 });
 
+test("a revoked key's deliveries are given up at once, not retried for days", async () => {
+  const principal = await principalWithWebhook();
+  const sent = await sendDocument(principal);
+
+  await cancelApiDocument(principal, sent.documentId, null, context, database);
+  await database.query(`update api_keys set revoked_at = 1 where id = $1`, [
+    principal.keyId,
+  ]);
+  await deliverDueWebhooks({ database });
+
+  const [row] = await deliveriesFor(sent.documentId);
+
+  assert.equal(row?.status, "failed");
+  assert.equal(row?.attempts, 1);
+  assert.equal(bodiesFor(sent.documentId).length, 0);
+});
+
 test("a receiver that is down counts as a failed attempt", async () => {
   const principal = await principalWithWebhook("http://127.0.0.1:9/nobody");
   const sent = await sendDocument(principal);

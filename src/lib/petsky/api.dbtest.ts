@@ -435,3 +435,40 @@ test("an email document is invited by email and can carry automatic reminders", 
   assert.equal(status.channel, "email");
   assert.equal(status.signers[0]?.email, signerEmail);
 });
+
+// Guard: the placeholder address of a link-only signer is special-cased in
+// several places (see placeholder-email.ts). This walks what the sender and
+// the signer are shown, so a SignuDoc update that prints a signer's email
+// somewhere new fails here instead of leaking it.
+test("the placeholder address never shows in what the sender or the signer sees", async () => {
+  const { getEnvelopeDetailDataForUser, listEnvelopesForUser } =
+    await import("../envelopes.ts");
+  const principal = await principalFor(await createAccount());
+  const sent = await sendLinkDocument(principal);
+  const token = tokenFromLink(sent.signLink!);
+  // The signer's own `email` field is the one place it is expected: the
+  // screens hide it with displayEmail().
+  const withoutSignerEmail = (value: unknown) =>
+    JSON.stringify(value, (key, field) =>
+      key === "email" && isPlaceholderEmail(field as string)
+        ? "<hidden>"
+        : field,
+    );
+
+  const payload = await getSigningPayloadForToken(token, { database });
+
+  assert.doesNotMatch(withoutSignerEmail(payload), /sem-email\.invalid/);
+
+  await signWithToken(token);
+
+  const detail = await getEnvelopeDetailDataForUser(
+    principal.user.id,
+    sent.documentId,
+    database,
+  );
+  const list = await listEnvelopesForUser(principal.user.id, {}, database);
+
+  assert.ok(detail);
+  assert.doesNotMatch(withoutSignerEmail(detail), /sem-email\.invalid/);
+  assert.doesNotMatch(withoutSignerEmail(list), /sem-email\.invalid/);
+});

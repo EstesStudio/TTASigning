@@ -24,6 +24,7 @@ import {
   type ApiKeyPrincipal,
 } from "./api-keys.ts";
 import {
+  countRecentCompanyDocuments,
   eraseDocuments,
   getCompanyUsage,
   listApiDocuments,
@@ -339,5 +340,103 @@ test("erasing a business deletes all of its documents and nobody else's", async 
   assert.deepEqual(
     await eraseDocuments(owner, { companyRef: "casa-sai" }, context, database),
     { deleted: 0, documentIds: [], failed: [] },
+  );
+});
+
+test("the daily count is of documents actually made, per business", async () => {
+  const owner = await principal();
+
+  await send(owner, "casa-limite");
+  await send(owner, "casa-limite");
+  await send(owner, "casa-outra-limite");
+
+  // A refused send (page that is not in the PDF) leaves nothing to count.
+  await assert.rejects(
+    createApiDocument(
+      owner,
+      createApiDocumentSchema.parse({
+        companyRef: "casa-limite",
+        fields: [
+          {
+            height: 0.1,
+            page: 9,
+            type: "signature",
+            width: 0.3,
+            x: 0.1,
+            y: 0.1,
+          },
+        ],
+        permittedUseConfirmed: true,
+        signer: { name: "Tutor" },
+        title: "Recusado",
+      }),
+      {
+        body: await (async () => {
+          const pdf = await PDFDocument.create();
+          pdf.addPage([595, 842]);
+          return pdf.save();
+        })(),
+        contentType: "application/pdf",
+        filename: "c.pdf",
+      },
+      context,
+      database,
+    ),
+  );
+
+  assert.equal(
+    await countRecentCompanyDocuments(owner, "casa-limite", 86_400, database),
+    2,
+  );
+  assert.equal(
+    await countRecentCompanyDocuments(
+      owner,
+      "casa-limite",
+      86_400,
+      database,
+      4_000_000_000,
+    ),
+    0,
+  );
+});
+
+test("when a file cannot be deleted, the document stays and is reported as failed", async () => {
+  const owner = await principal();
+  const sent = await send(owner, "casa-falha");
+  const failingStorage = {
+    ...createStorageService(),
+    async deleteObject() {
+      throw new Error("EIO");
+    },
+  };
+
+  const result = await eraseDocuments(
+    owner,
+    { documentId: sent.documentId },
+    context,
+    database,
+    failingStorage,
+  );
+
+  assert.deepEqual(result, {
+    deleted: 0,
+    documentIds: [],
+    failed: [sent.documentId],
+  });
+  // Still there, so asking again (once storage is back) finishes the job.
+  assert.equal(
+    (await getApiDocument(owner, sent.documentId, database)).status,
+    "sent",
+  );
+  assert.equal(
+    (
+      await eraseDocuments(
+        owner,
+        { documentId: sent.documentId },
+        context,
+        database,
+      )
+    ).deleted,
+    1,
   );
 });

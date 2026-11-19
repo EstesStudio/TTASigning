@@ -152,11 +152,18 @@ async function claimDueDeliveries(
 async function sendOne(
   delivery: DueDelivery,
   fetchImpl: typeof fetch,
-): Promise<{ error: string | null; ok: boolean; statusCode: number | null }> {
+): Promise<{
+  error: string | null;
+  ok: boolean;
+  /** Trying again cannot help: give up now. */
+  permanent?: boolean;
+  statusCode: number | null;
+}> {
   if (!delivery.webhookUrl || !delivery.webhookSecret || delivery.revokedAt) {
     return {
       error: "The API key has no webhook URL now, or was revoked.",
       ok: false,
+      permanent: true,
       statusCode: null,
     };
   }
@@ -235,7 +242,7 @@ export async function deliverDueWebhooks({
         return;
       }
 
-      const giveUp = delivery.attempts >= MAX_ATTEMPTS;
+      const giveUp = result.permanent || delivery.attempts >= MAX_ATTEMPTS;
 
       summary[giveUp ? "failed" : "retrying"] += 1;
       await database.query(

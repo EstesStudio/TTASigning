@@ -224,6 +224,25 @@ test("signing in Portuguese records the Portuguese consent and a Portuguese cert
     { database },
   );
 
+  // The signer is told the business sent it; the account's own email keeps
+  // the account's name.
+  const { readdir, readFile } = await import("node:fs/promises");
+  const outbox = process.env.EMAIL_CAPTURE_DIR!;
+  const messages = await Promise.all(
+    (await readdir(outbox).catch(() => [] as string[])).map(async (file) =>
+      JSON.parse(await readFile(path.join(outbox, file), "utf8")),
+    ),
+  );
+  const toOwner = messages.filter((message) =>
+    [message.to].flat().includes(owner.user.email),
+  );
+
+  assert.ok(toOwner.length > 0);
+  for (const message of toOwner) {
+    assert.doesNotMatch(String(message.text ?? ""), /Hi Hotel Au Au/);
+    assert.match(String(message.text ?? ""), /Petsky Integração/);
+  }
+
   // The done page is told which document it was, for its branding.
   assert.match(result.redirectPath, new RegExp(`[?&]d=${sent.documentId}`));
 

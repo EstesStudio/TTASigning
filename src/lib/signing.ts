@@ -212,7 +212,9 @@ type SigningPageRow = {
 type SenderRow = {
   email: string;
   name: string | null;
-  /** PetskySign: how to reach the business that sent the document. */
+  /** PetskySign: the business that sent the document (document-branding.ts). */
+  brandName?: string | null;
+  /** PetskySign: how to reach that business. */
   brandContact?: string | null;
 };
 
@@ -344,6 +346,15 @@ function getSigningDoneRedirectPath(
 
 function normalizeSenderName(sender: SenderRow): string {
   return sender.name?.trim() ? sender.name : sender.email;
+}
+
+/**
+ * PetskySign: who the signer is told sent the document: the business it was
+ * sent for, when there is one. Messages to the sender's own account keep the
+ * account's name (normalizeSenderName).
+ */
+function signerFacingSenderName(sender: SenderRow): string {
+  return sender.brandName?.trim() || normalizeSenderName(sender);
 }
 
 function getEnvelopeUrl(envelopeId: string): string {
@@ -728,15 +739,16 @@ async function getSenderRow(
   database: DbExecutor,
   envelopeId?: string,
 ): Promise<SenderRow | undefined> {
-  // PetskySign: a document sent for a business (see document-branding.ts)
-  // comes from that business, in everything its signer is shown and sent.
+  // PetskySign: the business a document was sent for (document-branding.ts)
+  // comes along, for what its signer is shown (signerFacingSenderName).
   return (
     (await queryOne<SenderRow>(
       database,
       `
         SELECT
-          COALESCE(e.brand_name, u.name) AS name,
+          u.name,
           u.email,
+          e.brand_name AS "brandName",
           e.brand_contact AS "brandContact"
         FROM "user" u
         LEFT JOIN envelopes e ON e.id = $2
@@ -1167,6 +1179,7 @@ async function sendCompletionEmails(input: {
   ];
   const attach = fitsAsAttachments(attachments);
   const senderName = normalizeSenderName(input.sender);
+  const signerFacingName = signerFacingSenderName(input.sender);
   const issuedAt = Math.floor(Date.now() / 1000);
   const branding = await getBranding();
   // Signers first, then the people who only get a copy: the place in this
@@ -1222,7 +1235,7 @@ async function sendCompletionEmails(input: {
             envelopeId: input.envelopeId,
             envelopeTitle: input.envelopeTitle,
             evidenceDownloadUrl: redactedEvidenceLink.url,
-            senderName,
+            senderName: signerFacingName,
             signedDownloadUrl: signedLink.url,
             signerEmail: signer.email,
             signerName: signer.name,
@@ -1319,7 +1332,7 @@ async function assertSignerChecksPassed(
       maskedEmail: maskEmailAddress(context.signer.email),
       pending,
       required,
-      senderName: normalizeSenderName(context.sender),
+      senderName: signerFacingSenderName(context.sender),
     });
   }
 
@@ -1897,7 +1910,7 @@ export async function getSigningPayloadForToken(
           context.sender.brandContact ??
           branding.supportAddress ??
           context.sender.email,
-        senderName: normalizeSenderName(context.sender),
+        senderName: signerFacingSenderName(context.sender),
       }),
       statement: CONSENT_STATEMENT,
       version: ELECTRONIC_RECORDS_DISCLOSURE_VERSION,
@@ -1930,7 +1943,7 @@ export async function getSigningPayloadForToken(
             startUrl: `/api/signing/${encodeURIComponent(token)}/provider/start`,
           }
         : null,
-    senderName: normalizeSenderName(context.sender),
+    senderName: signerFacingSenderName(context.sender),
     signer: {
       email: context.signer.email,
       id: context.signer.id,
@@ -2668,7 +2681,7 @@ export async function submitSigningForToken(
             branding: await getBranding(),
             envelopeTitle: context.envelope.title,
             expiresAt: nextSignerDeadline,
-            senderName: normalizeSenderName(context.sender),
+            senderName: signerFacingSenderName(context.sender),
             signerEmail: nextSignerDelivery.email,
             signerName: nextSignerDelivery.name,
             signingUrl: nextSignerLink.url,

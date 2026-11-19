@@ -163,6 +163,37 @@ export async function listApiDocuments(
 }
 
 // ---------------------------------------------------------------------------
+// Daily limit
+// ---------------------------------------------------------------------------
+
+/**
+ * Documents the business has had created in the last `windowSeconds`. A send
+ * that failed leaves nothing behind (its draft is deleted), so failures never
+ * count against the business's limit.
+ */
+export async function countRecentCompanyDocuments(
+  principal: ApiKeyPrincipal,
+  companyRef: string,
+  windowSeconds: number,
+  database: DbPool,
+  now = Math.floor(Date.now() / 1000),
+): Promise<number> {
+  const [row] = await queryMany<{ count: number }>(
+    database,
+    `
+      SELECT count(*)::int AS count
+      FROM envelopes
+      WHERE user_id = $1
+        AND company_ref = $2
+        AND created_at > $3
+    `,
+    [principal.user.id, companyRef, now - windowSeconds],
+  );
+
+  return row?.count ?? 0;
+}
+
+// ---------------------------------------------------------------------------
 // Usage
 // ---------------------------------------------------------------------------
 
@@ -324,9 +355,14 @@ export async function eraseDocuments(
 
   for (const envelope of envelopes) {
     try {
-      // The row goes first: from then on no link opens the document and
-      // nothing can be signed into it. Its files go right after; if that
-      // fails, the id is reported so the files can be removed by hand.
+      // Files first, as the retention sweep does: if storage fails, the row
+      // stays, the document is reported as failed, and asking again retries
+      // it. Nothing is ever left on disk without a row that points to it.
+      await deleteStorageKeys(
+        buildEnvelopeStorageKeys(envelope, images.get(envelope.id) ?? []),
+        storageService,
+      );
+
       const deleted = await database.query(
         `DELETE FROM envelopes WHERE id = $1 AND user_id = $2`,
         [envelope.id, principal.user.id],
@@ -338,10 +374,6 @@ export async function eraseDocuments(
 
       result.deleted += 1;
       result.documentIds.push(envelope.id);
-      await deleteStorageKeys(
-        buildEnvelopeStorageKeys(envelope, images.get(envelope.id) ?? []),
-        storageService,
-      );
       await deleteThumbnailStoredMeanwhile(envelope, storageService);
     } catch (error) {
       result.failed.push(envelope.id);

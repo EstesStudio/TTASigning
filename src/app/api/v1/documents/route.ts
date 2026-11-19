@@ -5,13 +5,10 @@ import {
 } from "@/lib/petsky/api-documents";
 import { apiError, apiJson, runApiRoute } from "@/lib/petsky/api-route";
 import {
+  countRecentCompanyDocuments,
   listApiDocuments,
   listDocumentsQuerySchema,
 } from "@/lib/petsky/companies";
-import {
-  applyRateLimit,
-  buildRateLimitKey,
-} from "@/lib/security/route-controls";
 
 /**
  * Documents one business may send per day. PETSKY_COMPANY_DAILY_LIMIT
@@ -80,27 +77,27 @@ export async function POST(request: Request) {
       const input = createApiDocumentSchema.parse(read.data);
       const dailyLimit = companyDailyLimit();
 
-      // One business cannot use up what the others share.
+      // One business cannot use up what the others share. Counted from the
+      // documents actually made, so failed sends cost nothing.
       if (input.companyRef && dailyLimit > 0) {
-        const limited = await applyRateLimit({
-          category: "api_company_daily_limit",
-          key: buildRateLimitKey([
-            "api-company",
-            principal.keyId,
-            input.companyRef,
-          ]),
-          limit: dailyLimit,
-          message: `This business reached its limit of ${dailyLimit} documents a day.`,
-          request,
-          userId: principal.user.id,
-          windowMs: 24 * 60 * 60 * 1000,
-        });
+        const sentToday = await countRecentCompanyDocuments(
+          principal,
+          input.companyRef,
+          24 * 60 * 60,
+          getDb(),
+        );
 
-        if (limited) {
-          limited.headers.set("cache-control", "private, no-store");
+        if (sentToday >= dailyLimit) {
+          const limited = apiError(
+            `This business reached its limit of ${dailyLimit} documents a day.`,
+            429,
+          );
+
+          limited.headers.set("retry-after", "3600");
           return limited;
         }
       }
+
       const created = await createApiDocument(
         principal,
         input,
