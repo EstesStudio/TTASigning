@@ -1,4 +1,5 @@
 import {
+  type DbExecutor,
   type DbPool,
   queryMany,
   queryOne,
@@ -104,14 +105,16 @@ async function listExpiredEnvelopesToNotify(
 }
 
 /**
- * True while there is still something to tell: the envelope is out, its
- * deadline is the one that passed, and the sender has not been told. The
- * list above can be minutes old by the time an envelope's turn comes, and
- * the sender may have moved the deadline or voided the envelope since.
+ * Locks the envelope row and checks that there is still something to tell:
+ * the envelope is out, its deadline is still passed and is the one the
+ * notice was planned for, and the sender has not been told. Held inside the
+ * transaction that enqueues the expiry webhook, so a deadline extension or
+ * void cannot slip in between the check and the enqueue.
  */
 async function isExpiryNoticeDue(
   envelope: ExpiredEnvelopeRow,
-  database: DbPool,
+  now: number,
+  database: DbExecutor,
 ): Promise<boolean> {
   const due = await queryOne<{ id: string }>(
     database,
@@ -121,9 +124,11 @@ async function isExpiryNoticeDue(
       WHERE id = $1
         AND status = 'sent'
         AND expires_at = $2
+        AND expires_at <= $3
         AND expiry_notified_at IS NULL
+      FOR UPDATE
     `,
-    [envelope.id, envelope.expiresAt],
+    [envelope.id, envelope.expiresAt, now],
   );
 
   return due !== null;
@@ -209,19 +214,26 @@ async function sendExpiryNotices({
     }
 
     try {
-      if (!(await isExpiryNoticeDue(envelope, database))) {
+      const webhookDeliveryIds = await withTransaction(async (tx) => {
+        if (!(await isExpiryNoticeDue(envelope, now, tx))) {
+          return null;
+        }
+
+        return enqueueEnvelopeWebhookEvent(
+          {
+            envelopeId: envelope.id,
+            eventId: expiryWebhookEventId(envelope.id, envelope.expiresAt),
+            eventType: "envelope.expired",
+            occurredAt: now,
+          },
+          tx,
+        );
+      }, database);
+
+      if (webhookDeliveryIds === null) {
         continue;
       }
 
-      const webhookDeliveryIds = await enqueueEnvelopeWebhookEvent(
-        {
-          envelopeId: envelope.id,
-          eventId: expiryWebhookEventId(envelope.id, envelope.expiresAt),
-          eventType: "envelope.expired",
-          occurredAt: now,
-        },
-        database,
-      );
       await attemptWebhookDeliveriesQuietly(webhookDeliveryIds, database);
 
       await emailService().send(buildExpiryNotice(envelope), {

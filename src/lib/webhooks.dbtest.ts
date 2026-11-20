@@ -9,10 +9,10 @@ import { after, before, beforeEach, test } from "node:test";
 import { PDFDocument } from "pdf-lib";
 import type pg from "pg";
 
-import { openTestDatabase } from "./db/test-database.ts";
+import { afterStatement, openTestDatabase } from "./db/test-database.ts";
 import { ELECTRONIC_RECORDS_DISCLOSURE_VERSION } from "./electronic-records-disclosure.ts";
 import { runEnvelopeSchedule } from "./envelope-schedule.ts";
-import { voidSentEnvelope } from "./envelopes.ts";
+import { changeEnvelopeDeadline, voidSentEnvelope } from "./envelopes.ts";
 import { issueSigningLink } from "./services/signing-links.ts";
 import {
   createStorageService,
@@ -530,6 +530,103 @@ test("an expired envelope enqueues envelope.expired", async () => {
     assert.equal(rows[0]?.event_type, "envelope.expired");
     assert.equal(rows[0]?.payload.envelope.id, expired.envelopeId);
   } finally {
+    await receiver.close();
+  }
+});
+
+test("extending the deadline before enqueue saves no envelope.expired delivery", async () => {
+  const receiver = await listen(200);
+  await createWebhookEndpoint(
+    { events: ["envelope.expired"], url: receiver.url },
+    actor,
+    database,
+  );
+  const now = unixNow();
+  const expired = await createSentEnvelope({ expiresAt: now - 60 });
+  const { sent, service } = recordingEmailService();
+  let extended = false;
+  const pool = afterStatement(
+    database,
+    (text) => !extended && text.includes("LEFT JOIN signers"),
+    async () => {
+      extended = true;
+      await changeEnvelopeDeadline(
+        expired.userId,
+        expired.envelopeId,
+        { expiresInDays: 7, senderEmail: `${expired.userId}@example.test` },
+        { database, nowUnixTimestamp: now },
+      );
+    },
+  );
+
+  try {
+    const summary = await runEnvelopeSchedule({
+      database: pool,
+      emailService: service,
+      now,
+    });
+
+    assert.equal(extended, true);
+    assert.equal(summary.expiryNoticesSent, 0);
+    assert.equal(summary.expiryNoticeFailures.length, 0);
+    assert.equal((await deliveriesFor(expired.envelopeId)).length, 0);
+    assert.equal(receiver.received.length, 0);
+    assert.equal(sent.length, 0);
+  } finally {
+    await receiver.close();
+  }
+});
+
+test("an uncommitted deadline extension holds off and cancels envelope.expired", async () => {
+  const receiver = await listen(200);
+  await createWebhookEndpoint(
+    { events: ["envelope.expired"], url: receiver.url },
+    actor,
+    database,
+  );
+  const now = unixNow();
+  const expired = await createSentEnvelope({ expiresAt: now - 60 });
+  const { sent, service } = recordingEmailService();
+  const other = await database.connect();
+
+  try {
+    // A deadline extension in progress holds the envelope row lock while
+    // listExpiredEnvelopesToNotify still reads the passed deadline.
+    await other.query("begin");
+    await other.query(
+      `update envelopes set expires_at = $1, expiry_notified_at = null where id = $2`,
+      [now + 7 * DAY, expired.envelopeId],
+    );
+
+    const schedule = runEnvelopeSchedule({
+      database,
+      emailService: service,
+      now,
+    });
+
+    for (let tries = 0; ; tries += 1) {
+      const waiting = await database.query(
+        `select 1 from pg_stat_activity
+         where datname = current_database()
+           and wait_event_type = 'Lock'
+           and query ilike '%from envelopes%'`,
+      );
+      if (waiting.rowCount) break;
+      assert.ok(tries < 200, "the schedule never waited for the envelope row");
+      await new Promise((resolve) => setTimeout(resolve, 10));
+    }
+
+    await other.query("commit");
+    const summary = await schedule;
+
+    assert.equal(summary.expiryNoticesSent, 0);
+    assert.equal(summary.expiryNoticeFailures.length, 0);
+    assert.equal((await deliveriesFor(expired.envelopeId)).length, 0);
+    assert.equal(receiver.received.length, 0);
+    assert.equal(sent.length, 0);
+  } finally {
+    await other.query("rollback").catch(() => undefined);
+    other.release();
     await receiver.close();
   }
 });
