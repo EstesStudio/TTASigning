@@ -1012,7 +1012,7 @@ async function enqueueEnvelopeWebhookEventInner(
         e.status,
         u.email AS "senderEmail",
         (
-          SELECT count(*)::int FROM signers s WHERE s.envelope_id = e.id
+          SELECT count(*)::int FROM signers s WHERE s.envelope_id = e.id AND s.role = 'signer'
         ) AS "signerCount"
       FROM envelopes e
       JOIN "user" u ON u.id = e.user_id

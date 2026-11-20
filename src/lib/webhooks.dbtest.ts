@@ -458,6 +458,55 @@ test("voiding an envelope enqueues envelope.voided", async () => {
   }
 });
 
+test("copy recipients are not counted in envelope.signerCount", async () => {
+  const receiver = await listen(200);
+  await createWebhookEndpoint(
+    { events: ["envelope.voided"], url: receiver.url },
+    actor,
+    database,
+  );
+  const envelope = await createSignableEnvelope();
+  const ccId = randomUUID();
+
+  try {
+    await database.query(
+      `
+        insert into signers (id, envelope_id, name, email, sign_order, role)
+        values ($1, $2, 'Casey Copy', $3, 2, 'cc')
+      `,
+      [ccId, envelope.envelopeId, `${ccId}@example.test`],
+    );
+
+    await withLocalStorage(envelope.storageDir, envelope.storageService, () =>
+      voidSentEnvelope(
+        envelope.userId,
+        envelope.envelopeId,
+        {
+          senderEmail: `${envelope.userId}@example.test`,
+          senderName: "Sam Sender",
+        },
+        { database },
+      ),
+    );
+
+    const rows = await deliveriesFor(envelope.envelopeId);
+
+    assert.equal(rows.length, 1);
+    assert.equal(rows[0]?.event_type, "envelope.voided");
+    assert.equal(rows[0]?.status, "delivered");
+    assert.equal(receiver.received.length, 1);
+
+    const body = JSON.parse(receiver.received[0]?.body ?? "{}") as {
+      envelope: { signerCount: number };
+    };
+
+    assert.equal(body.envelope.signerCount, 1);
+  } finally {
+    await rm(envelope.storageDir, { force: true, recursive: true });
+    await receiver.close();
+  }
+});
+
 test("an expired envelope still queues a webhook when the notice email fails", async () => {
   const receiver = await listen(200);
   await createWebhookEndpoint(
