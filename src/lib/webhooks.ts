@@ -1550,10 +1550,22 @@ export async function retryDueWebhookDeliveries({
         break;
       }
 
-      const result = await attemptOneDelivery(row.id, {
-        database,
-        dueBy: now,
-      });
+      let result: WebhookDeliveryView;
+
+      try {
+        result = await attemptOneDelivery(row.id, {
+          database,
+          dueBy: now,
+        });
+      } catch (error) {
+        // Deleting an endpoint after the list was read takes its deliveries
+        // with it; the rest of the list is still due.
+        if (error instanceof WebhooksError && error.statusCode === 404) {
+          continue;
+        }
+
+        throw error;
+      }
 
       summary.attempted += 1;
 

@@ -1016,6 +1016,59 @@ test("turning an endpoint off stops further automatic attempts", async () => {
   }
 });
 
+test("an endpoint deleted after the retry list is read does not stop other retries", async () => {
+  const receiver = await listen(500);
+  const gone = await createWebhookEndpoint(
+    { events: ["envelope.completed"], url: receiver.url },
+    actor,
+    database,
+  );
+  const kept = await createWebhookEndpoint(
+    { events: ["envelope.completed"], url: receiver.url },
+    actor,
+    database,
+  );
+  const goneDelivery = await sendTestWebhookEvent(gone.id, actor, database);
+  const keptDelivery = await sendTestWebhookEvent(kept.id, actor, database);
+  const now = unixNow();
+  let deleted = false;
+
+  try {
+    await database.query(
+      `update webhook_deliveries set next_attempt_at = $1 where id = $2`,
+      [now - 20, goneDelivery.id],
+    );
+    await database.query(
+      `update webhook_deliveries set next_attempt_at = $1 where id = $2`,
+      [now - 10, keptDelivery.id],
+    );
+    const pool = afterStatement(
+      database,
+      (text) =>
+        !deleted &&
+        text.includes("FROM webhook_deliveries d") &&
+        text.includes("ORDER BY d.next_attempt_at"),
+      async () => {
+        deleted = true;
+        await database.query(`delete from webhook_endpoints where id = $1`, [
+          gone.id,
+        ]);
+      },
+    );
+
+    const retry = await retryDueWebhookDeliveries({ database: pool, now });
+    const afterRetry = await attemptWebhookDeliveries([keptDelivery.id], {
+      database,
+    });
+
+    assert.equal(deleted, true);
+    assert.equal(retry.attempted, 1);
+    assert.equal(afterRetry[0]?.attemptCount, keptDelivery.attemptCount + 1);
+  } finally {
+    await receiver.close();
+  }
+});
+
 test("deleting an endpoint mid-void skips it and the void still commits", async () => {
   const endpoint = await createWebhookEndpoint(
     { events: ["envelope.voided"], url: "http://127.0.0.1:1/gone" },
