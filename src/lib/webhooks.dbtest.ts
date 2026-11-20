@@ -547,7 +547,7 @@ test("extending the deadline before enqueue saves no envelope.expired delivery",
   let extended = false;
   const pool = afterStatement(
     database,
-    (text) => !extended && text.includes("LEFT JOIN signers"),
+    (text) => !extended && text.includes('AS "waitingOn"'),
     async () => {
       extended = true;
       await changeEnvelopeDeadline(
