@@ -76,6 +76,7 @@ type SignerRow = {
   name: string;
   signedAt: number | null;
   signOrder: number;
+  signingStep?: number | null;
   signingTokenExpiresAt: number | null;
   signingTokenHash: string | null;
   status: SignerRecord["status"];
@@ -155,6 +156,7 @@ function mapSignerRow(row: SignerRow): SignerRecord {
     lastNudgedAt: row.lastNudgedAt,
     name: row.name,
     signOrder: row.signOrder,
+    signingStep: row.signingStep ?? null,
     signedAt: row.signedAt,
     signingTokenExpiresAt: row.signingTokenExpiresAt,
     signingTokenHash: row.signingTokenHash,
@@ -300,6 +302,7 @@ async function getSignerForEnvelope(
         name,
         email,
         sign_order AS "signOrder",
+        signing_step AS "signingStep",
         status,
         signing_token_hash AS "signingTokenHash",
         signing_token_expires_at AS "signingTokenExpiresAt",

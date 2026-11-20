@@ -469,6 +469,11 @@ function PrepareLiveShellContent({
   const documentPanGestureRef = useRef<DocumentPanGesture | null>(null);
   const currentFieldsRef = useRef(fields);
   const lastSavedSignatureRef = useRef(serializeFieldRequest(initialFields));
+  // The field list's revision this editor last saw. Each save sends it, so
+  // the server refuses a save made against an older list instead of
+  // letting it overwrite a newer one (a save still on its way from a page
+  // the sender left, landing after one made when they came back).
+  const fieldsRevisionRef = useRef(record.fieldsRevision);
   const fieldCounterRef = useRef(initialFields.length);
   const persistFieldsRef = useRef<
     (nextFields: readonly PrepareField[]) => Promise<PersistFieldsResult>
@@ -586,15 +591,44 @@ function PrepareLiveShellContent({
         return;
       }
 
-      // After any save still on its way, so this one lands last.
-      void saveChainRef.current.then(() =>
-        fetch(`/api/envelopes/${envelopeId}/fields`, {
-          body: JSON.stringify(buildFieldRequest(unsaved)),
-          headers: { "content-type": "application/json" },
-          keepalive: true,
-          method: "PUT",
-        }).catch(() => undefined),
-      );
+      const signature = serializeFieldRequest(unsaved);
+
+      // After any save still on its way, so this one lands last, and in the
+      // chain itself: a page the browser keeps and later shows again (Back
+      // after leaving) picks up the revision this save made before it
+      // saves again, instead of having its next save refused.
+      saveChainRef.current = saveChainRef.current.then(async () => {
+        try {
+          const response = await fetch(`/api/envelopes/${envelopeId}/fields`, {
+            body: JSON.stringify({
+              ...buildFieldRequest(unsaved),
+              expectedRevision: fieldsRevisionRef.current,
+            }),
+            headers: { "content-type": "application/json" },
+            keepalive: true,
+            method: "PUT",
+          });
+
+          if (!response.ok) {
+            return;
+          }
+
+          const saved = (await response.json()) as ReplaceFieldsResponse;
+
+          fieldsRevisionRef.current = saved.fieldsRevision;
+          lastSavedSignatureRef.current = signature;
+
+          // A page shown again from the browser's cache may have been
+          // changed while this save was on its way, even back to the list
+          // saved before it, which autosave would have skipped. Save what
+          // is on screen so the server does not keep this older list.
+          if (serializeFieldRequest(currentFieldsRef.current) !== signature) {
+            void persistFieldsRef.current(currentFieldsRef.current);
+          }
+        } catch {
+          // The page has gone, or the save did not arrive: nothing to do.
+        }
+      });
     }
 
     // A full page exit (closing the tab, reloading, typing an address)
@@ -677,7 +711,10 @@ function PrepareLiveShellContent({
     setSaveState("saving");
 
     const response = await fetch(`/api/envelopes/${envelopeId}/fields`, {
-      body: JSON.stringify(buildFieldRequest(nextFields)),
+      body: JSON.stringify({
+        ...buildFieldRequest(nextFields),
+        expectedRevision: fieldsRevisionRef.current,
+      }),
       headers: {
         "content-type": "application/json",
       },
@@ -692,6 +729,11 @@ function PrepareLiveShellContent({
         ok: false,
         redirectPath: null,
       };
+    }
+
+    // Saved, so the next save is made against this list.
+    if (payload.data) {
+      fieldsRevisionRef.current = payload.data.fieldsRevision;
     }
 
     if (

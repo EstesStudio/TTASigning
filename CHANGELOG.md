@@ -17,6 +17,95 @@ release says when it does.
   a migration step: `20261117110000_webhooks.sql` adds `webhook_endpoints`
   and `webhook_deliveries`.
 
+## [0.5.2] - 2026-11-19
+
+Twenty-four bug fixes. Seventeen fix reported issues (sixteen from @coygeek,
+one from @seanGSISG), and ten came as pull requests from five outside
+contributors. This release adds one database column: see the end of this
+entry.
+
+### Signing
+
+- Opening an old invitation after the envelope was signed, completed,
+  declined or voided says what happened to it, instead of asking the signer
+  to request a new link the sender cannot send (#110, PR #178).
+- Reloading the signing page before Finish asks first, instead of throwing
+  away the signature and answers without warning (#99, PR #169).
+- A long Text answer no longer widens the signing page past the window
+  (#103, PR #177).
+- Closing the signature dialog, including with Escape, returns focus to the
+  field instead of the top of the page (#105, PR #181).
+- "Resend code" says when the code was not sent, instead of confirming an
+  email during the wait between codes (#113, PR #172).
+- A signer name that is a lone emoji, or uses scripts with combining marks,
+  gives whole-character avatar initials instead of a broken one that could
+  stop the page from loading (#115, PR #173).
+
+### Sending
+
+- Going Back from Add signers returns to the same draft, instead of a blank
+  upload where a second upload made a second draft (#94, PR #166).
+- A field placed just before pressing Back on Place fields is saved
+  (#102, PR #165).
+- On a phone, the Field tools sheet stays on screen with Done visible, and
+  Escape closes it (#111, PR #180).
+- A long unbroken title in the review and send dialogs wraps, so "Send now"
+  stays on screen (#104, PR #168).
+- On wide screens the envelope page's action buttons wrap instead of covering
+  a long title (#131, PR #132 by @seanGSISG, carried in PR #170).
+- A new sender on an install without email is told so at sign-up, instead of
+  being told to check their inbox (#95, PR #167).
+- Uploading a cut-off or damaged logo is refused, instead of replacing the
+  working logo with a broken one (#91, PR #124 by @HimanshuMahto, carried in
+  PR #171).
+
+### Audit trail and certificates
+
+- Password resets, role changes and account closure requests record the IP
+  address and user agent in the site audit trail (#98, PR #164).
+- The daily job's scheduled account deletion is logged as the system's, not as
+  a user action (#109, PR #176).
+- The certificate says a locally captured email was captured, not accepted by
+  a mail provider (#106, PR #175).
+
+### Administrators and settings
+
+- The last administrator cannot close their own account (PR #153 by
+  @MattJackson).
+- Saving settings can no longer be undone by an older cached copy
+  (PR #152 by @MattJackson).
+- A cancelled deletion's email always arrives before the notice of a deletion
+  scheduled again (PR #160 by @RayFernando1337).
+- A scheduled deletion whose files could not be removed is reported as a
+  failure (PR #162 by @RayFernando1337).
+- Switching between Mine and Everyone's on the dashboard clears the old search
+  (PR #161 by @RayFernando1337).
+
+### Hosting
+
+- The functions that draw PDFs ship only the files they need instead of a
+  copy of the whole project, and CI checks this after each build (#108,
+  PR #119 by @UsamaKhan, carried in PR #174).
+- An empty `STORAGE_LOCAL_DIR` uses the default `.data/storage` folder instead
+  of the working directory (PR #151 by @MattJackson).
+- A backup or restore whose copy fails lets go of its download
+  (PR #150 by @MattJackson).
+
+The seven outside PRs #150-#153 and #160-#162 were merged through PR #179.
+
+Thank you to everyone who helped with this release. @coygeek filed sixteen of
+these reports, each with the cause and a clear way to reproduce it, which is a
+huge gift to the project. @MattJackson sent four careful fixes for the edges of
+backups, storage, settings and account closure. @RayFernando1337 sent three
+fixes for scheduled deletion and the dashboard. @UsamaKhan made the PDF
+functions much smaller, @HimanshuMahto made logo uploads safe against damaged
+files, and @seanGSISG both reported the covered title and sent the fix.
+
+This release changes the database (`20261119090000_spent_signing_links.sql`,
+one new column on signers that lets an old link say what happened). On Vercel
+the production build applies it. On other hosts, run `npm run db:migrate` as on
+every deploy.
+
 ## [0.5.1] - 2026-11-19
 
 Six bug fixes, all reported by @coygeek. There are no database changes and no
@@ -349,6 +438,7 @@ checked against the real services:
 
 SignuDoc is software, not legal advice. See the README's legal disclaimer.
 
+[0.5.2]: https://github.com/NYLLON-SOFTWARE/SignuDoc/releases/tag/v0.5.2
 [0.5.1]: https://github.com/NYLLON-SOFTWARE/SignuDoc/releases/tag/v0.5.1
 [0.5.0]: https://github.com/NYLLON-SOFTWARE/SignuDoc/releases/tag/v0.5.0
 [0.4.0]: https://github.com/NYLLON-SOFTWARE/SignuDoc/releases/tag/v0.4.0

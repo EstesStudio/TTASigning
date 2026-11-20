@@ -132,6 +132,18 @@ import {
 import { formatEnvelopeOwner } from "./envelope-access.ts";
 import { PERMITTED_USE_VERSION } from "./permitted-uses.ts";
 import { hashAccessCode } from "./signer-checks.ts";
+import {
+  describeSignerLimit,
+  getMaxSignersPerEnvelope,
+} from "./signer-limit.ts";
+import {
+  firstStepSigners,
+  hasSharedSigningStep,
+  joinNames,
+  normalizeSigningSteps,
+  signingStepOf,
+  SigningStepError,
+} from "./signing-steps.ts";
 import { escapeHtml } from "./utils/html.ts";
 
 type CreateDraftEnvelopeOptions = {
@@ -232,6 +244,7 @@ type SignerRow = {
   signatureMeaning: SignatureMeaning | null;
   signedAt: number | null;
   signOrder: number;
+  signingStep: number | null;
   signingTokenExpiresAt: number | null;
   signingTokenHash: string | null;
   status: SignerRecord["status"];
@@ -336,6 +349,8 @@ export type ReviewSignerSummary = {
   id: string;
   name: string;
   order: number;
+  /** The step of the signing order; signers who share one sign together. */
+  step: number;
 };
 
 export type ReviewEnvelopeData = {
@@ -367,11 +382,15 @@ export type DraftSignerStepSigner = {
   requireEmailCode?: boolean;
   /** Set on the signers step only. */
   signatureMeaning?: SignatureMeaning | null;
+  /** The step of the signing order; signers who share one sign together. */
+  step: number;
 };
 
 export type DraftSignerStepData = {
   copyRecipients: readonly CopyRecipientRecord[];
   envelopeId: string;
+  /** The most signers this install allows on one envelope. */
+  maxSigners: number;
   /** Part 11 mode is on, so each signer needs a meaning and an account. */
   part11Mode?: boolean;
   signers: readonly DraftSignerStepSigner[];
@@ -381,6 +400,8 @@ export type DraftSignerStepData = {
 export type PrepareEnvelopeData = {
   envelopeId: string;
   fields: readonly FieldRecord[];
+  /** Sent back with each save, so a save from an older page is refused. */
+  fieldsRevision: number;
   pageCount: number;
   pages: readonly EnvelopePageRecord[];
   pdfUrl: string;
@@ -397,6 +418,8 @@ export type EnvelopeDetailSignerView = {
   order: number;
   status: "declined" | "pending" | "signed" | "waiting";
   statusDateLabel?: string;
+  /** The step of the signing order; signers who share one sign together. */
+  step: number;
 };
 
 export type EnvelopeDetailTimelineItem = {
@@ -449,8 +472,9 @@ export type DraftEnvelopeDocument = {
 };
 
 /**
- * Copy recipients are stored after every signer. Signers use 1 to 10, and a
- * rewrite of the signer list parks rows 1000 higher for a moment.
+ * Copy recipients are stored after every signer. Signers use 1 up to
+ * MAX_SIGNERS_CEILING (100), and a rewrite of the signer list parks rows
+ * 1000 higher for a moment.
  */
 const COPY_RECIPIENT_SIGN_ORDER_BASE = 500;
 
@@ -947,9 +971,10 @@ export async function copyEnvelopeToDraft(
               updated_at,
               access_code_hash,
               require_email_code,
-              signature_meaning
+              signature_meaning,
+              signing_step
             ) VALUES (
-              $1, $2, $3, $4, $5, 'pending', NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, $6, $7, $8, $9, $10
+              $1, $2, $3, $4, $5, 'pending', NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, $6, $7, $8, $9, $10, $11
             )
           `,
           [
@@ -963,6 +988,7 @@ export async function copyEnvelopeToDraft(
             null,
             checks.get(signer.id)?.requireEmailCode ?? false,
             null,
+            signingStepOf(signer),
           ],
         );
       }
@@ -1204,6 +1230,7 @@ async function listSignersForEnvelopeIds(
         name,
         email,
         sign_order AS "signOrder",
+        signing_step AS "signingStep",
         status,
         signing_token_hash AS "signingTokenHash",
         signing_token_expires_at AS "signingTokenExpiresAt",
@@ -1437,15 +1464,23 @@ function buildDashboardContextLine(
   }
 
   if (envelope.status === "sent") {
-    const currentSigner =
-      signers.find((signer) => signer.status === "notified") ??
-      signers.find((signer) => signer.status === "pending");
+    // Everyone whose turn it is: one signer, or all of a step that signs
+    // at the same time.
+    const waiting = signers.filter((signer) => signer.status === "notified");
+    const currentSigners =
+      waiting.length > 0
+        ? waiting
+        : signers.filter((signer) => signer.status === "pending").slice(0, 1);
+    const waitingOn =
+      currentSigners.length > 0
+        ? currentSigners.map((signer) => signer.email).join(", ")
+        : "—";
 
     if (isEnvelopeExpired(envelope, Math.floor(Date.now() / 1000))) {
-      return `Expired ${formatShortDate(envelope.expiresAt!)} · was waiting on: ${currentSigner?.email ?? "—"}`;
+      return `Expired ${formatShortDate(envelope.expiresAt!)} · was waiting on: ${waitingOn}`;
     }
 
-    return `Waiting on: ${currentSigner?.email ?? "—"}`;
+    return `Waiting on: ${waitingOn}`;
   }
 
   if (envelope.status === "declined") {
@@ -1677,8 +1712,23 @@ function buildTimelineDescription(event: AuditEventRecord): string {
       return "Copied from an earlier envelope";
     case "created":
       return "Envelope created";
-    case "sent":
-      return `Sent to ${targetLabel}`;
+    case "sent": {
+      // A first step of several signers names them all.
+      const stepSigners = Array.isArray(event.metadata?.stepSigners)
+        ? event.metadata.stepSigners.flatMap((entry: unknown) =>
+            typeof entry === "object" &&
+            entry !== null &&
+            "signerName" in entry &&
+            typeof entry.signerName === "string"
+              ? [entry.signerName]
+              : [],
+          )
+        : [];
+
+      return stepSigners.length > 1
+        ? `Sent to ${joinNames(stepSigners)} to sign at the same time`
+        : `Sent to ${targetLabel}`;
+    }
     case "viewed":
       return `Viewed by ${targetLabel}`;
     case "signed":
@@ -2025,8 +2075,24 @@ export async function getEnvelopeDetailDataForUser(
     tone: TIMELINE_TONE_MAP[event.event],
   }));
 
-  const signerViews = signers.map((signer, index) => {
-    const previousSignerName = index > 0 ? signers[index - 1]?.name : undefined;
+  const signerViews = signers.map((signer) => {
+    const step = signingStepOf(signer);
+    // Whoever signs in the step just before this signer's.
+    const previousStep = signers
+      .map(signingStepOf)
+      .filter((other) => other < step)
+      .reduce<number | null>(
+        (latest, other) => (latest === null || other > latest ? other : latest),
+        null,
+      );
+    const previousSignerName =
+      previousStep === null
+        ? undefined
+        : joinNames(
+            signers
+              .filter((other) => signingStepOf(other) === previousStep)
+              .map((other) => other.name),
+          );
     const signerStatus: EnvelopeDetailSignerView["status"] =
       signer.status === "notified" ? "waiting" : signer.status;
 
@@ -2046,26 +2112,38 @@ export async function getEnvelopeDetailDataForUser(
         signer,
         previousSignerName,
       ),
+      step,
     };
   });
-  const currentSigner = signers.find((signer) => signer.status === "notified");
+  // Everyone whose turn it is. A reminder goes to each of them whose last
+  // one is far enough back (reminders.ts), so the button works while any of
+  // them can have one.
+  const waitingSigners = signers.filter(
+    (signer) => signer.status === "notified",
+  );
   let manualReminder: EnvelopeDetailManualReminderState | null = null;
 
   const nowUnixTimestamp = Math.floor(Date.now() / 1000);
   const expired = isEnvelopeExpired(envelope, nowUnixTimestamp);
 
-  if (envelope.status === "sent" && currentSigner && expired) {
+  if (envelope.status === "sent" && waitingSigners.length > 0 && expired) {
     // A reminder would carry a link that no longer works.
     manualReminder = { canSend: false, nextAvailableAtLabel: null };
-  } else if (envelope.status === "sent" && currentSigner) {
-    const nextAvailableAt =
-      typeof currentSigner.lastNudgedAt === "number"
-        ? getManualNudgeAvailableAt(currentSigner.lastNudgedAt)
-        : null;
-    const canSend = isManualNudgeAvailable(
-      currentSigner.lastNudgedAt,
-      nowUnixTimestamp,
+  } else if (envelope.status === "sent" && waitingSigners.length > 0) {
+    const canSend = waitingSigners.some((signer) =>
+      isManualNudgeAvailable(signer.lastNudgedAt, nowUnixTimestamp),
     );
+    const nextAvailableAt = waitingSigners
+      .map((signer) =>
+        typeof signer.lastNudgedAt === "number"
+          ? getManualNudgeAvailableAt(signer.lastNudgedAt)
+          : null,
+      )
+      .reduce<number | null>(
+        (earliest, at) =>
+          at !== null && (earliest === null || at < earliest) ? at : earliest,
+        null,
+      );
 
     manualReminder = {
       canSend,
@@ -2120,6 +2198,7 @@ export async function getDraftSignerStepDataForUser(
   return {
     copyRecipients: await listCopyRecipientsForEnvelopeId(envelopeId, database),
     envelopeId,
+    maxSigners: getMaxSignersPerEnvelope(),
     part11Mode: (await readStoredSettings(database))?.part11Mode ?? false,
     signers: (await listSignersForEnvelopeId(envelopeId, database)).map(
       (signer) => ({
@@ -2130,6 +2209,7 @@ export async function getDraftSignerStepDataForUser(
         order: signer.signOrder,
         requireEmailCode: checks.get(signer.id)?.requireEmailCode ?? false,
         signatureMeaning: checks.get(signer.id)?.signatureMeaning ?? null,
+        step: signingStepOf(signer),
       }),
     ),
     status: envelope.status,
@@ -2310,6 +2390,11 @@ export async function getPrepareEnvelopeDataForUser(
     return null;
   }
 
+  // Read before the fields, so a save landing in between pairs the newer
+  // fields with the older revision: the editor's first save is then
+  // refused and it asks for a reload, rather than an older list being
+  // taken as the latest.
+  const fieldsRevision = await readFieldsRevision(envelopeId, database);
   const [fieldsByEnvelope, pages, signers] = await Promise.all([
     listFieldsForEnvelopeIds([envelopeId], database),
     listEnvelopePagesForEnvelopeId(envelopeId, database),
@@ -2319,6 +2404,7 @@ export async function getPrepareEnvelopeDataForUser(
   return {
     envelopeId,
     fields: fieldsByEnvelope.get(envelopeId) ?? [],
+    fieldsRevision,
     pageCount: envelope.pageCount,
     pages,
     pdfUrl: `/api/envelopes/${encodeURIComponent(envelopeId)}/document`,
@@ -2327,6 +2413,7 @@ export async function getPrepareEnvelopeDataForUser(
       id: signer.id,
       name: signer.name,
       order: signer.signOrder,
+      step: signingStepOf(signer),
     })),
     status: envelope.status,
     title: envelope.title,
@@ -2387,6 +2474,7 @@ export async function getReviewEnvelopeDataForUser(
       id: signer.id,
       name: signer.name,
       order: signer.signOrder,
+      step: signingStepOf(signer),
     })),
     sizeLabel: formatFileSize(envelope.sourcePdfSizeBytes),
     status: envelope.status,
@@ -2419,6 +2507,22 @@ async function readDraftParties(envelopeId: string, database: DbExecutor) {
  * The lock an UPDATE takes, not FOR UPDATE: the signer rows written next
  * need a share of this row for their foreign key.
  */
+/** What a sender is told when their field save was made on an older page. */
+export const FIELDS_CHANGED_MESSAGE =
+  "These fields were changed somewhere else, so this change was not saved. Reload the page to see the latest fields.";
+
+async function readFieldsRevision(
+  envelopeId: string,
+  database: DbExecutor,
+): Promise<number> {
+  const result = await database.query<{ fields_revision: number }>(
+    `SELECT fields_revision FROM envelopes WHERE id = $1`,
+    [envelopeId],
+  );
+
+  return result.rows[0]?.fields_revision ?? 0;
+}
+
 async function lockDraftEnvelope(
   userId: string,
   envelopeId: string,
@@ -2502,6 +2606,32 @@ export async function sendDraftEnvelope(
   // provider. Part 11 envelopes are signed with the signers' accounts, and
   // the two are not combined.
   const signatureLevel = input.signatureLevel ?? "simple";
+
+  // Signing at the same time is for SignuDoc's own simple signatures.
+  //
+  // * Part 11 mode keeps one signer after another. Its validation
+  //   (docs/part11, SYS-08 and OQ-06) is written for that order, and a
+  //   changed sequence would need the install's OQ run again before use.
+  // * A signature in the signer's own name is added to the PDF on top of
+  //   the one before it, so two cannot be made at once: the second would
+  //   be refused once the first was saved, after the signer had already
+  //   been through the provider.
+  if (hasSharedSigningStep(signers)) {
+    if (part11) {
+      throw new EnvelopeMutationError(
+        "Part 11 mode signs one signer after another. Give each signer their own step in the signing order.",
+        400,
+      );
+    }
+
+    if (signatureLevel !== "simple") {
+      throw new EnvelopeMutationError(
+        "Advanced and qualified signatures are added one after another. Give each signer their own step, or send with simple signatures.",
+        400,
+      );
+    }
+  }
+
   const signingProvider =
     signatureLevel === "simple" ? null : configuredSigningProvider();
 
@@ -2552,7 +2682,9 @@ export async function sendDraftEnvelope(
     }
   }
 
-  const firstSigner = signers[0];
+  // Everyone in the first step of the signing order is invited now.
+  const firstSigners = firstStepSigners(signers);
+  const firstSigner = firstSigners[0];
 
   if (!firstSigner) {
     throw new EnvelopeMutationError(
@@ -2575,10 +2707,17 @@ export async function sendDraftEnvelope(
   const sentAt = Math.floor(Date.now() / 1000);
   const sentAuditAt = Math.max(sentAt, envelope.createdAt + 1);
   const expiresAt = deadlineFromDays(sentAt, input.expiresInDays);
-  const issuedLink = await issueSigningLink({
-    expiresInSeconds: expiresAt - sentAt,
-    issuedAt: sentAt,
-  });
+  const issuedLinks = new Map<string, IssuedSigningLink>();
+
+  for (const signer of firstSigners) {
+    issuedLinks.set(
+      signer.id,
+      await issueSigningLink({
+        expiresInSeconds: expiresAt - sentAt,
+        issuedAt: sentAt,
+      }),
+    );
+  }
 
   try {
     await withTransaction(async (tx) => {
@@ -2687,35 +2826,38 @@ export async function sendDraftEnvelope(
         }
       }
 
-      const updatedSigner = await tx.query(
-        `
-          UPDATE signers
-          SET
-            status = 'notified',
-            signing_token_hash = $1,
-            signing_token_expires_at = $2,
-            turn_started_at = $3,
-            last_notified_at = $4,
-            updated_at = $5
-          WHERE id = $6
-            AND envelope_id = $7
-        `,
-        [
-          issuedLink.tokenHash,
-          issuedLink.exp,
-          sentAt,
-          sentAt,
-          sentAt,
-          firstSigner.id,
-          envelopeId,
-        ],
-      );
-
-      if (updatedSigner.rowCount !== 1) {
-        throw new EnvelopeMutationError(
-          "Unable to activate the first signer for this envelope.",
-          500,
+      for (const signer of firstSigners) {
+        const issuedLink = issuedLinks.get(signer.id)!;
+        const updatedSigner = await tx.query(
+          `
+            UPDATE signers
+            SET
+              status = 'notified',
+              signing_token_hash = $1,
+              signing_token_expires_at = $2,
+              turn_started_at = $3,
+              last_notified_at = $4,
+              updated_at = $5
+            WHERE id = $6
+              AND envelope_id = $7
+          `,
+          [
+            issuedLink.tokenHash,
+            issuedLink.exp,
+            sentAt,
+            sentAt,
+            sentAt,
+            signer.id,
+            envelopeId,
+          ],
         );
+
+        if (updatedSigner.rowCount !== 1) {
+          throw new EnvelopeMutationError(
+            "Unable to activate the first signer for this envelope.",
+            500,
+          );
+        }
       }
 
       await recordAuditEvent(
@@ -2742,6 +2884,16 @@ export async function sendDraftEnvelope(
             signerEmail: firstSigner.email,
             signerId: firstSigner.id,
             signerName: firstSigner.name,
+            // Everyone invited, when the first step has more than one.
+            ...(firstSigners.length > 1
+              ? {
+                  stepSigners: firstSigners.map((signer) => ({
+                    signerEmail: signer.email,
+                    signerId: signer.id,
+                    signerName: signer.name,
+                  })),
+                }
+              : {}),
           },
           userAgent: input.userAgent ?? null,
         },
@@ -2752,22 +2904,32 @@ export async function sendDraftEnvelope(
     throw error;
   }
 
-  let invitationMessageId: string | undefined;
+  // The first invitation decides whether the envelope went out. If it
+  // fails, nothing has been delivered, and the envelope goes back to being
+  // a draft. Once one has been accepted the envelope is out: a later one
+  // that fails is logged, and the sender's reminder (or the automatic one)
+  // sends that signer a new link.
+  const invitationMessageIds = new Map<string, string | undefined>();
+  let branding: Branding;
 
   try {
-    invitationMessageId = (
-      await emailService.send(
-        buildSigningInvitationEmail({
-          branding: await getBranding(),
-          envelopeTitle: envelope.title,
-          expiresAt,
-          senderName: input.senderName,
-          signerEmail: firstSigner.email,
-          signerName: firstSigner.name,
-          signingUrl: issuedLink.url,
-        }),
-      )
-    ).messageId;
+    branding = await getBranding();
+    invitationMessageIds.set(
+      firstSigner.id,
+      (
+        await emailService.send(
+          buildSigningInvitationEmail({
+            branding,
+            envelopeTitle: envelope.title,
+            expiresAt,
+            senderName: input.senderName,
+            signerEmail: firstSigner.email,
+            signerName: firstSigner.name,
+            signingUrl: issuedLinks.get(firstSigner.id)!.url,
+          }),
+        )
+      ).messageId,
+    );
   } catch (error) {
     await withTransaction(async (tx) => {
       const revertedEnvelope = await tx.query(
@@ -2843,24 +3005,72 @@ export async function sendDraftEnvelope(
     throw error;
   }
 
-  await recordEmailSent(
-    {
-      envelopeId,
-      messageId: invitationMessageId,
-      recipient: firstSigner.email,
-      signerId: firstSigner.id,
-      template: "signing_invitation",
-    },
-    database,
-  );
+  for (const signer of firstSigners.slice(1)) {
+    try {
+      invitationMessageIds.set(
+        signer.id,
+        (
+          await emailService.send(
+            buildSigningInvitationEmail({
+              branding,
+              envelopeTitle: envelope.title,
+              expiresAt,
+              senderName: input.senderName,
+              signerEmail: signer.email,
+              signerName: signer.name,
+              signingUrl: issuedLinks.get(signer.id)!.url,
+            }),
+          )
+        ).messageId,
+      );
+    } catch (error) {
+      console.error(
+        `Failed to send the invitation for envelope ${envelopeId} to ${signer.email}:`,
+        error,
+      );
+    }
+  }
+
+  for (const signer of firstSigners) {
+    if (!invitationMessageIds.has(signer.id)) {
+      continue;
+    }
+
+    await recordEmailSent(
+      {
+        envelopeId,
+        messageId: invitationMessageIds.get(signer.id),
+        recipient: signer.email,
+        signerId: signer.id,
+        template: "signing_invitation",
+      },
+      database,
+    );
+  }
 
   return sendEnvelopeResponseSchema.parse({
     envelopeId,
     expiresAt,
-    notifiedSignerName: firstSigner.name,
+    // Only those whose invitation went out.
+    notifiedSignerName: describeNotifiedSigners(
+      firstSigners
+        .filter((signer) => invitationMessageIds.has(signer.id))
+        .map((signer) => signer.name),
+    ),
     redirectPath: `/envelopes/${envelopeId}`,
     sentAt,
   });
+}
+
+/** Who was invited, short enough for the message the sender sees. */
+function describeNotifiedSigners(names: readonly string[]): string {
+  const all = joinNames(names);
+
+  if (all.length <= 160 || names.length < 2) {
+    return all.slice(0, 160);
+  }
+
+  return `${names[0]!.slice(0, 120)} and ${String(names.length - 1)} others`;
 }
 
 type ChangeEnvelopeDeadlineInput = {
@@ -3336,7 +3546,39 @@ export async function changeEnvelopeReminders(
   });
 }
 
+/** A signer signed between the void's first read and its lock. */
+class VoidRouteChangedError extends Error {
+  constructor() {
+    super("A signer signed while the envelope was being voided.");
+    this.name = "VoidRouteChangedError";
+  }
+}
+
 export async function voidSentEnvelope(
+  userId: string,
+  envelopeId: string,
+  input: VoidEnvelopeInput,
+  options: VoidEnvelopeOptions = {},
+): Promise<VoidEnvelopeResult> {
+  for (let attempt = 1; ; attempt += 1) {
+    try {
+      return await voidSentEnvelopeOnce(userId, envelopeId, input, options);
+    } catch (error) {
+      if (!(error instanceof VoidRouteChangedError)) {
+        throw error;
+      }
+
+      if (attempt >= 5) {
+        throw new EnvelopeMutationError(
+          "Signers were signing while you voided this envelope. Try again.",
+          409,
+        );
+      }
+    }
+  }
+}
+
+async function voidSentEnvelopeOnce(
   userId: string,
   envelopeId: string,
   input: VoidEnvelopeInput,
@@ -3473,6 +3715,26 @@ export async function voidSentEnvelope(
         "Only sent envelopes can be voided.",
         409,
       );
+    }
+
+    // The certificates show the signers as they were read before the lock.
+    // A signer who signed in between (one of several signing at the same
+    // time, say) would be shown as still waiting, without their signature
+    // in the audit trail shown. Then the void starts again from what is
+    // there now.
+    const statusesNow = await tx.query<{ id: string; status: string }>(
+      `SELECT id, status FROM signers WHERE envelope_id = $1 AND role = 'signer'`,
+      [envelopeId],
+    );
+
+    if (
+      statusesNow.rows.length !== signers.length ||
+      statusesNow.rows.some(
+        (row) =>
+          signers.find((signer) => signer.id === row.id)?.status !== row.status,
+      )
+    ) {
+      throw new VoidRouteChangedError();
     }
 
     const certificate = await storeEnvelopeCertificatePdf(
@@ -3712,8 +3974,20 @@ export async function replaceDraftEnvelopeFields(
     };
   });
 
-  await withTransaction(async (tx) => {
+  const fieldsRevision = await withTransaction(async (tx) => {
     await lockDraftEnvelope(userId, envelopeId, tx);
+
+    // Under the draft's lock, so two saves cannot both pass this check: a
+    // save made against an older list (from a page the sender has since
+    // left, say) does not overwrite a newer one.
+    if (
+      parsedInput.expectedRevision !== undefined &&
+      parsedInput.expectedRevision !==
+        (await readFieldsRevision(envelopeId, tx))
+    ) {
+      throw new EnvelopeMutationError(FIELDS_CHANGED_MESSAGE, 409);
+    }
+
     await tx.query(
       `
         DELETE FROM fields
@@ -3772,14 +4046,17 @@ export async function replaceDraftEnvelopeFields(
       );
     }
 
-    await tx.query(
+    const updated = await tx.query<{ fields_revision: number }>(
       `
         UPDATE envelopes
-        SET updated_at = $1
+        SET updated_at = $1, fields_revision = fields_revision + 1
         WHERE id = $2 AND user_id = $3
+        RETURNING fields_revision
       `,
       [updatedAt, envelopeId, userId],
     );
+
+    return updated.rows[0]?.fields_revision ?? 0;
   }, database);
 
   return replaceFieldsResponseSchema.parse({
@@ -3788,6 +4065,7 @@ export async function replaceDraftEnvelopeFields(
       (await listFieldsForEnvelopeIds([envelopeId], database)).get(
         envelopeId,
       ) ?? [],
+    fieldsRevision,
     redirectPath: `/envelopes/${envelopeId}/review`,
     updatedAt,
   }) as ReplaceDraftFieldsResult;
@@ -3864,6 +4142,27 @@ export async function replaceDraftEnvelopeSigners(
     throw new EnvelopeMutationError(duplicateCopyRecipientEmailMessage, 400);
   }
 
+  const maxSigners = getMaxSignersPerEnvelope();
+
+  if (parsedInput.signers.length > maxSigners) {
+    throw new EnvelopeMutationError(describeSignerLimit(maxSigners), 400);
+  }
+
+  // Each signer's step of the signing order, in the order of the list.
+  let signingSteps: number[];
+
+  try {
+    signingSteps = normalizeSigningSteps(
+      parsedInput.signers.map((signer) => signer.signingStep),
+    );
+  } catch (error) {
+    if (error instanceof SigningStepError) {
+      throw new EnvelopeMutationError(error.message, 400);
+    }
+
+    throw error;
+  }
+
   const existingSignerIds = new Set(existingSigners.map((signer) => signer.id));
   const usedSignerIds = new Set<string>();
   const updatedAt = Math.floor(Date.now() / 1000);
@@ -3891,6 +4190,7 @@ export async function replaceDraftEnvelopeSigners(
       requireEmailCode: signer.requireEmailCode,
       signatureMeaning: signer.signatureMeaning,
       signOrder: index + 1,
+      signingStep: signingSteps[index]!,
     };
   });
 
@@ -3930,7 +4230,8 @@ export async function replaceDraftEnvelopeSigners(
               updated_at = $4,
               access_code_hash = CASE WHEN $7::boolean THEN $8 ELSE access_code_hash END,
               require_email_code = COALESCE($9, require_email_code),
-              signature_meaning = CASE WHEN $10::boolean THEN $11 ELSE signature_meaning END
+              signature_meaning = CASE WHEN $10::boolean THEN $11 ELSE signature_meaning END,
+              signing_step = $12
             WHERE id = $5 AND envelope_id = $6
           `,
           [
@@ -3945,6 +4246,7 @@ export async function replaceDraftEnvelopeSigners(
             signer.requireEmailCode ?? null,
             signer.signatureMeaning !== undefined,
             signer.signatureMeaning ?? null,
+            signer.signingStep,
           ],
         );
       } else {
@@ -3969,9 +4271,10 @@ export async function replaceDraftEnvelopeSigners(
               updated_at,
               access_code_hash,
               require_email_code,
-              signature_meaning
+              signature_meaning,
+              signing_step
             ) VALUES (
-              $1, $2, $3, $4, $5, 'pending', NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, $6, $7, $8, $9, $10
+              $1, $2, $3, $4, $5, 'pending', NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, $6, $7, $8, $9, $10, $11
             )
           `,
           [
@@ -3985,6 +4288,7 @@ export async function replaceDraftEnvelopeSigners(
             signer.accessCodeHash ?? null,
             signer.requireEmailCode ?? false,
             signer.signatureMeaning ?? null,
+            signer.signingStep,
           ],
         );
       }
@@ -4047,6 +4351,7 @@ export async function replaceDraftEnvelopeSigners(
         requireEmailCode: checks.get(signer.id)?.requireEmailCode ?? false,
         signatureMeaning: checks.get(signer.id)?.signatureMeaning ?? null,
         signOrder: signer.signOrder,
+        signingStep: signingStepOf(signer),
       }),
     ),
     updatedAt,
