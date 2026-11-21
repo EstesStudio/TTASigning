@@ -34,6 +34,8 @@ The backend is chosen by the connection string, nothing else:
 | `sqlite:relative/path/file.db`                 | SQLite, from cwd   |
 | `sqlite:///absolute/path/file.db`              | SQLite             |
 
+A SQLite install also needs `BETTER_AUTH_SECRET`. On Postgres, without it the secret is derived from the database password, and a `sqlite:` URL has no password, so sign-in (including creating the first administrator) fails until it is set. Generate one with `openssl rand -hex 32` and save it as `BETTER_AUTH_SECRET` next to `DATABASE_URL`. An install moving from Postgres keeps the `BETTER_AUTH_SECRET` it already has (see [Switching backends later](#switching-backends-later)).
+
 `db/sqlite/open.mjs` parses it and opens the file, for `db/migrate.mjs`, which runs as plain JavaScript. The app has a TypeScript copy, `src/lib/db/sqlite/open.ts`, because the end-to-end tests load the pool through Playwright, which cannot load `.mjs` files; `db/sqlite/migrations.test.mjs` checks the two agree.
 
 SQLite is Node 24's built-in [`node:sqlite`](https://nodejs.org/docs/latest-v24.x/api/sqlite.html) (`DatabaseSync`). There is no native npm dependency, and `node:sqlite` is only loaded when a `sqlite:` URL is used. The parts of its API used, all present in Node 24: `new DatabaseSync(path, { timeout, readOnly, enableForeignKeyConstraints })`, `prepare()`, `StatementSync.all()/run()/columns()` (declared types of result columns), numbered parameters `?NNN`, `database.function()` for user-defined SQL functions, and `isTransaction`.
@@ -206,6 +208,8 @@ SignuDoc's own backup (`src/lib/backup.ts`) works unchanged on SQLite and keeps 
 ## Switching backends later
 
 `scripts/transfer-database.ts` (`npm run transfer-database -- --from <URL> --to <URL>`) copies every row from one database into another, empty one, of either kind. It is the backup's export piped straight into the backup's restore, so it checks what a restore checks: the target is migrated first, must have no accounts, and gets everything in one transaction or nothing. Files are not copied; both installs point at the same file store. Stop the app first, so nothing changes during the copy.
+
+Keep `BETTER_AUTH_SECRET` the same on the new backend: sessions are signed with it and two-step sign-in keys are encrypted with it. A Postgres install that never set one used a secret derived from its database password, which a `sqlite:` URL cannot supply, so moving it to SQLite needs a new `BETTER_AUTH_SECRET`; everyone is then signed out and anyone using two-step sign-in sets it up again, as after any change of the secret ([backup and restore](../backup-and-restore.md)).
 
 ## Tests and CI
 
