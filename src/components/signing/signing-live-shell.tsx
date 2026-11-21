@@ -21,6 +21,11 @@ import {
 } from "@/components/layout/nav-items";
 import { PublicLegalFooter } from "@/components/layout/public-legal-links";
 import {
+  type DateFormat,
+  dateFormats,
+  formatSigningDate,
+} from "@/lib/signing-date";
+import {
   beginDocumentPanGesture,
   clampDocumentZoomLevel,
   DEFAULT_DOCUMENT_ZOOM_LEVEL,
@@ -295,11 +300,14 @@ function getCompletionValue(
   fields: readonly SigningCurrentField[],
   {
     checkboxValues,
-    localDateLabel,
+    localDateLabels,
     signatureValues,
     signerName,
     textValues,
-  }: EnteredValues & { localDateLabel: string; signerName: string },
+  }: EnteredValues & {
+    localDateLabels: Record<DateFormat, string>;
+    signerName: string;
+  },
 ) {
   if (field.type === "signature" || field.type === "initials") {
     return signatureValues[field.id]?.value ?? "Tap to sign";
@@ -335,7 +343,7 @@ function getCompletionValue(
     return chosen ? getFieldLabel(chosen) : "Choose one";
   }
 
-  return localDateLabel;
+  return localDateLabels[field.dateFormat ?? "date"];
 }
 
 function isFieldComplete(
@@ -548,13 +556,32 @@ export function SigningLiveShell({
   const latestTextValuesRef = useRef(textValues);
   const [drawnSignatureVersion, setDrawnSignatureVersion] = useState(0);
   const [zoomLevel, setZoomLevel] = useState(DEFAULT_DOCUMENT_ZOOM_LEVEL);
-  const [localDateLabel] = useState(() =>
-    new Intl.DateTimeFormat("en-US", {
-      day: "numeric",
-      month: "long",
-      year: "numeric",
-    }).format(new Date()),
+  // What each kind of date field will stamp. A time is kept current while
+  // the signer reads; the stamp itself is the moment they finish.
+  const [signingNow, setSigningNow] = useState(() => Date.now());
+  const showsTime = record.currentSignerFields.some(
+    (field) => field.type === "date" && (field.dateFormat ?? "date") !== "date",
   );
+  const localDateLabels = Object.fromEntries(
+    dateFormats.map((format) => [
+      format,
+      formatSigningDate(
+        signingNow,
+        new Date(signingNow).getTimezoneOffset(),
+        format,
+      ),
+    ]),
+  ) as Record<DateFormat, string>;
+
+  useEffect(() => {
+    if (!showsTime) {
+      return;
+    }
+
+    const timer = window.setInterval(() => setSigningNow(Date.now()), 15_000);
+
+    return () => window.clearInterval(timer);
+  }, [showsTime]);
   const paperGridRef = useRef<HTMLDivElement | null>(null);
   const documentPanGestureRef = useRef<DocumentPanGesture | null>(null);
 
@@ -1168,7 +1195,7 @@ export function SigningLiveShell({
                               checkboxValue={Boolean(checkboxValues[field.id])}
                               field={field}
                               key={field.id}
-                              localDateLabel={localDateLabel}
+                              localDateLabels={localDateLabels}
                               isInvalid={isInvalidEntry(field)}
                               tooLongMessage={
                                 tooLongAnswers[field.id] !== undefined
@@ -1322,7 +1349,7 @@ export function SigningLiveShell({
                       record.currentSignerFields,
                       {
                         ...enteredValues,
-                        localDateLabel,
+                        localDateLabels,
                         signerName: record.signer.name,
                       },
                     )}
@@ -1676,7 +1703,7 @@ function CurrentSignerField({
   checkboxValue,
   field,
   isInvalid,
-  localDateLabel,
+  localDateLabels,
   onCheckboxChange,
   onSignatureClick,
   onTextChange,
@@ -1689,7 +1716,7 @@ function CurrentSignerField({
   field: SigningCurrentField;
   /** True for a number field holding something that is not a number. */
   isInvalid: boolean;
-  localDateLabel: string;
+  localDateLabels: Record<DateFormat, string>;
   onCheckboxChange: (checked: boolean) => void;
   onSignatureClick: () => void;
   onTextChange: (value: string) => void;
@@ -1766,7 +1793,9 @@ function CurrentSignerField({
       >
         {showInlineValue ? (
           <p className="flex h-full items-center px-2 text-[12px] leading-tight font-semibold">
-            {field.type === "date" ? localDateLabel : signerName}
+            {field.type === "date"
+              ? localDateLabels[field.dateFormat ?? "date"]
+              : signerName}
           </p>
         ) : null}
       </div>
