@@ -10,6 +10,7 @@ import {
 const branding: Branding = {
   brandColor: null,
   contactUrl: null,
+  emailLogoUrl: null,
   hosted: false,
   logoUrl: null,
   organizationName: null,

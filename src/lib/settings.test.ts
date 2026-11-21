@@ -80,6 +80,7 @@ test("a neutral install goes by the organization's name and links", () => {
   assert.deepEqual(buildBranding(resolveSettings(stored, {})), {
     brandColor: null,
     contactUrl: null,
+    emailLogoUrl: null,
     hosted: false,
     logoUrl: null,
     organizationName: "Acme Corp",
@@ -145,6 +146,7 @@ test("a neutral install carries its own color and logo, hosted mode never does",
 
   assert.equal(neutral.brandColor, "#1a73e8");
   assert.equal(neutral.logoUrl, "/api/brand/logo?v=0123456789abcdef");
+  assert.equal(neutral.emailLogoUrl, "/api/brand/logo?v=0123456789abcdef");
 
   const plain = buildBranding(resolveSettings(stored, {}));
 
@@ -154,7 +156,8 @@ test("a neutral install carries its own color and logo, hosted mode never does",
   const hosted = buildBranding(resolveSettings(branded, { HOSTED_MODE: "1" }));
 
   assert.equal(hosted.brandColor, null);
-  assert.equal(hosted.logoUrl, null);
+  assert.equal(hosted.logoUrl, "/img/logo.svg");
+  assert.equal(hosted.emailLogoUrl, "/img/logo.png");
 });
 
 test("a stored color that is not one is ignored rather than put on a page", () => {

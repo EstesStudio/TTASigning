@@ -42,6 +42,11 @@ export type Branding = {
    * The path changes whenever the logo does, so it can be cached for good.
    */
   logoUrl: string | null;
+  /**
+   * The raster logo for email headers, or null to reuse `logoUrl`. Mail
+   * programs often refuse to show SVG, so the hosted service keeps a PNG.
+   */
+  emailLogoUrl: string | null;
   /** The organization's name, when one has been set. */
   organizationName: string | null;
   privacyUrl: string | null;
@@ -57,8 +62,9 @@ export type Branding = {
 export const HOSTED_BRANDING: Branding = {
   brandColor: null,
   contactUrl: "/contact",
+  emailLogoUrl: "/img/logo.png",
   hosted: true,
-  logoUrl: null,
+  logoUrl: "/img/logo.svg",
   organizationName: null,
   privacyUrl: "/privacy",
   productName: SIGNUDOC_NAME,
@@ -82,15 +88,17 @@ export function buildBranding(settings: ResolvedSettings): Branding {
   }
 
   const organizationName = settings.organizationName?.trim() || null;
+  const logoUrl =
+    settings.logoVersion === null
+      ? null
+      : buildBrandLogoPath(settings.logoVersion);
 
   return {
     brandColor: normalizeBrandColor(settings.brandColor),
     contactUrl: null,
+    emailLogoUrl: logoUrl,
     hosted: false,
-    logoUrl:
-      settings.logoVersion === null
-        ? null
-        : buildBrandLogoPath(settings.logoVersion),
+    logoUrl,
     organizationName,
     privacyUrl: settings.privacyUrl,
     productName: organizationName ?? SIGNUDOC_NAME,

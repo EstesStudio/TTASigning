@@ -10,6 +10,7 @@ const body = { htmlBody: "<p>Hello</p>", textBody: "Hello" };
 const neutral: Branding = {
   brandColor: null,
   contactUrl: null,
+  emailLogoUrl: null,
   hosted: false,
   logoUrl: null,
   organizationName: "Acme Corp",
@@ -146,6 +147,17 @@ test("an install with a logo puts it at the top of the HTML part only", () => {
   );
   assert.ok(result.htmlBody.includes("<p>Hello</p>"));
   assert.doesNotMatch(result.textBody, /logo/);
+});
+
+test("the hosted service sends its PNG logo, not the web SVG", () => {
+  const result = withUserEmailLegalFooter(body, HOSTED_BRANDING, env);
+
+  assert.ok(
+    result.htmlBody.includes(
+      '<img src="https://sign.acme.com/img/logo.png" alt="Sakta"',
+    ),
+  );
+  assert.doesNotMatch(result.htmlBody, /logo\.svg/);
 });
 
 test("without the site's address there is nowhere to fetch a logo from", () => {

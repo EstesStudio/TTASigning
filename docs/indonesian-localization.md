@@ -155,6 +155,7 @@ Sudah terpasang:
 - Email undangan (termasuk setelah koreksi signer), pengingat, kode akses, pemberitahuan penyelesaian, penolakan, pembatalan, dan tautan unduhan baru mengikuti locale yang dipilih saat envelope dikirim (`db/migrations/20261121000000_signer_locales.sql`).
 - Halaman Verify, halaman landing publik (`src/components/landing/landing-shell.tsx` beserta tombol sesinya dan metadata halaman), dan email signer diterjemahkan; string internal (event webhook, tipe email, kode galat, token, hash, URL, `disclosureVersion`, dan teks PDF/PAdES) sengaja tidak diubah.
 - Halaman harga publik (`/pricing`) memakai kamus yang sama; teksnya ada di `pricingPage`, sedangkan angka dan batas paket ada di `src/lib/pricing.ts`. Harga dan batas paket tersebut masih usulan bisnis, bukan batas teknis aplikasi, dan belum ada alur pembayaran.
+- Logo hosted memakai `public/img/logo.svg` di header web dan `public/img/logo.png` di email. Keduanya aset statis yang dipercaya; jalur upload logo organisasi tetap hanya menerima PNG/JPEG/WebP karena SVG berisiko sebagai konten pengguna dan sering tidak tampil di klien email. `HOSTED_BRANDING.logoUrl` dipakai `<Brand />`, sementara `emailLogoUrl` dipakai `buildLogoHeader()`.
 - Pratinjau dasbor di halaman landing bersifat dekoratif (`aria-hidden`) dan masih memakai data contoh berbahasa Inggris; menu akun publik juga belum diterjemahkan karena dipakai bersama permukaan lain.
 - README tidak lagi menyatakan halaman tanda tangan hanya berbahasa Inggris.
 

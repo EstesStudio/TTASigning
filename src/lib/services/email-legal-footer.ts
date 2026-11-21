@@ -53,6 +53,7 @@ function buildFooterLinks(
  * The install's logo for the top of an email, or nothing when it has none.
  * Email programs fetch it from this site, so it needs the site's address;
  * many hide pictures until asked, which is why the name is the alt text.
+ * The hosted service supplies a PNG here while its web header uses SVG.
  */
 function buildLogoHeader(branding: Branding, env: EnvSource): string {
   const appUrl = getEnv(env).appUrl;
@@ -61,7 +62,10 @@ function buildLogoHeader(branding: Branding, env: EnvSource): string {
     return "";
   }
 
-  const source = new URL(branding.logoUrl, appUrl).toString();
+  const source = new URL(
+    branding.emailLogoUrl ?? branding.logoUrl,
+    appUrl,
+  ).toString();
 
   return [
     '<p style="margin:0 0 24px;">',
