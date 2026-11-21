@@ -92,7 +92,6 @@ export function PdfPageCanvas({
 
   useEffect(() => {
     let isActive = true;
-    let activeDocument: PdfDocumentProxy | null = null;
     let loadingTask: ReturnType<PdfJsModule["getDocument"]> | null = null;
 
     async function loadDocument() {
@@ -105,18 +104,18 @@ export function PdfPageCanvas({
 
       try {
         const pdfjs = await loadPdfJsModule();
-        loadingTask = pdfjs.getDocument({
+        const task = pdfjs.getDocument({
           standardFontDataUrl: PDF_JS_STANDARD_FONT_DATA_URL,
           url: documentUrl,
         });
-        const nextDocument = await loadingTask.promise;
+        loadingTask = task;
+        const nextDocument = await task.promise;
 
         if (!isActive) {
-          await nextDocument.destroy();
+          await task.destroy();
           return;
         }
 
-        activeDocument = nextDocument;
         setDocumentProxy(nextDocument);
       } catch (error) {
         if (isActive) {
@@ -132,7 +131,6 @@ export function PdfPageCanvas({
     return () => {
       isActive = false;
       loadingTask?.destroy();
-      void activeDocument?.destroy();
     };
   }, [documentUrl]);
 

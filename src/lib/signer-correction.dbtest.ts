@@ -350,11 +350,12 @@ function submitDrawn(
 
 async function extractPdfText(pdfBytes: Uint8Array): Promise<string> {
   const pdfjs = await import("pdfjs-dist/legacy/build/pdf.mjs");
-  const document = await pdfjs.getDocument({
+  const loadingTask = pdfjs.getDocument({
     data: new Uint8Array(pdfBytes),
     useSystemFonts: false,
     verbosity: 0,
-  }).promise;
+  });
+  const document = await loadingTask.promise;
   const parts: string[] = [];
 
   for (let pageNumber = 1; pageNumber <= document.numPages; pageNumber += 1) {
@@ -366,7 +367,7 @@ async function extractPdfText(pdfBytes: Uint8Array): Promise<string> {
     );
   }
 
-  await document.destroy();
+  await loadingTask.destroy();
 
   return parts.join("\n").replace(/\s+/g, " ");
 }

@@ -88,10 +88,6 @@ export async function assertPdfPreviewRenderable(
   } finally {
     renderTask?.cancel();
     page?.cleanup();
-    loadingTask?.destroy();
-
-    if (documentProxy) {
-      await documentProxy.destroy();
-    }
+    await loadingTask?.destroy();
   }
 }
