@@ -5,7 +5,7 @@ type PdfDocumentProxy = Awaited<
 type PdfPageProxy = Awaited<ReturnType<PdfDocumentProxy["getPage"]>>;
 type PdfRenderTask = ReturnType<PdfPageProxy["render"]>;
 
-const PDF_JS_ASSET_BASE = "/pdfjs/5.5.207";
+const PDF_JS_ASSET_BASE = "/pdfjs/6.5.207";
 export const PDF_JS_STANDARD_FONT_DATA_URL = `${PDF_JS_ASSET_BASE}/standard_fonts/`;
 export const PDF_JS_WORKER_SRC = `${PDF_JS_ASSET_BASE}/legacy/build/pdf.worker.min.mjs`;
 
