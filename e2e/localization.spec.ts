@@ -53,8 +53,16 @@ test("the footer switcher changes the language without changing the URL", async 
   const originalUrl = page.url();
   await expect(page.locator("html")).toHaveAttribute("lang", "en");
 
+  const flag = page.getByTestId("locale-flag").locator("svg");
+  const englishFlagBox = await flag.boundingBox();
+  expect(englishFlagBox?.width).toBe(18);
+  expect(englishFlagBox?.height).toBe(18);
+
   await page.getByLabel("Choose a language").selectOption("id");
 
+  const indonesianFlagBox = await flag.boundingBox();
+  expect(indonesianFlagBox?.width).toBe(18);
+  expect(indonesianFlagBox?.height).toBe(18);
   await expect(page.locator("html")).toHaveAttribute("lang", "id");
   await expect(page.getByRole("heading", { level: 1 })).toHaveText(
     "Verifikasi dokumen",

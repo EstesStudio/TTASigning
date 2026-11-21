@@ -40,11 +40,13 @@ export function LocaleSwitcher({ className }: LocaleSwitcherProps) {
 
   return (
     <div className={cn("flex items-center gap-2", className)}>
-      {locale === "id" ? (
-        <IDFlagRound height="18px" width="18px" />
-      ) : (
-        <USFlagRound height="18px" width="18px" />
-      )}
+      <span className="flex shrink-0 items-center" data-testid="locale-flag">
+        {locale === "id" ? (
+          <IDFlagRound height="18px" width="18px" />
+        ) : (
+          <USFlagRound height="18px" width="18px" />
+        )}
+      </span>
       <select
         aria-label={messages.footer.languageAriaLabel}
         className="rounded-md border border-(--border) bg-(--paper) px-2 py-1 text-[0.8125rem] font-medium text-(--tertiary) outline-none focus-visible:ring-2 focus-visible:ring-(--accent)"
