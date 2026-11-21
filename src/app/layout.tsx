@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { EB_Garamond, Plus_Jakarta_Sans } from "next/font/google";
+import { Playfair_Display, Plus_Jakarta_Sans } from "next/font/google";
 
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { SIGNUDOC_NAME } from "@/lib/branding.ts";
@@ -16,9 +16,9 @@ const plusJakartaSans = Plus_Jakarta_Sans({
   weight: ["400", "500", "600", "700", "800"],
 });
 
-// A variable serif reserved for headings: softer and more formal than the
-// interface sans, without changing body copy, buttons or form controls.
-const ebGaramond = EB_Garamond({
+// A high-contrast serif reserved for headings: formal and a little more
+// decorative than the interface sans, without touching body copy or controls.
+const playfairDisplay = Playfair_Display({
   display: "swap",
   subsets: ["latin", "latin-ext"],
   variable: "--font-display",
@@ -44,7 +44,7 @@ export default async function RootLayout({
   return (
     <html lang={locale}>
       <body
-        className={`${plusJakartaSans.variable} ${ebGaramond.variable} antialiased`}
+        className={`${plusJakartaSans.variable} ${playfairDisplay.variable} antialiased`}
       >
         <MessagesProvider locale={locale} messages={messages}>
           <TooltipProvider>{children}</TooltipProvider>
