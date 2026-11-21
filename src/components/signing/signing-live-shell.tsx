@@ -1765,7 +1765,7 @@ function CurrentSignerField({
         style={frame}
       >
         {showInlineValue ? (
-          <p className="flex h-full items-center truncate px-2 text-[12px] font-semibold">
+          <p className="flex h-full items-center px-2 text-[12px] leading-tight font-semibold">
             {field.type === "date" ? localDateLabel : signerName}
           </p>
         ) : null}
