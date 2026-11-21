@@ -5,6 +5,7 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { getMessages } from "@/lib/i18n/messages.ts";
 import { MessagesProvider } from "@/lib/i18n/messages-provider.tsx";
 import { getRequestLocale } from "@/lib/i18n/request.ts";
+import { siteSettings } from "@/lib/site-settings.ts";
 
 import "./globals.css";
 
@@ -16,7 +17,7 @@ const plusJakartaSans = Plus_Jakarta_Sans({
 });
 
 export const metadata: Metadata = {
-  title: "SignuDoc",
+  title: siteSettings.name,
   description:
     "Free e-signature software for small businesses. Upload, send, sign — no enterprise circus required.",
   icons: {
