@@ -61,7 +61,7 @@ export const enMessages = defineMessages({
         {
           answer:
             "Nope. You sign in to send documents, but your signers just click a link and sign. No account, no friction.",
-          question: "Do signers need a SignuDoc account?",
+          question: "Do signers need a Sakta account?",
         },
         {
           answer:

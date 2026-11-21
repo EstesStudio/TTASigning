@@ -62,7 +62,7 @@ export const idMessages: Messages = defineMessages({
         {
           answer:
             "Tidak. Anda masuk untuk mengirim dokumen, tetapi penandatangan cukup mengklik tautan lalu menandatangani. Tanpa akun, tanpa ribet.",
-          question: "Apakah penandatangan memerlukan akun SignuDoc?",
+          question: "Apakah penandatangan memerlukan akun Sakta?",
         },
         {
           answer:

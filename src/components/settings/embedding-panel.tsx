@@ -123,7 +123,7 @@ export function EmbeddingPanel() {
           </a>
           . No invitations are emailed for those: the app signs the person in
           and says who they are, so list only sites you trust. Every other page
-          of SignuDoc stays impossible to frame.
+          of Sakta stays impossible to frame.
         </p>
       </div>
 

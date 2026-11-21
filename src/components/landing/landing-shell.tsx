@@ -17,6 +17,7 @@ import { Brand, BrandMark } from "@/components/layout/brand";
 import { PublicLegalFooter } from "@/components/layout/public-legal-links";
 import { PublicSessionMenu } from "@/components/layout/public-session-menu";
 import { buttonVariants } from "@/components/ui/button";
+import { SIGNUDOC_NAME } from "@/lib/branding.ts";
 import { cn } from "@/lib/cn";
 import type { Messages } from "@/lib/i18n/locales/en.ts";
 import { getMessages } from "@/lib/i18n/messages.ts";
@@ -331,7 +332,7 @@ function ComparisonTable({
               <th className="w-[32%] rounded-t-2xl bg-(--accent-softer) px-5 py-4 text-center">
                 <span className="inline-flex items-center gap-2 text-[1.0625rem] font-extrabold tracking-[-0.02em] text-(--fg)">
                   <BrandMark className="size-6 rounded-[0.5rem]" />
-                  SignuDoc
+                  {SIGNUDOC_NAME}
                 </span>
               </th>
               <th className="w-[32%] px-5 py-4 text-center">
@@ -374,7 +375,7 @@ function ComparisonTable({
             <ComparisonMobileRow
               advantage
               copy={copy}
-              label="SignuDoc"
+              label={SIGNUDOC_NAME}
               value={row.signudoc}
             />
             <ComparisonMobileRow
