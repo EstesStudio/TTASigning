@@ -4,6 +4,9 @@ import { SigningShell } from "@/components/signing/signing-shell";
 import { getDb } from "@/lib/db/connection";
 import { isEmbedOriginAllowed, openEmbedLink } from "@/lib/embedding";
 import { parseEmbedOrigin } from "@/lib/embed-origin";
+import { MessagesProvider } from "@/lib/i18n/messages-provider.tsx";
+import { getMessages } from "@/lib/i18n/messages.ts";
+import { getRequestLocale } from "@/lib/i18n/request.ts";
 import { getClientIpAddress } from "@/lib/security/request";
 import {
   SigningAccessError,
@@ -87,13 +90,19 @@ export default async function EmbedSignPage({
     }
   }
 
+  const requestLocale = await getRequestLocale();
+  const locale = record?.locale ?? requestLocale;
+  const messages = getMessages(locale);
+
   return (
-    <SigningShell
-      embedOrigin={origin}
-      initialState={initialState}
-      key={token}
-      record={record ?? undefined}
-      token={token}
-    />
+    <MessagesProvider locale={locale} messages={messages}>
+      <SigningShell
+        embedOrigin={origin}
+        initialState={initialState}
+        key={token}
+        record={record ?? undefined}
+        token={token}
+      />
+    </MessagesProvider>
   );
 }

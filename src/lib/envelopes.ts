@@ -21,6 +21,9 @@ import {
   describeChoiceFieldProblem,
   findChoiceFieldProblem,
 } from "./field-choices.ts";
+import { DEFAULT_LOCALE, isLocale, type Locale } from "./i18n/types.ts";
+import { formatMessage } from "./i18n/format.ts";
+import { getMessages } from "./i18n/messages.ts";
 import { idSchema } from "./schemas/common.ts";
 import {
   changeDeadlineResponseSchema,
@@ -169,6 +172,8 @@ type SendDraftEnvelopeInput = {
   delivery?: "email" | "embedded";
   /** How many days signers get. The default applies when left out. */
   expiresInDays?: number;
+  /** Language of the invitations sent when the draft is sent. */
+  locale?: Locale;
   /** Days between automatic reminders. Null or left out means none. */
   reminderIntervalDays?: number | null;
   /**
@@ -261,6 +266,7 @@ type SignerRow = {
   id: string;
   lastNotifiedAt: number | null;
   lastNudgedAt: number | null;
+  locale: string | null;
   name: string;
   signatureMeaning: SignatureMeaning | null;
   signedAt: number | null;
@@ -1258,6 +1264,7 @@ async function listSignersForEnvelopeIds(
         turn_started_at AS "turnStartedAt",
         last_notified_at AS "lastNotifiedAt",
         last_nudged_at AS "lastNudgedAt",
+        locale,
         signed_at AS "signedAt",
         declined_at AS "declinedAt",
         decline_reason AS "declineReason",
@@ -1648,29 +1655,35 @@ function getMissingSignatureSigner(
   );
 }
 
-function buildVoidNotificationEmail(input: {
+export function buildVoidNotificationEmail(input: {
   branding: Branding;
   envelopeId: string;
   envelopeTitle: string;
+  locale: Locale;
   senderName: string;
   signerEmail: string;
   signerName: string;
   /** The signer had already signed, so the document they signed won't be completed. */
   signerSigned?: boolean;
 }) {
-  const subject = `"${input.envelopeTitle}" was voided by ${input.senderName}`;
+  const copy = getMessages(input.locale).email.voidNotification;
+  const values = {
+    productName: input.branding.productName,
+    senderName: input.senderName,
+    title: input.envelopeTitle,
+  };
+  const subject = formatMessage(copy.subject, values);
   const outcome = input.signerSigned
-    ? "The signing process has been canceled, so the document you signed will not be completed. No further action is needed."
-    : "The signing process has been canceled. No further action is needed.";
-  const textBody = [
-    `Hi ${input.signerName},`,
-    "",
-    `${input.senderName} voided "${input.envelopeTitle}" in ${input.branding.productName}.`,
-    outcome,
-  ].join("\n");
+    ? copy.outcomeSigned
+    : copy.outcomeUnsigned;
+  const greeting = formatMessage(copy.greeting, {
+    signerName: input.signerName,
+  });
+  const body = formatMessage(copy.body, values);
+  const textBody = [greeting, "", body, outcome].join("\n");
   const htmlBody = [
-    `<p>Hi ${escapeHtml(input.signerName)},</p>`,
-    `<p>${escapeHtml(input.senderName)} voided &ldquo;${escapeHtml(input.envelopeTitle)}&rdquo; in ${escapeHtml(input.branding.productName)}.</p>`,
+    `<p>${escapeHtml(greeting)}</p>`,
+    `<p>${escapeHtml(body)}</p>`,
     `<p>${escapeHtml(outcome)}</p>`,
   ].join("");
   const legalFooter = withUserEmailLegalFooter(
@@ -1679,6 +1692,8 @@ function buildVoidNotificationEmail(input: {
       textBody,
     },
     input.branding,
+    process.env,
+    input.locale,
   );
 
   return {
@@ -3032,7 +3047,8 @@ export async function sendDraftEnvelope(
               signing_token_expires_at = $2,
               turn_started_at = $3,
               last_notified_at = $4,
-              updated_at = $5
+              updated_at = $5,
+              locale = $8
             WHERE id = $6
               AND envelope_id = $7
           `,
@@ -3044,6 +3060,7 @@ export async function sendDraftEnvelope(
             sentAt,
             signer.id,
             envelopeId,
+            input.locale ?? "en",
           ],
         );
 
@@ -3141,6 +3158,7 @@ export async function sendDraftEnvelope(
             branding,
             envelopeTitle: envelope.title,
             expiresAt,
+            locale: input.locale,
             senderName: input.senderName,
             signerEmail: firstSigner.email,
             signerName: firstSigner.name,
@@ -3245,6 +3263,7 @@ export async function sendDraftEnvelope(
               branding,
               envelopeTitle: envelope.title,
               expiresAt,
+              locale: input.locale,
               senderName: input.senderName,
               signerEmail: signer.email,
               signerName: signer.name,
@@ -3514,6 +3533,7 @@ export async function correctSentEnvelopeSigner(
       emailCodeHash: string | null;
       emailCodeSentAt: number | null;
       lastNotifiedAt: number | null;
+      locale: string | null;
       name: string;
       role: string;
       signOrder: number;
@@ -3532,6 +3552,7 @@ export async function correctSentEnvelopeSigner(
           email_code_hash AS "emailCodeHash",
           email_code_sent_at AS "emailCodeSentAt",
           last_notified_at AS "lastNotifiedAt",
+          locale,
           name,
           role,
           sign_order AS "signOrder",
@@ -3689,6 +3710,7 @@ export async function correctSentEnvelopeSigner(
             branding,
             envelopeTitle: envelope.title,
             expiresAt: envelope.expiresAt,
+            locale: isLocale(signer.locale) ? signer.locale : DEFAULT_LOCALE,
             senderName: context.senderName,
             signerEmail: nextEmail,
             signerName: nextName,
@@ -4132,6 +4154,7 @@ async function voidSentEnvelopeOnce(
             branding,
             envelopeId,
             envelopeTitle: envelope.title,
+            locale: isLocale(signer.locale) ? signer.locale : DEFAULT_LOCALE,
             senderName: input.senderName,
             signerEmail: signer.email,
             signerName: signer.name,

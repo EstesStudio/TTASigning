@@ -16,6 +16,7 @@ import {
   manualNudgeResponseSchema,
   type EnvelopeRecord,
 } from "./schemas/envelope.ts";
+import { DEFAULT_LOCALE, isLocale, type Locale } from "./i18n/types.ts";
 import { type SignerRecord } from "./schemas/signer.ts";
 import { getBranding } from "./settings.ts";
 import {
@@ -29,6 +30,8 @@ import {
   isEmailNotConnectedError,
   type EmailService,
 } from "./services/email.ts";
+import { getMessages } from "./i18n/messages.ts";
+import { formatMessage } from "./i18n/format.ts";
 import { buildDeadlineLine } from "./services/signing-invitation-email.ts";
 import { isEmbeddedEnvelope } from "./embedding.ts";
 import { withUserEmailLegalFooter } from "./services/email-legal-footer.ts";
@@ -62,6 +65,7 @@ type ReminderSignerRow = {
   id: string;
   lastNotifiedAt: number | null;
   lastNudgedAt: number | null;
+  locale: string | null;
   name: string;
   signOrder: number;
   signingTokenExpiresAt: number | null;
@@ -91,6 +95,7 @@ type PersistedReminder = {
   envelopeId: string;
   envelopeTitle: string;
   issuedLink: IssuedSigningLink;
+  locale: Locale;
   nextAvailableAt: number;
   previousEnvelopeUpdatedAt: number;
   previousSigner: Pick<
@@ -224,6 +229,7 @@ async function getCurrentSignerForEnvelope(
         signing_token_expires_at AS "signingTokenExpiresAt",
         last_notified_at AS "lastNotifiedAt",
         last_nudged_at AS "lastNudgedAt",
+        locale,
         updated_at AS "updatedAt"
       FROM signers
       WHERE envelope_id = $1
@@ -236,44 +242,60 @@ async function getCurrentSignerForEnvelope(
   );
 }
 
-function buildReminderEmail(input: {
+export function buildReminderEmail(input: {
   branding: Branding;
   envelopeId: string;
   envelopeTitle: string;
   expiresAt?: number | null;
   kind: ReminderRequest["kind"];
+  locale?: Locale;
   senderName: string;
   signerEmail: string;
   signerName: string;
   signingUrl: string;
 }) {
   const automatic = input.kind === "automatic";
-  const subject = automatic
-    ? `Reminder: ${input.senderName} is waiting for your signature on "${input.envelopeTitle}"`
-    : `${input.senderName} sent you a reminder to sign "${input.envelopeTitle}"`;
-  const introLine = automatic
-    ? `${input.senderName} is still waiting for your signature on "${input.envelopeTitle}", sent through ${input.branding.productName}.`
-    : `${input.senderName} sent you a reminder to sign "${input.envelopeTitle}" through ${input.branding.productName}.`;
-  const deadlineLine = buildDeadlineLine(input.expiresAt);
+  const locale = input.locale ?? "en";
+  const emailCopy = getMessages(locale).email;
+  const invitation = emailCopy.signingInvitation;
+  const reminder = emailCopy.reminder;
+  const values = {
+    envelopeTitle: input.envelopeTitle,
+    productName: input.branding.productName,
+    senderName: input.senderName,
+  };
+  const subject = formatMessage(
+    automatic ? reminder.subjectAutomatic : reminder.subjectManual,
+    values,
+  );
+  const introLine = formatMessage(
+    automatic ? reminder.introAutomatic : reminder.introManual,
+    values,
+  );
+  const deadlineLine = buildDeadlineLine(input.expiresAt, locale);
+  const greeting = formatMessage(invitation.greeting, {
+    signerName: input.signerName,
+  });
+  const noAccount = formatMessage(invitation.noAccount, values);
   const textBody = [
-    `Hi ${input.signerName},`,
+    greeting,
     "",
     introLine,
     "",
-    "Review and sign the document here:",
+    `${invitation.cta}:`,
     input.signingUrl,
     ...(deadlineLine ? ["", deadlineLine] : []),
     "",
-    `You do not need a ${input.branding.productName} account to sign.`,
-    "If you receive a newer invitation or reminder link, use the newest one.",
+    noAccount,
+    invitation.newestLink,
   ].join("\n");
   const htmlBody = [
-    `<p>Hi ${escapeHtml(input.signerName)},</p>`,
+    `<p>${escapeHtml(greeting)}</p>`,
     `<p>${escapeHtml(introLine)}</p>`,
-    `<p><a href="${escapeHtml(input.signingUrl)}">Review and sign the document</a></p>`,
+    `<p><a href="${escapeHtml(input.signingUrl)}">${escapeHtml(invitation.cta)}</a></p>`,
     deadlineLine ? `<p>${escapeHtml(deadlineLine)}</p>` : "",
-    `<p>You do not need a ${escapeHtml(input.branding.productName)} account to sign.</p>`,
-    "<p>If you receive a newer invitation or reminder link, use the newest one.</p>",
+    `<p>${escapeHtml(noAccount)}</p>`,
+    `<p>${escapeHtml(invitation.newestLink)}</p>`,
   ].join("");
   const legalFooter = withUserEmailLegalFooter(
     {
@@ -281,6 +303,8 @@ function buildReminderEmail(input: {
       textBody,
     },
     input.branding,
+    process.env,
+    locale,
   );
 
   return {
@@ -523,6 +547,9 @@ async function persistReminder(
       envelopeId,
       envelopeTitle: persistedEnvelope.title,
       issuedLink,
+      locale: isLocale(persistedSigner.locale)
+        ? persistedSigner.locale
+        : DEFAULT_LOCALE,
       nextAvailableAt: getManualNudgeAvailableAt(dispatchedAt),
       previousEnvelopeUpdatedAt: persistedEnvelope.updatedAt,
       previousSigner: {
@@ -567,6 +594,7 @@ async function deliverReminder(
           envelopeTitle: persisted.envelopeTitle,
           expiresAt: persisted.envelopeExpiresAt,
           kind,
+          locale: persisted.locale,
           senderName: persisted.senderName,
           signerEmail: persisted.signerEmail,
           signerName: persisted.signerName,

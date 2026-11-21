@@ -73,6 +73,7 @@ type SignerRow = {
   id: string;
   lastNotifiedAt: number | null;
   lastNudgedAt: number | null;
+  locale?: string | null;
   name: string;
   signedAt: number | null;
   signOrder: number;
@@ -154,6 +155,7 @@ function mapSignerRow(row: SignerRow): SignerRecord {
     id: row.id,
     lastNotifiedAt: row.lastNotifiedAt,
     lastNudgedAt: row.lastNudgedAt,
+    locale: row.locale ?? null,
     name: row.name,
     signOrder: row.signOrder,
     signingStep: row.signingStep ?? null,
@@ -309,6 +311,7 @@ async function getSignerForEnvelope(
         turn_started_at AS "turnStartedAt",
         last_notified_at AS "lastNotifiedAt",
         last_nudged_at AS "lastNudgedAt",
+        locale,
         signed_at AS "signedAt",
         declined_at AS "declinedAt",
         decline_reason AS "declineReason",

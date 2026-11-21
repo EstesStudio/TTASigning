@@ -2,6 +2,9 @@ import type { Metadata } from "next";
 import { Plus_Jakarta_Sans } from "next/font/google";
 
 import { TooltipProvider } from "@/components/ui/tooltip";
+import { MessagesProvider } from "@/lib/i18n/messages-provider.tsx";
+import { getMessages } from "@/lib/i18n/messages.ts";
+import { getRequestLocale } from "@/lib/i18n/request.ts";
 
 import "./globals.css";
 
@@ -21,15 +24,20 @@ export const metadata: Metadata = {
   },
 };
 
-export default function RootLayout({
+export default async function RootLayout({
   children,
 }: Readonly<{
   children: React.ReactNode;
 }>) {
+  const locale = await getRequestLocale();
+  const messages = getMessages(locale);
+
   return (
-    <html lang="en">
+    <html lang={locale}>
       <body className={`${plusJakartaSans.variable} antialiased`}>
-        <TooltipProvider>{children}</TooltipProvider>
+        <MessagesProvider locale={locale} messages={messages}>
+          <TooltipProvider>{children}</TooltipProvider>
+        </MessagesProvider>
       </body>
     </html>
   );

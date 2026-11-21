@@ -1,5 +1,6 @@
 "use client";
 
+import { useMessages } from "@/lib/i18n/messages-provider.tsx";
 import type {
   SigningPayload,
   SigningVerificationState,
@@ -29,40 +30,6 @@ type SigningShellProps = {
   verification?: SigningVerificationState;
 };
 
-const tokenStateCopy: Record<
-  SigningUnavailableState,
-  { description: string; title: string }
-> = {
-  error: {
-    title: "Something went wrong. Please try again.",
-    description:
-      "We couldn't load this document right now. Reload the page or request a fresh signing link from the sender.",
-  },
-  expired: {
-    title: "This link has expired",
-    description: "Request a new signing link from the sender.",
-  },
-  "already-signed": {
-    title: "You've already signed",
-    description: "You already completed your signature for this document.",
-  },
-  completed: {
-    title: "This envelope has been completed",
-    description:
-      "Everyone has signed this document. No further action is needed.",
-  },
-  voided: {
-    title: "This envelope has been voided",
-    description:
-      "The sender cancelled this document. No further action is needed.",
-  },
-  declined: {
-    title: "This envelope has been declined",
-    description:
-      "A signer declined this document. No further action is needed.",
-  },
-};
-
 export function SigningShell({
   embedOrigin = null,
   initialState,
@@ -71,6 +38,8 @@ export function SigningShell({
   token,
   verification,
 }: SigningShellProps) {
+  const { messages } = useMessages();
+
   if (record) {
     return (
       <SigningLiveShell
@@ -86,7 +55,7 @@ export function SigningShell({
   }
 
   const state = initialState ?? "error";
-  const tokenState = tokenStateCopy[state];
+  const tokenState = messages.signing.states[state];
 
   return (
     <>
@@ -99,7 +68,7 @@ export function SigningShell({
       <SigningStateScreen
         description={
           embedOrigin && state === "expired"
-            ? "Ask the app you are using for a new signing link."
+            ? messages.signing.states.embeddedExpiredDescription
             : tokenState.description
         }
         title={tokenState.title}
