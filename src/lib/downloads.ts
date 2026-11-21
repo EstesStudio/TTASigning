@@ -65,6 +65,7 @@ type RecipientDownloadTokenRow = {
 };
 
 type SignerRow = {
+  language: import("./i18n.ts").SignerLocale | null;
   createdAt: number;
   declineReason: string | null;
   declinedAt: number | null;
@@ -156,6 +157,7 @@ function mapSignerRow(row: SignerRow): SignerRecord {
     id: row.id,
     lastNotifiedAt: row.lastNotifiedAt,
     lastNudgedAt: row.lastNudgedAt,
+    language: row.language,
     name: row.name,
     role: row.role === "approver" ? "approver" : undefined,
     signOrder: row.signOrder,
@@ -206,6 +208,7 @@ async function getEnvelopeById(
         user_id AS "userId",
         title,
         status,
+        language,
         source_pdf_key AS "sourcePdfKey",
         source_pdf_filename AS "sourcePdfFilename",
         source_pdf_size_bytes AS "sourcePdfSizeBytes",
@@ -244,6 +247,7 @@ async function getEnvelopeByIdForUser(
         user_id AS "userId",
         title,
         status,
+        language,
         source_pdf_key AS "sourcePdfKey",
         source_pdf_filename AS "sourcePdfFilename",
         source_pdf_size_bytes AS "sourcePdfSizeBytes",
@@ -304,6 +308,7 @@ async function getSignerForEnvelope(
         envelope_id AS "envelopeId",
         name,
         email,
+        language,
         sign_order AS "signOrder",
         signing_step AS "signingStep",
         status,
@@ -339,6 +344,7 @@ async function listSignersForEnvelope(
         envelope_id AS "envelopeId",
         name,
         email,
+        language,
         sign_order AS "signOrder",
         status,
         signing_token_hash AS "signingTokenHash",

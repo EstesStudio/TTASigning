@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { SIGNER_LANGUAGES } from "../i18n.ts";
 
 import {
   MAX_COPY_RECIPIENTS_PER_ENVELOPE,
@@ -30,6 +31,7 @@ export const copyRecipientSchema = z.object({
 });
 
 export const draftSignerSchema = z.object({
+  language: z.enum(SIGNER_LANGUAGES).nullable().optional(),
   id: idSchema.optional(),
   envelopeId: idSchema.optional(),
   name: nameSchema,
@@ -136,6 +138,7 @@ export const replaceSignersResponseSchema = z.object({
       email: emailSchema,
       id: idSchema,
       hasAccessCode: z.boolean(),
+      language: z.enum(SIGNER_LANGUAGES).nullable(),
       name: nameSchema,
       requireEmailCode: z.boolean(),
       role: recipientRoleSchema,
@@ -193,7 +196,12 @@ export const correctSentSignerResponseSchema = z.object({
 
 export type CopyRecipient = z.infer<typeof copyRecipientSchema>;
 /** A copy recipient as stored: it always has an id. */
-export type CopyRecipientRecord = { email: string; id: string; name: string };
+export type CopyRecipientRecord = {
+  email: string;
+  id: string;
+  name: string;
+  language?: import("../i18n.ts").SignerLocale | null;
+};
 export type DraftSigner = z.infer<typeof draftSignerSchema>;
 export type ReplaceSignersInput = z.infer<typeof replaceSignersSchema>;
 export type ReplaceSignersResponse = z.infer<
