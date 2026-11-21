@@ -104,7 +104,7 @@ src/lib/i18n/
 **Fase 2 — Pengguna internal**
 
 - Dashboard, wizard, template, pengaturan, login/signup/setup, dan pesan galat.
-- Pemilih bahasa di Settings atau menu akun yang menulis cookie `NEXT_LOCALE`.
+- Pemilih bahasa di Settings atau menu akun. Pemilih di footer publik sudah tersedia lebih awal (lihat Fase 1); ini baru perlu jika ingin kontrol terpisah untuk pengguna internal.
 
 **Fase 3 — Bukti & legal**
 
@@ -149,6 +149,7 @@ Sudah terpasang:
 - Fondasi di `src/lib/i18n/`: tipe locale, resolver `Accept-Language` dan cookie, kamus `en`/`id`, `formatMessage`, `getRequestLocale`, dan provider Client Component.
 - `src/proxy.ts` meneruskan `x-signudoc-locale` ke Server Component dan menetapkan `NEXT_LOCALE` untuk halaman tanpa mengubah URL.
 - `src/app/layout.tsx` memakai `<html lang={locale}>` dan membungkus aplikasi dengan provider pesan.
+- Pemilih bahasa di footer publik (`src/components/layout/locale-switcher.tsx`) menulis cookie `NEXT_LOCALE` lewat Server Action dan menyegarkan halaman tanpa menyentuh URL. Bendera `src/components/flags/` dipakai sebagai penanda locale. Pemilih ini sengaja disembunyikan di `/sign/<token>` dan `/embed/sign/<token>` karena bahasa envelope yang menang di sana.
 - Permukaan signer: halaman status, verifikasi, shell proses, layar selesai, dan footer publik.
 - Teks persetujuan elektronik memiliki versi terpisah untuk bahasa Indonesia, sehingga jejak audit mencatat kata-kata yang benar-benar dibaca.
 - Email undangan (termasuk setelah koreksi signer), pengingat, kode akses, pemberitahuan penyelesaian, penolakan, pembatalan, dan tautan unduhan baru mengikuti locale yang dipilih saat envelope dikirim (`db/migrations/20261121000000_signer_locales.sql`).
@@ -161,7 +162,7 @@ Hasil verifikasi pada mesin pengembangan:
 - `bun run test`: 503 dari 503 lulus.
 - `bun run test:db`: 393 dari 393 lulus.
 - `bunx prettier --check` dan `git diff --check`: bersih.
-- `bun run test:e2e -- e2e/localization.spec.ts`: 2 dari 2 lulus; `Accept-Language: id-ID` menghasilkan `<html lang="id">`, teks Indonesia, dan cookie `NEXT_LOCALE=id` yang bertahan setelah reload.
+- `bun run test:e2e -- e2e/localization.spec.ts`: 3 dari 3 lulus; `Accept-Language: id-ID` menghasilkan `<html lang="id">`, teks Indonesia, dan cookie `NEXT_LOCALE=id` yang bertahan setelah reload. Pemilih di footer mengganti bahasa tanpa mengubah URL.
 
 Kegagalan e2e penuh yang semula terlihat berasal dari lingkungan, bukan lokalisasi: `SUPPORT_EMAIL` di `.env` lokal membuat langkah validasi setup dilewati, dan aset worker PDF.js 5.5.207 tidak cocok dengan `pdfjs-dist` 6.5.438 yang dipakai aplikasi, sehingga unggahan PDF gagal dirender di editor. Keduanya dibersihkan lewat environment test dan perbaikan aset di luar cakupan lokalisasi. Tidak ada kegagalan yang menyentuk teks atau rute lokalisasi.
 

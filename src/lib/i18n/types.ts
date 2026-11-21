@@ -5,6 +5,7 @@ export type Locale = (typeof locales)[number];
 export const DEFAULT_LOCALE: Locale = "en";
 export const LOCALE_COOKIE = "NEXT_LOCALE";
 export const LOCALE_HEADER = "x-signudoc-locale";
+export const LOCALE_COOKIE_MAX_AGE_SECONDS = 60 * 60 * 24 * 365;
 
 /** The locale identifiers used by Intl for each supported locale. */
 export const intlLocales: Record<Locale, string> = {

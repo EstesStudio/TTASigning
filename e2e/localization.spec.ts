@@ -43,3 +43,25 @@ test("English remains the default", async ({ browser }) => {
 
   await context.close();
 });
+
+test("the footer switcher changes the language without changing the URL", async ({
+  context,
+  page,
+}) => {
+  await page.goto("/verify");
+
+  const originalUrl = page.url();
+  await expect(page.locator("html")).toHaveAttribute("lang", "en");
+
+  await page.getByLabel("Choose a language").selectOption("id");
+
+  await expect(page.locator("html")).toHaveAttribute("lang", "id");
+  await expect(page.getByRole("heading", { level: 1 })).toHaveText(
+    "Verifikasi dokumen",
+  );
+  expect(page.url()).toBe(originalUrl);
+  expect(
+    (await context.cookies()).find((cookie) => cookie.name === "NEXT_LOCALE")
+      ?.value,
+  ).toBe("id");
+});

@@ -5,14 +5,13 @@ import { frameAncestorsFor } from "@/lib/embed-origin";
 import {
   DEFAULT_LOCALE,
   LOCALE_COOKIE,
+  LOCALE_COOKIE_MAX_AGE_SECONDS,
   LOCALE_HEADER,
   isLocale,
   localeFromAcceptLanguage,
   type Locale,
 } from "@/lib/i18n/types.ts";
 import { supportsDirectUploads } from "@/lib/services/storage/driver";
-
-const LOCALE_COOKIE_MAX_AGE_SECONDS = 60 * 60 * 24 * 365;
 
 function resolveLocale(request: NextRequest): Locale {
   const fromCookie = request.cookies.get(LOCALE_COOKIE)?.value;
