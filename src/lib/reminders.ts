@@ -18,7 +18,7 @@ import {
   type EnvelopeRecord,
 } from "./schemas/envelope.ts";
 import { type SignerRecord } from "./schemas/signer.ts";
-import { getSettings } from "./settings.ts";
+import { readStoredSettings, resolveSettings } from "./settings.ts";
 import {
   lockEnvelopeAuditChain,
   recordAuditEvent,
@@ -587,16 +587,16 @@ async function deliverReminder(
   kind: ReminderRequest["kind"],
   database: DbPool,
   emailService: EmailService,
+  branding: Branding,
 ): Promise<void> {
   const template = kind === "automatic" ? "automatic_reminder" : "manual_nudge";
   let reminderMessageId: string | undefined;
-  const settings = await getSettings();
 
   try {
     reminderMessageId = (
       await emailService.send(
         buildReminderEmail({
-          branding: buildBranding(settings),
+          branding,
           envelopeId: persisted.envelopeId,
           envelopeTitle: persisted.envelopeTitle,
           expiresAt: persisted.envelopeExpiresAt,
@@ -723,9 +723,13 @@ export async function sendManualEnvelopeNudge(
   // Before the reminder is saved: saving retires the signer's current link,
   // so with no email to carry the new one the signer would be left with none.
   let service: EmailService;
+  let branding: Branding;
 
   try {
     service = emailService ?? createEmailService();
+    branding = buildBranding(
+      resolveSettings(await readStoredSettings(database)),
+    );
   } catch (error) {
     if (isEmailNotConnectedError(error)) {
       throw new ReminderMutationError(EMAIL_NOT_CONNECTED_MESSAGE, 503);
@@ -774,7 +778,7 @@ export async function sendManualEnvelopeNudge(
     }
 
     try {
-      await deliverReminder(persisted, "manual", database, service);
+      await deliverReminder(persisted, "manual", database, service, branding);
       reminded.push(persisted);
     } catch (error) {
       // Put back as it was by deliverReminder. The others still go, and
@@ -846,8 +850,14 @@ export async function sendAutomaticEnvelopeReminder(
 
   for (const target of targets) {
     let persisted: PersistedReminder;
+    let service: EmailService;
+    let branding: Branding;
 
     try {
+      service = emailService ?? createEmailService();
+      branding = buildBranding(
+        resolveSettings(await readStoredSettings(database)),
+      );
       persisted = await persistReminder(
         envelopeId,
         { kind: "automatic" },
@@ -863,12 +873,7 @@ export async function sendAutomaticEnvelopeReminder(
       throw error;
     }
 
-    await deliverReminder(
-      persisted,
-      "automatic",
-      database,
-      emailService ?? createEmailService(),
-    );
+    await deliverReminder(persisted, "automatic", database, service, branding);
 
     sent = true;
   }

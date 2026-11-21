@@ -1917,9 +1917,16 @@ async function readSignerDisclosure(
   // Read fresh, not from the short settings cache, so the words and the
   // support address in them are the ones saved right now.
   const settings = resolveSettings(await readStoredSettings(database));
-  const customDisclosure = normalizeCustomDisclosure(
-    settings.consentDisclosure,
+  const signerLocale = getSignerLocale(context);
+  const translated = normalizeCustomDisclosure(
+    settings.consentDisclosureTranslations?.[signerLocale],
   );
+  const language =
+    signerLocale !== "en" && translated !== null ? signerLocale : "en";
+  const customDisclosure =
+    language === "en"
+      ? normalizeCustomDisclosure(settings.consentDisclosure)
+      : translated;
 
   const sections = buildDisclosureSections(
     {
@@ -1927,11 +1934,12 @@ async function readSignerDisclosure(
       senderName: normalizeSenderName(context.sender),
     },
     customDisclosure,
-    getSignerLocale(context),
+    language,
   );
 
   return {
     customDisclosure,
+    language,
     sections,
     // A custom disclosure is named by the words as this signer reads them,
     // filled in, so a change to the support address or the sender's name
@@ -2035,6 +2043,7 @@ export async function recordSignerConsent(
         metadata: {
           ...signerAuditMetadata(context),
           disclosureVersion,
+          disclosureLanguage: disclosure.language,
           language: parsed.language,
           // The built-in words are known from their version. A custom
           // disclosure can be changed or taken away later, so the words the
@@ -2272,6 +2281,7 @@ export async function getSigningPayloadForToken(
     consentedAt: checkState.consentedAt,
     currentSignerFields,
     disclosure: {
+      language: disclosure.language,
       sections: disclosure.sections,
       statement: buildConsentStatement(locale),
       version: disclosure.version,

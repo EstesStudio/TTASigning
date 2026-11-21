@@ -48,10 +48,7 @@ import {
   type SigningVisibleField,
 } from "@/lib/schemas/signing";
 import { type SigningSubmission } from "@/lib/schemas/field";
-import {
-  countAnswerableFields,
-  isNumberEntry,
-} from "@/lib/field-choices";
+import { countAnswerableFields, isNumberEntry } from "@/lib/field-choices";
 import { getInitials } from "@/lib/initials";
 import { truncateToWholeCharacters } from "@/lib/text-truncate";
 import { postToEmbedParent } from "./embed-parent-message";
@@ -102,6 +99,12 @@ export const rejectedConfirmation = {
 };
 const compactFieldHeightThreshold = 0.045;
 const compactFieldWidthThreshold = 0.12;
+
+/** English compatibility export; rendered screens use their signer's locale. */
+export const declinedConfirmation = {
+  description: t("en", "live.declineConfirm.description"),
+  title: t("en", "live.declineConfirm.title"),
+};
 
 function getSignerInitials(name: string): string {
   return getInitials(name, { max: 4 });
@@ -1456,6 +1459,7 @@ export function SigningLiveShell({
 
       {isFinishDialogOpen ? (
         <DialogFrame
+          locale={locale}
           description={
             isApprover
               ? `You are approving "${record.envelopeTitle}" from ${record.senderName}.`
@@ -1584,11 +1588,15 @@ export function SigningLiveShell({
 
       {consentedAt === null && !isDeclineDialogOpen ? (
         <DialogFrame
+          locale={locale}
           description={`${record.senderName} sent you "${record.envelopeTitle}" to ${isApprover ? "review and approve" : "sign"} electronically.`}
           onClose={() => undefined}
           title={isApprover ? "Before you approve" : "Before you sign"}
         >
-          <div className="well max-h-[45vh] space-y-4 overflow-y-auto px-4 py-4 text-sm leading-6 text-(--secondary) sm:px-5">
+          <div
+            lang={record.disclosure.language ?? locale}
+            className="well max-h-[45vh] space-y-4 overflow-y-auto px-4 py-4 text-sm leading-6 text-(--secondary) sm:px-5"
+          >
             {record.disclosure.sections.map((section, index) => (
               <section key={`${index}-${section.heading}`}>
                 {section.heading ? (
@@ -1647,6 +1655,7 @@ export function SigningLiveShell({
 
       {isDeclineDialogOpen ? (
         <DialogFrame
+          locale={locale}
           description={`The sender (${record.senderName}) will be notified that you ${isApprover ? "rejected it" : "declined"}. This ends the envelope for everyone and cannot be undone.`}
           title={isApprover ? "Reject this document?" : "Decline to sign?"}
           onClose={() => {
@@ -2219,6 +2228,7 @@ function SignatureModal({
 
   return (
     <DialogFrame
+      locale={locale}
       description={t(locale, "modal.description")}
       title={t(
         locale,
@@ -2537,11 +2547,13 @@ function SignatureDrawCanvas({
 }
 
 function DialogFrame({
+  locale,
   children,
   description,
   onClose,
   title,
 }: {
+  locale: SignerLocale;
   children: ReactNode;
   description: string;
   onClose: () => void;
@@ -2559,6 +2571,7 @@ function DialogFrame({
   return (
     <Dialog open onOpenChange={(open) => !open && onClose()}>
       <DialogContent
+        lang={locale}
         className="max-h-[calc(100dvh-2rem)] max-w-[600px] overflow-y-auto p-0"
         onCloseAutoFocus={(event) => {
           if (
