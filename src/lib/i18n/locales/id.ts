@@ -2,6 +2,9 @@ import { defineMessages } from "../define-messages.ts";
 import type { Messages } from "./en.ts";
 
 export const idMessages: Messages = defineMessages({
+  common: {
+    lastUpdated: "Terakhir diperbarui {date}",
+  },
   footer: {
     accessibilityLong: "Pernyataan Aksesibilitas",
     accessibilityShort: "Aksesibilitas",
@@ -693,6 +696,133 @@ export const idMessages: Messages = defineMessages({
       resendNew: "Kirim kode baru",
       step: "Langkah {step} dari {total}.",
       title: "Konfirmasi bahwa ini Anda",
+    },
+  },
+  legal: {
+    terms: {
+      hero: {
+        description:
+          "Syarat ini mengatur akses dan penggunaan Anda atas Sakta, layanan tanda tangan elektronik untuk pelaku usaha di Indonesia. Syarat ini mencakup perjanjian komersial sehari-hari dan bukan nasihat hukum.",
+        title: "Syarat Layanan",
+      },
+      metadata: {
+        description:
+          "Baca syarat penggunaan layanan tanda tangan elektronik Sakta di Indonesia.",
+        title: "Syarat Layanan | Sakta",
+      },
+      sections: {
+        acceptableUse: {
+          heading: "6. Keamanan akun dan penggunaan yang pantas",
+          paragraphs: [
+            "Jaga kredensial Anda, batasi akses ke akun, dan segera beri tahu Sakta jika Anda menduga ada penggunaan tanpa izin. Jangan gunakan Sakta untuk melanggar hukum, melanggar hak pihak lain, menyebarkan perangkat lunak berbahaya, mengganggu penerima, mengambil data secara paksa, mengganggu layanan, atau melewati pengaturan akses dan batas laju.",
+            "Jangan gunakan Sakta untuk menyamar sebagai orang lain, mendapatkan tanda tangan dengan cara menipu, atau mengirim surel massal yang tidak berkaitan dengan alur penandatanganan yang nyata.",
+          ],
+        },
+        contact: {
+          contactWithSupport:
+            "Pertanyaan tentang Syarat ini dapat dikirim ke {supportAddress} atau melalui halaman {contactLink}.",
+          heading: "14. Kontak",
+        },
+        disclaimers: {
+          heading: "10. Penafian",
+          paragraphs: [
+            'Sakta disediakan "sebagaimana adanya" dan "sebagaimana tersedia" sejauh diizinkan hukum. Sakta tidak menjamin, baik tersurat maupun tersirat, termasuk kelayakan untuk diperdagangkan, kesesuaian untuk tujuan tertentu, hak milik, tidak pelanggaran, akurasi, ketersediaan tanpa gangguan, atau kecukupan hukum untuk transaksi tertentu.',
+            "Sakta tidak menjamin bahwa suatu alur kerja akan diterima oleh pengadilan atau regulator, atau sesuai untuk dokumen yang diatur ketat atau dikecualikan. Mintalah nasihat hukum tentang keberlakuan, penyimpanan, keterangan konsumen, notarisasi, atau ketentuan setempat.",
+          ],
+        },
+        electronicSignatures: {
+          heading: "5. Tanda tangan dan catatan elektronik",
+          paragraphs: [
+            "Untuk dokumen dalam batas yang diizinkan, Sakta dirancang untuk membuat dan menyimpan tanda tangan serta catatan elektronik sesuai hukum Indonesia, termasuk UU Informasi dan Transaksi Elektronik (UU ITE) sebagaimana telah diubah dan PP Nomor 71 Tahun 2019. Setiap amplop menyimpan jejak audit dan salinan PDF yang tersegel.",
+            "Sakta tidak menerbitkan sertifikat digital tersertifikasi dari penyedia layanan kepercayaan yang disetujui, dan tidak menjanjikan bahwa suatu alur kerja memenuhi setiap aturan sektoral tentang verifikasi identitas, sertifikat, atau notarisasi.",
+          ],
+        },
+        eligibility: {
+          heading: "2. Kelayakan dan kewenangan",
+          paragraphs: [
+            "Anda dapat menggunakan Sakta hanya jika Anda mampu membuat perjanjian yang mengikat menurut hukum Indonesia dan hanya untuk tujuan usaha yang sah. Anda bertanggung jawab memastikan setiap pengirim, penandatangan, dan penerima memiliki kewenangan bertindak atas nama pihak yang diwakilinya.",
+            "Anda juga bertanggung jawab menentukan apakah transaksi Anda memerlukan saksi, notaris, bentuk tertentu, atau aturan penyimpanan yang tidak disediakan Sakta.",
+          ],
+        },
+        governingLaw: {
+          heading: "13. Hukum yang mengatur dan perubahan",
+          paragraphs: [
+            "Syarat ini diatur oleh hukum Republik Indonesia, tanpa memperhatikan aturan konflik hukum. Sengketa yang tidak dapat diselesaikan secara musyawarah diajukan ke pengadilan yang berwenang di Indonesia. Jika versi Bahasa Indonesia dan Inggris berbeda, versi Bahasa Indonesia yang berlaku.",
+            "Sakta dapat memperbarui Syarat ini dengan memuat versi revisi di halaman ini. Pembaruan berlaku saat dimuat, kecuali tanggal lain dinyatakan kemudian.",
+          ],
+        },
+        indemnification: {
+          heading: "12. Ganti rugi",
+          paragraphs: [
+            "Anda akan membela dan membebaskan Sakta, afiliasinya, penyedia layanan, pemberi lisensi, dan stafnya dari tuntutan, kerugian, kerusakan, kewajiban, biaya, dan pengeluaran, termasuk biaya hukum yang wajar, yang timbul dari dokumen Anda, penggunaan layanan, pelanggaran Syarat ini, atau pelanggaran hukum atau hak pihak lain, kecuali hukum wajib menentukan lain.",
+          ],
+        },
+        intellectualProperty: {
+          heading: "8. Kekayaan intelektual dan konten Anda",
+          paragraphs: [
+            "Antara Anda dan Sakta, Anda tetap memiliki dokumen dan data yang Anda unggah, dengan tunduk pada hak yang dibutuhkan Sakta dan penyedianya untuk menghosting, memproses, mengirim, menampilkan, mengamankan, dan menyimpan konten tersebut guna menjalankan layanan.",
+            "Sakta, merek, perangkat lunak, dan tampilannya dilindungi hukum kekayaan intelektual. Kecuali hukum mengizinkan, Anda tidak boleh menyalin, menjual kembali, merekayasa balik, atau membuat karya turunan dari layanan ini.",
+          ],
+        },
+        liability: {
+          heading: "11. Pembatasan tanggung jawab",
+          paragraphs: [
+            "Sejauh diizinkan hukum, Sakta, afiliasinya, penyedia, pemberi lisensi, dan stafnya tidak bertanggung jawab atas kerugian tidak langsung, insidental, khusus, konsekuensial, teladan, atau hukuman, maupun atas hilangnya keuntungan, pendapatan, reputasi, data, atau penggunaan yang timbul dari layanan atau Syarat ini.",
+            "Sejauh diizinkan hukum, total tanggung jawab Sakta atas seluruh tuntutan yang timbul dari layanan atau Syarat ini tidak melebihi jumlah yang Anda bayarkan untuk layanan dalam 12 bulan sebelum peristiwa tersebut atau Rp1.000.000, mana yang lebih besar. Tidak ada ketentuan dalam Syarat ini yang meniadakan tanggung jawab yang tidak dapat ditiadakan berdasarkan UU Perlindungan Konsumen atau hukum wajib lainnya.",
+          ],
+        },
+        overview: {
+          heading: "1. Ringkasan",
+          paragraphs: [
+            "Dengan membuat akun, mengunggah dokumen, mengirim amplop, atau menandatangani melalui Sakta, Anda menyetujui Syarat ini. Jika Anda bertindak untuk perusahaan atau organisasi lain, Anda menyatakan berwenang mengikat organisasi tersebut pada Syarat ini.",
+            "Sakta menyediakan perangkat lunak untuk menyiapkan, mengirim, menandatangani, dan menyimpan catatan elektronik. Sakta bukan firma hukum dan tidak memberikan nasihat hukum. Sakta tidak menentukan apakah suatu dokumen sah ditandatangani secara elektronik.",
+            "Layanan ini ditujukan bagi pelaku usaha dan organisasi yang beroperasi di Indonesia serta perjanjian komersial mereka sehari-hari. Hukum Indonesia, termasuk UU Informasi dan Transaksi Elektronik (UU ITE) serta peraturan pelaksananya, mengatur tanda tangan dan catatan elektronik.",
+          ],
+        },
+        permittedUse: {
+          closing:
+            "Jika dokumen masuk kategori yang diatur ketat, sensitif terhadap keselamatan, konsumen, warisan, pengadilan, atau hukum keluarga, jangan gunakan Sakta. Dengan mengirim amplop, Anda menegaskan bahwa dokumen tersebut merupakan perjanjian bisnis biasa dalam batas penggunaan yang diizinkan.",
+          excluded: [
+            "wasiat, warisan, dan trust testamenter;",
+            "adopsi, perceraian, dan perkara hukum keluarga lainnya;",
+            "penetapan dan perintah pengadilan, panggilan, gugatan, serta dokumen pengadilan resmi lainnya;",
+            "pemberitahuan pembatalan atau penghentian layanan utilitas dasar seperti air, listrik, atau gas;",
+            "pemberitahuan wanprestasi, percepatan penagihan, penarikan kembali, eksekusi jaminan, atau pengosongan tempat tinggal utama;",
+            "pemberitahuan pembatalan manfaat asuransi kesehatan atau jiwa;",
+            "pemberitahuan penarikan produk atau cacat serius yang dapat membahayakan kesehatan atau keselamatan;",
+            "dokumen yang wajib menyertai pengangkutan atau penanganan bahan berbahaya, pestisida, atau barang berbahaya lainnya;",
+            "keterangan konsumen yang diwajibkan undang-undang atau alur kerja lain yang memerlukan proses persetujuan elektronik tersendiri sebelum penyampaian.",
+          ],
+          excludedIntro:
+            "Jangan gunakan Sakta untuk dokumen atau pemberitahuan yang menurut hukum memerlukan bentuk khusus, akta notaris, penyerahan fisik, atau proses persetujuan konsumen tersendiri, antara lain:",
+          heading: "3. Penggunaan yang diizinkan dan dokumen yang dikecualikan",
+          paragraphs: [
+            "Sakta dipakai untuk perjanjian bisnis biasa dan catatan komersial sejenis, seperti NDA, rincian pekerjaan, perjanjian vendor dan layanan, serta persetujuan internal.",
+          ],
+        },
+        sender: {
+          heading: "4. Tanggung jawab pengirim",
+          paragraphs: [
+            "Pengirim bertanggung jawab atas konten yang diunggah, urutan penandatanganan, kolom yang dipasang, penerima yang diundang, dan kecukupan hukum dari proses tersebut. Anda harus memiliki hak yang dibutuhkan untuk mengunggah dokumen dan meminta tanda tangan.",
+            "Pastikan data kontak penandatangan tetap akurat, hindari amplop yang menyesatkan, dan tangani pemberitahuan atau langkah luring yang diperlukan di luar Sakta.",
+          ],
+        },
+        serviceChanges: {
+          heading: "7. Perubahan layanan, ketersediaan, dan catatan",
+          paragraphs: [
+            "Sakta dapat mengubah, meningkatkan, menangguhkan, atau menghentikan fitur kapan saja. Kami dapat menambahkan batas ukuran dokumen, jumlah penandatangan, penyimpanan, atau retensi seiring perkembangan layanan, serta menghapus konten atau menangguhkan akun yang diduga melanggar Syarat ini atau menimbulkan risiko hukum, operasional, atau keamanan.",
+            "Unduh dan simpan sendiri salinan dokumen yang telah selesai. Penyimpanan di Sakta bersifat kenyamanan dan mengikuti praktik retensi serta penghapusan dalam Kebijakan Privasi, termasuk kewajiban berdasarkan UU Perlindungan Data Pribadi (UU PDP Nomor 27 Tahun 2022).",
+          ],
+        },
+        suspension: {
+          closureWithSupport:
+            "Permintaan penutupan akun dapat disampaikan melalui pengaturan atau dengan menulis ke {supportAddress}. Sebelum menutup akun, unduh dokumen yang ingin Anda simpan. Setelah penutupan, kami dapat menyediakan jangka waktu ekspor singkat, lalu menghapus berkas dokumen dan catatan amplop, kecuali informasi terbatas yang disimpan untuk keamanan, pencegahan penipuan, pemenuhan hukum, atau penyelesaian sengketa.",
+          heading: "9. Penangguhan, penghentian, dan penutupan akun",
+          paragraphs: [
+            "Anda dapat berhenti menggunakan layanan kapan saja. Sakta dapat menangguhkan atau menghentikan akses jika kami beralasan meyakini Anda melanggar Syarat ini, menggunakan layanan di luar batas yang diizinkan, atau menimbulkan risiko keamanan, penipuan, atau hukum.",
+          ],
+        },
+      },
     },
   },
 });

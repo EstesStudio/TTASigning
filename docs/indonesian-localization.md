@@ -156,20 +156,21 @@ Sudah terpasang:
 - Halaman Verify, halaman landing publik (`src/components/landing/landing-shell.tsx` beserta tombol sesinya dan metadata halaman), dan email signer diterjemahkan; string internal (event webhook, tipe email, kode galat, token, hash, URL, `disclosureVersion`, dan teks PDF/PAdES) sengaja tidak diubah.
 - Halaman harga publik (`/pricing`) memakai kamus yang sama; teksnya ada di `pricingPage`, sedangkan angka dan batas paket ada di `src/lib/pricing.ts`. Harga dan batas paket tersebut masih usulan bisnis, bukan batas teknis aplikasi, dan belum ada alur pembayaran.
 - Logo hosted memakai `public/img/logo.svg` di header web dan `public/img/logo.png` di email. Keduanya aset statis yang dipercaya; jalur upload logo organisasi tetap hanya menerima PNG/JPEG/WebP karena SVG berisiko sebagai konten pengguna dan sering tidak tampil di klien email. `HOSTED_BRANDING.logoUrl` dipakai `<Brand />`, sementara `emailLogoUrl` dipakai `buildLogoHeader()`.
+- Halaman `/terms` tetap satu URL; seluruh teksnya berasal dari `legal.terms` di kedua kamus. Isinya ditulis ulang untuk konteks Indonesia (UU ITE, PP 71/2019, UU PDP 27/2022, UU Perlindungan Konsumen), bukan sekadar diterjemahkan. Tanggal efektif tunggal ada di `src/lib/legal-date.ts` dan diformat memakai `Intl.DateTimeFormat` sesuai locale; label "Terakhir diperbarui" ada di `common.lastUpdated`. Versi ini masih menunggu tinjauan penasihat hukum Indonesia.
 - Pratinjau dasbor di halaman landing bersifat dekoratif (`aria-hidden`) dan masih memakai data contoh berbahasa Inggris; menu akun publik juga belum diterjemahkan karena dipakai bersama permukaan lain.
 - README tidak lagi menyatakan halaman tanda tangan hanya berbahasa Inggris.
 
 Hasil verifikasi pada mesin pengembangan:
 
 - `bun run typecheck`: lulus.
-- `bun run test`: 506 dari 506 lulus.
+- `bun run test`: 508 test; 507 lulus. Satu test palet gagal hanya karena nilai `--accent` lokal yang diubah di luar cakupan lokalisasi dan belum di-commit; test terkait lokalisasi dan hukum lolos semua.
 - `bun run test:db`: 393 dari 393 lulus.
 - `bun run format:check` dan `git diff --check`: bersih.
 - `bun run test:e2e -- e2e/localization.spec.ts`: 3 dari 3 lulus; `Accept-Language: id-ID` menghasilkan `<html lang="id">`, teks Indonesia, dan cookie `NEXT_LOCALE=id` yang bertahan setelah reload. Pemilih di footer mengganti bahasa tanpa mengubah URL.
 
 Kegagalan e2e penuh yang semula terlihat berasal dari lingkungan, bukan lokalisasi: `SUPPORT_EMAIL` di `.env` lokal membuat langkah validasi setup dilewati, dan aset worker PDF.js 5.5.207 tidak cocok dengan `pdfjs-dist` 6.5.438 yang dipakai aplikasi, sehingga unggahan PDF gagal dirender di editor. Keduanya dibersihkan lewat environment test dan perbaikan aset di luar cakupan lokalisasi. Tidak ada kegagalan yang menyentuk teks atau rute lokalisasi.
 
-Masih perlu sebelum rilis: tinjauan hukum/penutur asli atas terjemahan disclosure dan konfirmasi akhir e2e penuh setelah perbaikan aset worker. `bun run lint` kini memakai Biome dan dapat berjalan dengan TypeScript 7.
+Masih perlu sebelum rilis: tinjauan hukum/penutur asli atas terjemahan disclosure dan Syarat Layanan baru, serta konfirmasi akhir e2e penuh setelah perbaikan aset worker. `bun run lint` kini memakai Biome dan dapat berjalan dengan TypeScript 7.
 
 ## 10. Referensi
 

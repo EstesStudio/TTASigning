@@ -1,6 +1,9 @@
 import { defineMessages } from "../define-messages.ts";
 
 export const enMessages = defineMessages({
+  common: {
+    lastUpdated: "Last updated {date}",
+  },
   footer: {
     accessibilityLong: "Accessibility Statement",
     accessibilityShort: "Accessibility",
@@ -688,6 +691,133 @@ export const enMessages = defineMessages({
       resendNew: "Send a new code",
       step: "Step {step} of {total}.",
       title: "Confirm it's you",
+    },
+  },
+  legal: {
+    terms: {
+      hero: {
+        description:
+          "These Terms govern your access to and use of Sakta, an electronic signature service for businesses in Indonesia. They cover ordinary commercial agreements and are not legal advice.",
+        title: "Terms of Service",
+      },
+      metadata: {
+        description:
+          "Read the terms that govern use of the Sakta e-signature service in Indonesia.",
+        title: "Terms of Service | Sakta",
+      },
+      sections: {
+        acceptableUse: {
+          heading: "6. Account security and acceptable use",
+          paragraphs: [
+            "Protect your credentials, limit access to your account, and notify Sakta promptly if you suspect unauthorized use. Do not use Sakta to break the law, infringe rights, transmit malware, harass recipients, scrape data, disrupt the service, or bypass access controls and rate limits.",
+            "Do not use Sakta to impersonate someone else, obtain signatures by deception, or send spam or bulk messages unrelated to a real signing workflow.",
+          ],
+        },
+        contact: {
+          contactWithSupport:
+            "Questions about these Terms can be sent to {supportAddress} or through the {contactLink} page.",
+          heading: "14. Contact",
+        },
+        disclaimers: {
+          heading: "10. Disclaimers",
+          paragraphs: [
+            'Sakta is provided "as is" and "as available" to the extent allowed by law. Sakta disclaims warranties, express or implied, including merchantability, fitness for a particular purpose, title, noninfringement, accuracy, uninterrupted availability, and legal sufficiency for a specific transaction.',
+            "Sakta does not warrant that a workflow will be accepted by a court or regulator, or suit a regulated or excluded document. Get legal advice about enforceability, retention, consumer disclosures, notarization, or local requirements.",
+          ],
+        },
+        electronicSignatures: {
+          heading: "5. Electronic signatures and records",
+          paragraphs: [
+            "For documents within the permitted scope, Sakta is designed to create and keep electronic signatures and records in line with Indonesian law, including the Electronic Information and Transactions Law (UU ITE) as amended and Government Regulation No. 71 of 2019. Each envelope keeps an audit trail and a sealed copy of the signed PDF.",
+            "Sakta does not issue a certified digital certificate from an approved trust service provider and does not promise that a workflow meets every sector-specific rule on identity checks, certificates, or notarization.",
+          ],
+        },
+        eligibility: {
+          heading: "2. Eligibility and authority",
+          paragraphs: [
+            "You may use Sakta only if you can enter into a binding agreement under Indonesian law and only for lawful business purposes. You are responsible for ensuring that every sender, signer and recipient has authority to act for the party they represent.",
+            "You are also responsible for deciding whether your transaction needs witnesses, notarization, a specific form, or a retention rule that Sakta does not provide.",
+          ],
+        },
+        governingLaw: {
+          heading: "13. Governing law and changes",
+          paragraphs: [
+            "These Terms are governed by the laws of the Republic of Indonesia, without regard to conflict-of-law rules. Disputes that cannot be settled amicably will be brought before the courts with jurisdiction in Indonesia. If the Indonesian and English versions differ, the Indonesian version prevails.",
+            "Sakta may update these Terms by posting a revised version on this page. Updates take effect when posted unless a later date is stated.",
+          ],
+        },
+        indemnification: {
+          heading: "12. Indemnification",
+          paragraphs: [
+            "You will defend and hold harmless Sakta, its affiliates, service providers, licensors, and personnel from claims, losses, damages, liabilities, costs, and expenses, including reasonable legal fees, arising out of your documents, your use of the service, your breach of these Terms, or your violation of law or another person's rights, except where mandatory law provides otherwise.",
+          ],
+        },
+        intellectualProperty: {
+          heading: "8. Intellectual property and your content",
+          paragraphs: [
+            "As between you and Sakta, you keep ownership of the documents and data you upload, subject to the rights Sakta and its providers need to host, process, transmit, display, secure, and store them to run the service.",
+            "Sakta, its brand, software, and interface are protected by intellectual-property law. Except where the law allows it, you may not copy, resell, reverse engineer, or create derivative works from the service.",
+          ],
+        },
+        liability: {
+          heading: "11. Limitation of liability",
+          paragraphs: [
+            "To the extent allowed by law, Sakta and its affiliates, providers, licensors, and staff are not liable for indirect, incidental, special, consequential, exemplary, or punitive damages, or for lost profits, revenue, goodwill, data, or use arising from the service or these Terms.",
+            "To the extent allowed by law, Sakta's total liability for all claims arising from the service or these Terms will not exceed the greater of the amount you paid for the service in the 12 months before the event or Rp1,000,000. Nothing in these Terms excludes liability that cannot be excluded under the Indonesian Consumer Protection Law or other mandatory law.",
+          ],
+        },
+        overview: {
+          heading: "1. Overview",
+          paragraphs: [
+            "By creating an account, uploading a document, sending an envelope, or signing through Sakta, you agree to these Terms. If you act for a company or other organization, you confirm that you are authorized to bind it to these Terms.",
+            "Sakta provides software for preparing, sending, signing, and storing electronic records. It is not a law firm and does not give legal advice. It does not decide whether a particular document may validly be signed electronically.",
+            "The service is intended for businesses and organizations operating in Indonesia and for their ordinary commercial agreements. Indonesian law, including the Electronic Information and Transactions Law (UU ITE) and its implementing regulations, applies to electronic signatures and records.",
+          ],
+        },
+        permittedUse: {
+          closing:
+            "If a document falls into a regulated, safety-sensitive, consumer, estate, court, or family-law category, do not use Sakta. By sending an envelope you confirm that the document is an ordinary business agreement within this permitted use.",
+          excluded: [
+            "wills, inheritances, and testamentary trusts;",
+            "adoption, divorce, and other family-law matters;",
+            "court orders, summonses, pleadings, and other official court documents;",
+            "notices of cancellation or termination of basic utility services such as water, electricity, or gas;",
+            "notices of default, acceleration, repossession, foreclosure, or eviction involving a primary residence;",
+            "notices of cancellation of health or life insurance benefits;",
+            "product recall notices or notices of serious defects that may endanger health or safety;",
+            "documents that must accompany the transport or handling of hazardous materials, pesticides, or other dangerous goods;",
+            "statutory consumer disclosures or other workflows that require a separate electronic-consent process before delivery.",
+          ],
+          excludedIntro:
+            "Do not use Sakta for documents or notices that by law require a special form, notarization, physical delivery, or a separate consumer-consent process, including:",
+          heading: "3. Permitted use and excluded documents",
+          paragraphs: [
+            "Sakta is for ordinary business agreements and comparable commercial records, such as NDAs, statements of work, vendor and service agreements, and internal approvals.",
+          ],
+        },
+        sender: {
+          heading: "4. Sender responsibilities",
+          paragraphs: [
+            "Senders are responsible for the content they upload, the routing order, the fields they place, the recipients they invite, and the legal sufficiency of the process. You must have the rights needed to upload the document and request signatures.",
+            "Keep signer contact details accurate, avoid misleading envelopes, and handle any required notices or offline steps outside Sakta when needed.",
+          ],
+        },
+        serviceChanges: {
+          heading: "7. Service changes, availability, and records",
+          paragraphs: [
+            "Sakta may change, improve, suspend, or discontinue features at any time. We may add limits on document size, signer count, storage, or retention as the service grows, and may remove content or suspend accounts that appear to breach these Terms or create legal, operational, or security risk.",
+            "Download and keep your own copies of completed documents. Storage on Sakta is a convenience and follows the retention and deletion practices in the Privacy Policy, including obligations under the Personal Data Protection Law (UU PDP No. 27 of 2022).",
+          ],
+        },
+        suspension: {
+          closureWithSupport:
+            "You can request account closure in settings or by writing to {supportAddress}. Before closing, download any documents you want to keep. After closure we may offer a short export window and then delete stored document files and envelope records, except limited information kept for security, fraud prevention, legal compliance, or dispute resolution.",
+          heading: "9. Suspension, termination, and account closure",
+          paragraphs: [
+            "You may stop using the service at any time. Sakta may suspend or terminate access if we reasonably believe you breached these Terms, used the service outside its permitted scope, or created security, fraud, or legal risk.",
+          ],
+        },
+      },
     },
   },
 });
