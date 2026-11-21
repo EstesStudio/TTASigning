@@ -153,7 +153,8 @@ Sudah terpasang:
 - Permukaan signer: halaman status, verifikasi, shell proses, layar selesai, dan footer publik.
 - Teks persetujuan elektronik memiliki versi terpisah untuk bahasa Indonesia, sehingga jejak audit mencatat kata-kata yang benar-benar dibaca.
 - Email undangan (termasuk setelah koreksi signer), pengingat, kode akses, pemberitahuan penyelesaian, penolakan, pembatalan, dan tautan unduhan baru mengikuti locale yang dipilih saat envelope dikirim (`db/migrations/20261121000000_signer_locales.sql`).
-- Halaman Verify dan email signer diterjemahkan; string internal (event webhook, tipe email, kode galat, token, hash, URL, `disclosureVersion`, dan teks PDF/PAdES) sengaja tidak diubah.
+- Halaman Verify, halaman landing publik (`src/components/landing/landing-shell.tsx` beserta tombol sesinya dan metadata halaman), dan email signer diterjemahkan; string internal (event webhook, tipe email, kode galat, token, hash, URL, `disclosureVersion`, dan teks PDF/PAdES) sengaja tidak diubah.
+- Pratinjau dasbor di halaman landing bersifat dekoratif (`aria-hidden`) dan masih memakai data contoh berbahasa Inggris; menu akun publik juga belum diterjemahkan karena dipakai bersama permukaan lain.
 - README tidak lagi menyatakan halaman tanda tangan hanya berbahasa Inggris.
 
 Hasil verifikasi pada mesin pengembangan:

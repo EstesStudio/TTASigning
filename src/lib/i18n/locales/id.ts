@@ -19,6 +19,139 @@ export const idMessages: Messages = defineMessages({
     termsLong: "Syarat Layanan",
     termsShort: "Syarat",
   },
+  landing: {
+    actions: {
+      goToDashboard: "Buka dasbor",
+      logIn: "Masuk",
+      startFree: "Mulai gratis",
+    },
+    closing: {
+      body: "Tanpa kartu kredit. Tanpa biaya per amplop. Cukup unggah dan kirim.",
+      note: "Gratis • tidak perlu akun penandatangan • hingga 25 penandatangan per dokumen",
+      title: "Kirim perjanjian berikutnya. Gratis dari kami.",
+    },
+    comparison: {
+      feature: "Fitur",
+      included: "Termasuk",
+      notIncluded: "Tidak termasuk",
+      perSeatPlans: "Paket per pengguna",
+      rows: {
+        envelopes: {
+          feature: "Amplop per bulan",
+          perSeat: "Tergantung paket",
+          signudoc: "Tidak terbatas",
+        },
+        price: {
+          feature: "Harga",
+          perSeat: "Per pengguna, setiap bulan",
+          signudoc: "Gratis selamanya",
+        },
+        reminders: {
+          feature: "Pengingat",
+          perSeat: "Hanya paket lebih tinggi",
+        },
+        signers: {
+          feature: "Penandatangan per dokumen",
+          perSeat: "Tergantung paket",
+          signudoc: "Hingga 25 orang",
+        },
+      },
+    },
+    faq: {
+      items: [
+        {
+          answer:
+            "Tidak. Anda masuk untuk mengirim dokumen, tetapi penandatangan cukup mengklik tautan lalu menandatangani. Tanpa akun, tanpa ribet.",
+          question: "Apakah penandatangan memerlukan akun SignuDoc?",
+        },
+        {
+          answer:
+            "Tanda tangan, inisial, tanggal, teks, dan kotak centang. Semua yang biasanya dibutuhkan dokumen.",
+          question: "Jenis kolom apa saja yang bisa saya pasang pada dokumen?",
+        },
+        {
+          answer:
+            "Bisa. Klik tombol pengingat, lalu mereka akan mendapat notifikasi. Anda tidak perlu mengirim ulang seluruh dokumen.",
+          question:
+            "Bisakah saya mengingatkan penandatangan yang terlalu lama?",
+        },
+        {
+          answer:
+            "Anda mendapat PDF final yang telah ditandatangani serta sertifikat anti-perubahan. Unduh keduanya dengan satu klik.",
+          question:
+            "Apa yang saya dapatkan setelah semua orang selesai menandatangani?",
+        },
+      ],
+      marker: "Pertanyaan umum",
+      title: "Jawaban singkat.",
+    },
+    hero: {
+      headline: "Tandatangani PDF Secara Online, Gratis.",
+      headlineAccent: "Tanpa syarat tersembunyi.",
+      lead: "Unggah PDF, tambahkan kolom tanda tangan, lalu kirim. Selesai.",
+      marker: "Perangkat lunak tanda tangan elektronik gratis",
+      seeHowItWorks: "Lihat cara kerjanya",
+    },
+    metadata: {
+      description:
+        "Perangkat lunak tanda tangan elektronik gratis untuk usaha kecil. Unggah, kirim, tanda tangani — tanpa kerumitan ala perusahaan besar.",
+    },
+    nav: {
+      ariaLabel: "Navigasi publik",
+    },
+    pricing: {
+      lead: "Semua di bawah ini sudah termasuk. Selamanya. Gratis. Lihat perbandingannya dengan paket tanda tangan elektronik per pengguna pada umumnya.",
+      marker: "Harga",
+      signersNote: "Penandatangan Anda tidak perlu membuat akun.",
+      title: "Gratis lebih unggul dari $120 setahun.",
+    },
+    security: {
+      lead: "Setiap PDF dienkripsi, setiap tindakan dicatat, dan setiap tautan tanda tangan diamankan secara kriptografis. Kode sumbernya terbuka agar Anda dapat memverifikasinya sendiri.",
+      marker: "Keamanan",
+      pillars: [
+        {
+          body: "Dokumen disimpan di penyimpanan privat yang terenkripsi. Semua koneksi menggunakan HTTPS dengan penerapan HSTS.",
+          title: "Dienkripsi saat tersimpan dan saat dikirim",
+        },
+        {
+          body: "Setiap pembukaan, tanda tangan, dan penolakan dicatat dengan cap waktu dan alamat IP. Unduh PDF sertifikat sebagai bukti.",
+          title: "Catatan audit lengkap",
+        },
+        {
+          body: "Setiap penandatangan mendapat token kriptografis yang unik. Tautan kedaluwarsa sesuai batas waktu yang ditetapkan pengirim dan tidak dapat ditebak atau dipakai ulang.",
+          title: "Tautan tanda tangan yang aman",
+        },
+        {
+          body: "Seluruh kode sumbernya terbuka. Periksa model keamanannya, audit logikanya, atau pasang sendiri di infrastruktur Anda.",
+          title: "Sumber terbuka",
+        },
+      ],
+      title: "Dokumen Anda tetap aman.",
+    },
+    workflow: {
+      lead: "Unggah PDF, tentukan urutan tanda tangan, pasang kolom, lalu kirim. Penandatangan Anda bahkan tidak perlu membuat akun.",
+      marker: "Cara kerja",
+      steps: [
+        {
+          body: "Gunakan kontrak yang sudah Anda susun. Tidak perlu membuat ulang dari templat.",
+          title: "Unggah PDF Anda",
+        },
+        {
+          body: "Tentukan siapa yang menandatangani pertama, kedua, dan seterusnya. Setiap orang diundang setelah sebelumnya selesai.",
+          title: "Tambahkan penandatangan",
+        },
+        {
+          body: "Letakkan kolom tanda tangan, inisial, tanggal, teks, dan kotak centang di halaman.",
+          title: "Pasang kolom",
+        },
+        {
+          body: "Kirim tautan tanda tangan. Ingatkan yang belum selesai. Unduh PDF finalnya.",
+          title: "Kirim dan pantau",
+        },
+      ],
+      title: "Empat langkah. Satu dokumen yang ditandatangani.",
+    },
+  },
   email: {
     legalFooter: {
       contact: "Kontak",

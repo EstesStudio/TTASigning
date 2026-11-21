@@ -18,6 +18,137 @@ export const enMessages = defineMessages({
     termsLong: "Terms of Service",
     termsShort: "Terms",
   },
+  landing: {
+    actions: {
+      goToDashboard: "Go to dashboard",
+      logIn: "Log in",
+      startFree: "Start free",
+    },
+    closing: {
+      body: "No credit card. No per-envelope fees. Just upload and send.",
+      note: "Free • no signer account required • up to 25 signers per document",
+      title: "Send your next agreement. On us.",
+    },
+    comparison: {
+      feature: "Feature",
+      included: "Included",
+      notIncluded: "Not included",
+      perSeatPlans: "Per-seat plans",
+      rows: {
+        envelopes: {
+          feature: "Envelopes per month",
+          perSeat: "Capped by plan",
+          signudoc: "Unlimited",
+        },
+        price: {
+          feature: "Price",
+          perSeat: "Per user, every month",
+          signudoc: "Free forever",
+        },
+        reminders: {
+          feature: "Reminders",
+          perSeat: "Higher plans only",
+        },
+        signers: {
+          feature: "Signers per document",
+          perSeat: "Varies by plan",
+          signudoc: "Up to 25",
+        },
+      },
+    },
+    faq: {
+      items: [
+        {
+          answer:
+            "Nope. You sign in to send documents, but your signers just click a link and sign. No account, no friction.",
+          question: "Do signers need a SignuDoc account?",
+        },
+        {
+          answer:
+            "Signature, initials, date, text, and checkbox. Everything most documents need.",
+          question: "What field types can I place on a document?",
+        },
+        {
+          answer:
+            "Yes. Hit the remind button and they get a nudge. No need to resend the whole document.",
+          question: "Can I remind a signer if they are taking too long?",
+        },
+        {
+          answer:
+            "You get the final signed PDF plus a tamper-proof certificate. Download both in one click.",
+          question: "What do I get when everyone finishes signing?",
+        },
+      ],
+      marker: "FAQ",
+      title: "Quick answers.",
+    },
+    hero: {
+      headline: "Sign PDFs Online for Free.",
+      headlineAccent: "No catch.",
+      lead: "Upload a PDF, drop in signature fields, and send. That's it.",
+      marker: "Free e-signature software",
+      seeHowItWorks: "See how it works",
+    },
+    metadata: {
+      description:
+        "Free e-signature software for small businesses. Upload, send, sign — no enterprise circus required.",
+    },
+    nav: {
+      ariaLabel: "Public navigation",
+    },
+    pricing: {
+      lead: "Everything below is included. Forever. For $0. See how that stacks up against a typical per-seat e-signature plan.",
+      marker: "Pricing",
+      signersNote: "Your signers never need to create an account.",
+      title: "Free beats $120 a year.",
+    },
+    security: {
+      lead: "Every PDF is encrypted, every action is logged, and every signing link is cryptographically secured. The code is open source so you can verify it yourself.",
+      marker: "Security",
+      pillars: [
+        {
+          body: "Documents are kept in private, encrypted storage. All connections use HTTPS with HSTS enforcement.",
+          title: "Encrypted at rest and in transit",
+        },
+        {
+          body: "Every view, signature, and decline is logged with timestamps and IP addresses. Download the certificate PDF as proof.",
+          title: "Complete audit trail",
+        },
+        {
+          body: "Each signer gets a unique cryptographic token. Links expire at the deadline the sender sets and can't be guessed or reused.",
+          title: "Secure signing links",
+        },
+        {
+          body: "The entire codebase is public. Inspect the security model, audit the logic, or self-host on your own infrastructure.",
+          title: "Open source",
+        },
+      ],
+      title: "Your documents stay safe.",
+    },
+    workflow: {
+      lead: "Upload a PDF, set the signing order, place fields, and hit send. Your signers don't even need an account.",
+      marker: "How it works",
+      steps: [
+        {
+          body: "Bring the contract you already wrote. No template rebuilding.",
+          title: "Upload your PDF",
+        },
+        {
+          body: "Pick who signs first, second, third. Each person gets invited after the last one finishes.",
+          title: "Add signers",
+        },
+        {
+          body: "Drop signature, initials, date, text, and checkbox fields onto the page.",
+          title: "Place fields",
+        },
+        {
+          body: "Fire off a signing link. Nudge the slow ones. Download the final PDF.",
+          title: "Send and track",
+        },
+      ],
+      title: "Four steps. One signed document.",
+    },
+  },
   email: {
     legalFooter: {
       contact: "Contact",
