@@ -220,6 +220,12 @@ export async function LandingShell() {
               <p className="text-sm text-(--tertiary)">
                 {landing.pricing.signersNote}
               </p>
+              <Link
+                className="text-sm font-semibold text-(--accent-ink) underline decoration-[rgb(var(--accent-rgb)/0.35)] underline-offset-4"
+                href="/pricing"
+              >
+                {landing.pricing.allPlans}
+              </Link>
             </div>
           </div>
         </section>

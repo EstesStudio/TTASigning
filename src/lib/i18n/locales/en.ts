@@ -97,6 +97,7 @@ export const enMessages = defineMessages({
       ariaLabel: "Public navigation",
     },
     pricing: {
+      allPlans: "See all plans",
       lead: "Everything below is included. Forever. For $0. See how that stacks up against a typical per-seat e-signature plan.",
       marker: "Pricing",
       signersNote: "Your signers never need to create an account.",
@@ -148,6 +149,148 @@ export const enMessages = defineMessages({
       ],
       title: "Four steps. One signed document.",
     },
+  },
+  pricingPage: {
+    bottom: {
+      body: "Sakta is open source under MIT. Run it on your own infrastructure, or ask us for a dedicated hosted instance.",
+      cta: "Talk to us",
+      title: "Need your own installation?",
+    },
+    cards: {
+      business: {
+        cta: "Contact us",
+        footnote: "Invoices with NPWP available.",
+        name: "Business",
+        tagline: "For companies that need to connect systems.",
+      },
+      free: {
+        cta: "Start free",
+        footnote: "No credit card. No expiry.",
+        name: "Free",
+        tagline: "For trying the whole signing loop.",
+      },
+      standard: {
+        cta: "Start free",
+        footnote: "Billed yearly, cancel anytime.",
+        name: "Standard",
+        tagline: "For small teams that sign every week.",
+      },
+    },
+    comparison: {
+      feature: "Feature",
+      lead: "Every plan signs PDFs, records consent and seals the result. Higher plans add the tools a growing team needs.",
+      rows: [
+        {
+          business: "Unlimited",
+          free: "Unlimited",
+          label: "Documents per month",
+          standard: "Unlimited",
+        },
+        {
+          business: "Up to 25",
+          free: "Up to 25",
+          label: "Signers per document",
+          standard: "Up to 25",
+        },
+        {
+          business: "Included",
+          free: "Included",
+          label: "Signing without an account",
+          standard: "Included",
+        },
+        {
+          business: "Included",
+          free: "Included",
+          label: "Signing order and copy recipients",
+          standard: "Included",
+        },
+        {
+          business: "Included",
+          free: "Included",
+          label: "Audit trail, sealed PDF and certificate",
+          standard: "Included",
+        },
+        {
+          business: "Included",
+          free: "Included",
+          label: "Public Verify page",
+          standard: "Included",
+        },
+        {
+          business: "Included",
+          free: "Not included",
+          label: "Reusable templates",
+          standard: "Included",
+        },
+        {
+          business: "Included",
+          free: "Not included",
+          label: "Deadlines and automatic reminders",
+          standard: "Included",
+        },
+        {
+          business: "Included",
+          free: "Not included",
+          label: "Your own logo and brand color",
+          standard: "Included",
+        },
+        {
+          business: "Included",
+          free: "Not included",
+          label: "Access codes and emailed one-time codes",
+          standard: "Included",
+        },
+        {
+          business: "Included",
+          free: "Not included",
+          label: "Bulk send from a CSV",
+          standard: "Not included",
+        },
+        {
+          business: "Included",
+          free: "Not included",
+          label: "API, webhooks and embedded signing",
+          standard: "Not included",
+        },
+        {
+          business: "Included",
+          free: "Not included",
+          label: "Single sign-on (OpenID Connect)",
+          standard: "Not included",
+        },
+        {
+          business: "Priority email",
+          free: "GitHub issues",
+          label: "Support",
+          standard: "Email",
+        },
+      ],
+      title: "Compare every plan",
+    },
+    cycle: {
+      annual: "Yearly",
+      free: "Free forever",
+      label: "Billing period",
+      monthly: "Monthly",
+      perMonth: "per month",
+      perUser: "per user",
+      perYear: "per year",
+      save: "Save 2 months",
+    },
+    featured: "Most popular",
+    hero: {
+      eyebrow: "Pricing",
+      lead: "The same signing loop the big platforms sell per seat, at a fraction of the price. No envelope allowance and no surprise fees.",
+      note: "Prices in Indonesian rupiah. Yearly plans include two months free.",
+      title: "Every signature, at a price that makes sense here.",
+    },
+    included: "Included",
+    metadata: {
+      description:
+        "Simple, transparent e-signature pricing for Indonesian teams. Start free, then pay only for the seats you need.",
+      title: "Pricing | Sakta",
+    },
+    notIncluded: "Not included",
   },
   email: {
     legalFooter: {

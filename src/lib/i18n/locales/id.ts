@@ -100,6 +100,7 @@ export const idMessages: Messages = defineMessages({
       ariaLabel: "Navigasi publik",
     },
     pricing: {
+      allPlans: "Lihat semua paket",
       lead: "Semua di bawah ini sudah termasuk. Selamanya. Gratis. Lihat perbandingannya dengan paket tanda tangan elektronik per pengguna pada umumnya.",
       marker: "Harga",
       signersNote: "Penandatangan Anda tidak perlu membuat akun.",
@@ -151,6 +152,148 @@ export const idMessages: Messages = defineMessages({
       ],
       title: "Empat langkah. Satu dokumen yang ditandatangani.",
     },
+  },
+  pricingPage: {
+    bottom: {
+      body: "Sakta berbasis open source dengan lisensi MIT. Pasang di infrastruktur Anda sendiri, atau minta kami menyiapkan hosting khusus.",
+      cta: "Bicara dengan kami",
+      title: "Butuh instalasi sendiri?",
+    },
+    cards: {
+      business: {
+        cta: "Hubungi kami",
+        footnote: "Faktur dengan NPWP tersedia.",
+        name: "Bisnis",
+        tagline: "Untuk perusahaan yang perlu menghubungkan sistem.",
+      },
+      free: {
+        cta: "Mulai gratis",
+        footnote: "Tanpa kartu kredit. Tanpa batas waktu.",
+        name: "Gratis",
+        tagline: "Untuk mencoba seluruh alur tanda tangan.",
+      },
+      standard: {
+        cta: "Mulai gratis",
+        footnote: "Ditagih tahunan, bisa dibatalkan kapan saja.",
+        name: "Standar",
+        tagline: "Untuk tim kecil yang menandatangani tiap minggu.",
+      },
+    },
+    comparison: {
+      feature: "Fitur",
+      lead: "Setiap paket bisa menandatangani PDF, mencatat persetujuan, dan menghasilkan segel dokumen. Paket lebih tinggi menambahkan alat yang dibutuhkan tim yang berkembang.",
+      rows: [
+        {
+          business: "Tidak terbatas",
+          free: "Tidak terbatas",
+          label: "Dokumen per bulan",
+          standard: "Tidak terbatas",
+        },
+        {
+          business: "Hingga 25 orang",
+          free: "Hingga 25 orang",
+          label: "Penandatangan per dokumen",
+          standard: "Hingga 25 orang",
+        },
+        {
+          business: "Termasuk",
+          free: "Termasuk",
+          label: "Menandatangani tanpa akun",
+          standard: "Termasuk",
+        },
+        {
+          business: "Termasuk",
+          free: "Termasuk",
+          label: "Urutan tanda tangan dan penerima salinan",
+          standard: "Termasuk",
+        },
+        {
+          business: "Termasuk",
+          free: "Termasuk",
+          label: "Catatan audit, PDF tersegel, dan sertifikat",
+          standard: "Termasuk",
+        },
+        {
+          business: "Termasuk",
+          free: "Termasuk",
+          label: "Halaman Verify publik",
+          standard: "Termasuk",
+        },
+        {
+          business: "Termasuk",
+          free: "Tidak termasuk",
+          label: "Templat yang dapat dipakai ulang",
+          standard: "Termasuk",
+        },
+        {
+          business: "Termasuk",
+          free: "Tidak termasuk",
+          label: "Tenggat dan pengingat otomatis",
+          standard: "Termasuk",
+        },
+        {
+          business: "Termasuk",
+          free: "Tidak termasuk",
+          label: "Logo dan warna merek sendiri",
+          standard: "Termasuk",
+        },
+        {
+          business: "Termasuk",
+          free: "Tidak termasuk",
+          label: "Kode akses dan kode sekali pakai lewat email",
+          standard: "Termasuk",
+        },
+        {
+          business: "Termasuk",
+          free: "Tidak termasuk",
+          label: "Kirim massal dari CSV",
+          standard: "Tidak termasuk",
+        },
+        {
+          business: "Termasuk",
+          free: "Tidak termasuk",
+          label: "API, webhook, dan tanda tangan tersemat",
+          standard: "Tidak termasuk",
+        },
+        {
+          business: "Termasuk",
+          free: "Tidak termasuk",
+          label: "Masuk tunggal (OpenID Connect)",
+          standard: "Tidak termasuk",
+        },
+        {
+          business: "Email prioritas",
+          free: "Isu GitHub",
+          label: "Dukungan",
+          standard: "Email",
+        },
+      ],
+      title: "Bandingkan semua paket",
+    },
+    cycle: {
+      annual: "Tahunan",
+      free: "Gratis selamanya",
+      label: "Periode penagihan",
+      monthly: "Bulanan",
+      perMonth: "per bulan",
+      perUser: "per pengguna",
+      perYear: "per tahun",
+      save: "Hemat 2 bulan",
+    },
+    featured: "Paling populer",
+    hero: {
+      eyebrow: "Harga",
+      lead: "Alur tanda tangan yang sama seperti platform besar, dengan harga jauh lebih terjangkau. Tanpa kuota dokumen dan tanpa biaya tersembunyi.",
+      note: "Harga dalam rupiah. Paket tahunan sudah termasuk dua bulan gratis.",
+      title: "Setiap tanda tangan, dengan harga yang masuk akal di sini.",
+    },
+    included: "Termasuk",
+    metadata: {
+      description:
+        "Harga tanda tangan elektronik yang sederhana dan transparan untuk tim Indonesia. Mulai gratis, lalu bayi hanya untuk pengguna yang Anda butuhkan.",
+      title: "Harga | Sakta",
+    },
+    notIncluded: "Tidak termasuk",
   },
   email: {
     legalFooter: {
