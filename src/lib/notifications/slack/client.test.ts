@@ -463,7 +463,7 @@ test("a completed envelope offers its certificate, in green", () => {
   );
   assert.equal(
     buttons?.[0]?.url,
-    "https://sign.example.com/api/envelopes/e1/download?type=evidence",
+    "https://sign.example.com/envelopes/e1/certificate",
   );
 });
 
@@ -753,7 +753,10 @@ test("the manifest asks for the minimal scopes and names this site", () => {
     "users:read.email",
     "channels:read",
   ]);
-  assert.match(manifest.display_information.description, /sign\.example\.com/);
+  assert.equal(
+    manifest.display_information.description,
+    "Updates on documents sent for signature on sign.example.com.",
+  );
   assert.ok(manifest.display_information.description.length <= 140);
   assert.equal(manifest.display_information.name, "Example");
 });

@@ -1,6 +1,7 @@
 "use client";
 
 import { CheckIcon, CopyIcon, ExternalLinkIcon, LockIcon } from "lucide-react";
+import { useRouter } from "next/navigation";
 import {
   useEffect,
   useRef,
@@ -314,6 +315,7 @@ type SectionProps = {
 
 function SlackSetup({ onView, view }: SectionProps) {
   const { slack } = view;
+  const router = useRouter();
   const locked = slack.source === "env";
   const [token, setToken] = useState("");
   const [tokenError, setTokenError] = useState<string | undefined>();
@@ -350,6 +352,9 @@ function SlackSetup({ onView, view }: SectionProps) {
     setToken("");
     setConnection(null);
     setFeedback({ message: done, tone: "success" });
+    // My notifications, above, says whether direct messages can be sent and
+    // only learns of a new connection when the page is read again.
+    router.refresh();
   }
 
   async function check(body: Record<string, unknown>, action: string) {

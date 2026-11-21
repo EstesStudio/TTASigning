@@ -17,6 +17,7 @@ import {
   type NotificationEnvelope,
 } from "./message.ts";
 import {
+  jobWarningStillHolds,
   MAX_DELIVERY_ATTEMPTS,
   placementFor,
   retryDelaySeconds,
@@ -165,7 +166,7 @@ test("buttons: the certificate when complete, a reminder only for the sender", (
       kind: "envelope_completed",
       payload: {},
     }).actions[0]?.url,
-    "https://sign.example.com/api/envelopes/env-1/download?type=evidence",
+    "https://sign.example.com/envelopes/env-1/certificate",
   );
 });
 
@@ -356,5 +357,103 @@ test("an expired envelope's message says it expired and has no due date", () => 
   assert.ok(
     message.details.every((detail) => !detail.startsWith("Due ")),
     message.details.join(" | "),
+  );
+});
+
+test("a warning the job made is only sent while it still holds", () => {
+  const now = 1_800_000_000;
+  const deadline = now + 2 * 24 * 60 * 60;
+  const open = { expiresAt: deadline, status: "sent" };
+
+  // A deadline coming up: for the deadline it was made for, while open.
+  assert.equal(
+    jobWarningStillHolds(
+      "envelope_expiring_soon",
+      open,
+      { expiresAt: deadline },
+      now,
+    ),
+    true,
+  );
+  assert.equal(
+    jobWarningStillHolds(
+      "envelope_expiring_soon",
+      { ...open, expiresAt: deadline + 600 },
+      { expiresAt: deadline },
+      now,
+    ),
+    false,
+    "the deadline was moved",
+  );
+  assert.equal(
+    jobWarningStillHolds(
+      "envelope_expiring_soon",
+      { ...open, status: "completed" },
+      { expiresAt: deadline },
+      now,
+    ),
+    false,
+    "everyone signed",
+  );
+  assert.equal(
+    jobWarningStillHolds(
+      "envelope_expiring_soon",
+      open,
+      { expiresAt: deadline },
+      deadline + 1,
+    ),
+    false,
+    "the deadline has passed",
+  );
+
+  // A deadline passed: only while that deadline is still the one set.
+  assert.equal(
+    jobWarningStillHolds(
+      "envelope_expired",
+      open,
+      { expiresAt: deadline },
+      deadline + 1,
+    ),
+    true,
+  );
+  assert.equal(
+    jobWarningStillHolds(
+      "envelope_expired",
+      { ...open, expiresAt: deadline + 7 * 24 * 60 * 60 },
+      { expiresAt: deadline },
+      deadline + 1,
+    ),
+    false,
+    "a new deadline was set",
+  );
+
+  // No activity: while it is open and its deadline has not passed.
+  assert.equal(
+    jobWarningStillHolds("envelope_stuck", open, { idleDays: 7 }, now),
+    true,
+  );
+  assert.equal(
+    jobWarningStillHolds(
+      "envelope_stuck",
+      { ...open, status: "voided" },
+      { idleDays: 7 },
+      now,
+    ),
+    false,
+  );
+  assert.equal(
+    jobWarningStillHolds("envelope_stuck", open, { idleDays: 7 }, deadline + 1),
+    false,
+  );
+
+  // Anything the audit trail recorded is not the job's to recheck.
+  assert.equal(
+    jobWarningStillHolds(
+      "envelope_signed",
+      { ...open, status: "completed" },
+      {},
+      now,
+    ),
+    true,
   );
 });

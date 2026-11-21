@@ -254,7 +254,8 @@ export function buildNotificationMessage({
           id: "certificate",
           label: "View certificate",
           primary: true,
-          url: `${base}/api/envelopes/${encodeURIComponent(envelope.id)}/download?type=evidence`,
+          // Through a page, so an expired session is asked to sign in.
+          url: `${envelopeUrl}/certificate`,
         });
       }
 

@@ -58,7 +58,14 @@ export default async function SettingsPage() {
         }}
       />
       {notificationPreferences ? (
-        <NotificationPreferencesPanel initialView={notificationPreferences} />
+        <NotificationPreferencesPanel
+          initialView={notificationPreferences}
+          // Starts over when an administrator connects Slack or turns direct
+          // messages on or off further down this page.
+          key={notificationPreferences.channels
+            .map((channel) => `${channel.id}:${channel.available}`)
+            .join(",")}
+        />
       ) : null}
       {isAdmin ? (
         <OrganizationSettings

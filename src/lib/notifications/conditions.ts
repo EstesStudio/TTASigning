@@ -26,6 +26,15 @@ const STUCK_LOOKBACK_SECONDS = 90 * DAY;
  * notifications on does not announce every envelope that ever expired.
  */
 const EXPIRED_LOOKBACK_SECONDS = 7 * DAY;
+/**
+ * Audit events that are not activity: the emails and reminders the app
+ * itself sent.
+ */
+export const NOT_ACTIVITY_EVENTS = [
+  "email_sent",
+  "reminded_auto",
+  "reminded_manual",
+] as const;
 
 export type ConditionSummary = {
   expired: number;
@@ -129,11 +138,17 @@ export async function queueConditionEvents(
             SELECT 1 FROM audit_events a
             WHERE a.envelope_id = e.id
               AND a.created_at > $2::bigint
-              AND a.event NOT IN ('email_sent', 'reminded_auto', 'reminded_manual')
+              AND a.event <> ALL($5::text[])
           )
         ON CONFLICT (dedupe_key) DO NOTHING
       `,
-      [now, since, stuckDays, now - STUCK_LOOKBACK_SECONDS],
+      [
+        now,
+        since,
+        stuckDays,
+        now - STUCK_LOOKBACK_SECONDS,
+        [...NOT_ACTIVITY_EVENTS],
+      ],
     );
 
     summary.stuck = result.rowCount ?? 0;

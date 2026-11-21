@@ -50,6 +50,7 @@ export type NotificationJobSummary =
       nextDueAt: number | null;
       purged: number;
       status: "ran";
+      /** Work was left: out of time, or more events queued than one run takes. */
       stoppedEarly: boolean;
     };
 
@@ -141,6 +142,8 @@ export async function runNotificationJob({
 
   let eventsProcessed = 0;
   let deliveriesCreated = 0;
+  // Whether the last batch was full, so more may be queued behind it.
+  let moreQueued = false;
 
   for (let round = 0; round < MAX_EXPAND_ROUNDS && !outOfTime(); round += 1) {
     const expanded = await expandQueuedEvents(database, deps, {
@@ -149,8 +152,9 @@ export async function runNotificationJob({
 
     eventsProcessed += expanded.events;
     deliveriesCreated += expanded.deliveries;
+    moreQueued = expanded.events >= EXPAND_BATCH;
 
-    if (expanded.events < EXPAND_BATCH) {
+    if (!moreQueued) {
       break;
     }
   }
@@ -172,6 +176,8 @@ export async function runNotificationJob({
     ),
     purged,
     status: "ran",
-    stoppedEarly: outOfTime(),
+    // Out of time, or with events still queued after the most one run
+    // expands: either way there is more to do, and the caller goes again.
+    stoppedEarly: outOfTime() || moreQueued,
   };
 }

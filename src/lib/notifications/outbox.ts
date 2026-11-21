@@ -17,6 +17,7 @@ import {
   type SendResult,
   type ThreadRef,
 } from "./channel.ts";
+import { NOT_ACTIVITY_EVENTS } from "./conditions.ts";
 import {
   BURST_HOLD_SECONDS,
   BURST_KINDS,
@@ -52,8 +53,10 @@ import {
 //    marked sent, skipped, failed, or due again later with a growing delay.
 //
 // A chat tool that asks for a pause (Slack's HTTP 429 and Retry-After) gets
-// it: the rest of that tool's deliveries in the run are put back, due when
-// the pause ends, without counting as an attempt.
+// it: the rest of that tool's deliveries are put back, due when the pause
+// ends, without counting as an attempt. The pause is kept in
+// notification_channel_pauses, so every run, in any server instance, waits
+// it out too.
 //
 // Delivery is at least once. A run cut off between Slack accepting a
 // message and the row being marked sent sends it again once the lease runs
@@ -787,6 +790,106 @@ export async function nextDeliveryDueAt(
   return row?.dueAt ?? null;
 }
 
+/** Until when a chat tool asked every run to wait, or null when it does not. */
+async function readChannelPause(
+  database: DbExecutor,
+  channel: string,
+  now: number,
+): Promise<number | null> {
+  const row = await queryOne<{ pausedUntil: number }>(
+    database,
+    `
+      SELECT paused_until AS "pausedUntil"
+      FROM notification_channel_pauses
+      WHERE channel = $1 AND paused_until > $2
+    `,
+    [channel, now],
+  );
+
+  return row?.pausedUntil ?? null;
+}
+
+/** Keeps a chat tool's pause for every run; a longer one already kept wins. */
+async function pauseChannel(
+  database: DbExecutor,
+  channel: string,
+  until: number,
+  now: number,
+): Promise<void> {
+  await database.query(
+    `
+      INSERT INTO notification_channel_pauses (channel, paused_until, updated_at)
+      VALUES ($1, $2, $3)
+      ON CONFLICT (channel) DO UPDATE SET
+        paused_until = GREATEST(
+          notification_channel_pauses.paused_until,
+          excluded.paused_until
+        ),
+        updated_at = excluded.updated_at
+    `,
+    [channel, until, now],
+  );
+}
+
+/**
+ * Whether a warning the job made still says something true about the
+ * envelope as it is now. A delivery can wait hours for a retry, and
+ * meanwhile the envelope may have been finished, or its deadline moved:
+ * a deadline warning is only for the deadline it was made for.
+ */
+export function jobWarningStillHolds(
+  kind: NotificationEventKind,
+  envelope: { expiresAt: number | null; status: string | null },
+  payload: NotificationPayload,
+  now: number,
+): boolean {
+  switch (kind) {
+    case "envelope_expiring_soon":
+      return (
+        envelope.status === "sent" &&
+        envelope.expiresAt !== null &&
+        envelope.expiresAt === payload.expiresAt &&
+        envelope.expiresAt > now
+      );
+    case "envelope_expired":
+      return (
+        envelope.status === "sent" &&
+        envelope.expiresAt !== null &&
+        envelope.expiresAt === payload.expiresAt &&
+        envelope.expiresAt <= now
+      );
+    case "envelope_stuck":
+      return (
+        envelope.status === "sent" &&
+        (envelope.expiresAt === null || envelope.expiresAt > now)
+      );
+    default:
+      return true;
+  }
+}
+
+/** An idle warning stops applying once anyone does anything with the envelope. */
+async function hasActivitySince(
+  database: DbExecutor,
+  envelopeId: string,
+  since: number,
+): Promise<boolean> {
+  const row = await queryOne<{ found: boolean }>(
+    database,
+    `
+      SELECT EXISTS (
+        SELECT 1 FROM audit_events a
+        WHERE a.envelope_id = $1
+          AND a.created_at > $2
+          AND a.event <> ALL($3::text[])
+      ) AS found
+    `,
+    [envelopeId, since, [...NOT_ACTIVITY_EVENTS]],
+  );
+
+  return row?.found ?? false;
+}
+
 function envelopeFor(delivery: ClaimedDelivery): NotificationEnvelope | null {
   if (!delivery.envelopeId || delivery.envelopeTitle === null) {
     return null;
@@ -920,8 +1023,47 @@ export async function deliverDueDeliveries(
       return;
     }
 
-    const block = blocked.get(channel.id);
+    if (delivery.source === "job" && delivery.envelopeId) {
+      const holds =
+        jobWarningStillHolds(
+          kind,
+          {
+            expiresAt: delivery.envelopeExpiresAt,
+            status: delivery.envelopeStatus,
+          },
+          readNotificationPayload(delivery.payload),
+          now,
+        ) &&
+        !(
+          kind === "envelope_stuck" &&
+          (await hasActivitySince(
+            database,
+            delivery.envelopeId,
+            delivery.eventCreatedAt,
+          ))
+        );
+
+      if (!holds) {
+        await apply(delivery, { error: "outdated", status: "skipped" });
+        return;
+      }
+    }
+
+    let block = blocked.get(channel.id);
     const lookupKey = `${channel.id}:lookup`;
+
+    if (!block) {
+      // Another run, maybe in another instance, was asked to wait.
+      const pausedUntil = await readChannelPause(database, channel.id, now);
+
+      if (pausedUntil !== null) {
+        block = {
+          error: "ratelimited",
+          outcome: "rate_limited",
+          retryAfterSeconds: pausedUntil - now,
+        };
+      }
+    }
 
     if (block) {
       await apply(
@@ -978,6 +1120,15 @@ export async function deliverDueDeliveries(
           resolved.outcome === "auth"
         ) {
           blocked.set(channel.id, resolved);
+        }
+
+        if (resolved.outcome === "rate_limited") {
+          await pauseChannel(
+            database,
+            channel.id,
+            now + resolved.retryAfterSeconds,
+            now,
+          );
         }
 
         await apply(
@@ -1088,6 +1239,15 @@ export async function deliverDueDeliveries(
 
     if (result.outcome === "rate_limited" || result.outcome === "auth") {
       blocked.set(channel.id, result);
+    }
+
+    if (result.outcome === "rate_limited") {
+      await pauseChannel(
+        database,
+        channel.id,
+        now + result.retryAfterSeconds,
+        deps.now(),
+      );
     }
 
     if (

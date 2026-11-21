@@ -109,7 +109,7 @@ async function readDeliveryStats(database: DbExecutor): Promise<DeliveryStats> {
       JOIN notification_events e ON e.id = d.event_id
       WHERE d.last_error IS NOT NULL AND d.updated_at >= $1
         AND d.status <> 'sent'
-        AND d.last_error NOT IN ('superseded', 'no_longer_wanted')
+        AND d.last_error NOT IN ('superseded', 'no_longer_wanted', 'outdated')
       ORDER BY d.updated_at DESC
       LIMIT 5
     `,

@@ -209,6 +209,7 @@ async function clearOutbox() {
     `update notification_deliveries set status = 'skipped'
      where status in ('pending', 'sending')`,
   );
+  await database.query(`delete from notification_channel_pauses`);
 }
 
 before(async () => {
@@ -516,6 +517,7 @@ test("failed sends are retried with backoff, paused for rate limits, and given u
   [second] = await channelRows();
   assert.equal(second?.status, "failed");
   assert.equal(second?.attempts, MAX_DELIVERY_ATTEMPTS);
+  await database.query(`delete from notification_channel_pauses`);
 });
 
 test("a delivery whose lease ran out is taken again", async () => {
@@ -1719,4 +1721,152 @@ test("a scheduled run with no chat tool set up still clears out old events", asy
 
   assert.equal(summary.status, "not_configured");
   assert.equal(await queuedEventCount(envelopeId, true), 0);
+});
+
+test("a pause Slack asked one run for holds back every run until it ends", async () => {
+  const now = Math.floor(Date.now() / 1000);
+  const first = fakeChannel();
+  const second = fakeChannel();
+
+  await clearOutbox();
+
+  const earlier = await createEnvelope(outsider.id, { sentAt: now });
+
+  await recordAuditEvent(
+    { actorType: "system", envelopeId: earlier, event: "completed" },
+    database,
+  );
+  await expandQueuedEvents(database, depsFor(first.channel, now));
+  first.results.push({
+    error: "ratelimited",
+    outcome: "rate_limited",
+    retryAfterSeconds: 120,
+  });
+  await deliverDueDeliveries(database, depsFor(first.channel, now));
+  assert.equal(first.sent.length, 1);
+
+  // Another run, as in another server instance, with nothing in memory.
+  const during = await createEnvelope(outsider.id, { sentAt: now });
+
+  await recordAuditEvent(
+    { actorType: "system", envelopeId: during, event: "completed" },
+    database,
+  );
+  await expandQueuedEvents(database, depsFor(second.channel, now + 10));
+  await deliverDueDeliveries(database, depsFor(second.channel, now + 10));
+  assert.equal(second.sent.length, 0, "nothing goes to Slack during the pause");
+
+  for (const row of await deliveriesFor(during)) {
+    assert.equal(row.status, "pending", row.target);
+    assert.equal(row.attempts, 0, row.target);
+    assert.equal(row.nextAttemptAt, now + 120, row.target);
+  }
+
+  // Once it ends, everything held back goes out.
+  await deliverDueDeliveries(database, depsFor(second.channel, now + 121));
+
+  for (const envelopeId of [earlier, during]) {
+    for (const row of await deliveriesFor(envelopeId)) {
+      if (row.targetKind === "channel") {
+        assert.equal(row.status, "sent", `${envelopeId} ${row.target}`);
+      }
+    }
+  }
+
+  await database.query(`delete from notification_channel_pauses`);
+});
+
+test("a deadline or idle warning that no longer applies is not sent", async () => {
+  const now = Math.floor(Date.now() / 1000);
+  const fake = fakeChannel();
+
+  await clearOutbox();
+  fake.users.set(owner.email, "UOWNER");
+
+  const moved = await createEnvelope(owner.id, {
+    expiresAt: now + 2 * DAY,
+    sentAt: now - 5 * DAY,
+  });
+  const stillClose = await createEnvelope(owner.id, {
+    expiresAt: now + 2 * DAY,
+    sentAt: now - 5 * DAY,
+  });
+  const woken = await createEnvelope(owner.id, { sentAt: now - 10 * DAY });
+
+  await queueConditionEvents(database, {
+    expiringDays: 3,
+    now,
+    stuckDays: 7,
+  });
+  await expandQueuedEvents(database, depsFor(fake.channel, now));
+
+  // Before the messages go out, the sender moves one deadline, and a signer
+  // opens the idle envelope.
+  await database.query(`update envelopes set expires_at = $2 where id = $1`, [
+    moved,
+    now + 20 * DAY,
+  ]);
+  await recordAuditEvent(
+    {
+      actorType: "signer",
+      createdAt: now + 5,
+      envelopeId: woken,
+      event: "viewed",
+    },
+    database,
+  );
+  await deliverDueDeliveries(database, depsFor(fake.channel, now + 10));
+
+  const outcome = async (envelopeId: string) =>
+    (await deliveriesFor(envelopeId))
+      .filter((row) => row.targetKind === "user")
+      .map((row) => `${row.status}:${row.lastError ?? ""}`);
+
+  assert.deepEqual(await outcome(moved), ["skipped:outdated"]);
+  assert.deepEqual(await outcome(woken), ["skipped:outdated"]);
+  assert.deepEqual(await outcome(stillClose), ["sent:"]);
+});
+
+test("a run that leaves events queued says so, so the caller goes round again", async () => {
+  const now = Math.floor(Date.now() / 1000);
+  const fake = envOnlyChannel();
+  const run = () =>
+    runNotificationJob({
+      channels: [fake.channel],
+      database,
+      deadline: Date.now() + 60_000,
+      detectConditions: false,
+      env: { ...settingsEnv, SLACK_BOT_TOKEN: TOKEN_A },
+      now: () => now,
+    });
+
+  await clearOutbox();
+  // More than one run expands (20 batches of 100), none worth a message.
+  await database.query(
+    `
+      insert into notification_events (
+        id, dedupe_key, source, event, payload, created_at, queued_at
+      )
+      select gen_random_uuid()::text, $1 || n::text, 'audit',
+        'not_announced', '{}'::jsonb, $2, $2
+      from generate_series(1, 2050) as n
+    `,
+    [`backlog:${marker}:`, now],
+  );
+
+  const first = await run();
+
+  assert.equal(first.status, "ran");
+  assert.ok(first.status === "ran" && first.eventsProcessed === 2000);
+  assert.ok(first.status === "ran" && first.stoppedEarly);
+
+  const second = await run();
+
+  assert.ok(second.status === "ran" && second.eventsProcessed === 50);
+  assert.ok(second.status === "ran" && !second.stoppedEarly);
+
+  await database.query(
+    `delete from notification_events where dedupe_key like $1`,
+    [`backlog:${marker}:%`],
+  );
 });

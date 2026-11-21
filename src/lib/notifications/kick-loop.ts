@@ -55,9 +55,10 @@ export async function runUntilCaughtUp(
         );
         current.again = true;
       } else if (summary.stoppedEarly && rounds < MAX_ROUNDS) {
-        // Out of time with work left (deliveries put back as due now do not
-        // show up as "due soon"): go round again rather than leave them for
-        // the next scheduled run, which may be a day away.
+        // Work left: out of time (deliveries put back as due now do not show
+        // up as "due soon"), or more events queued than one run expands. Go
+        // round again rather than leave it for the next scheduled run, which
+        // may be a day away.
         current.again = true;
       }
     } while (current.again);
