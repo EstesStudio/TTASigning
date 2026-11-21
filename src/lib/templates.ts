@@ -25,17 +25,17 @@ import {
 import { fieldPlacementListSchema } from "./schemas/field.ts";
 import {
   saveTemplateSchema,
+  type TemplateRole,
   templateRolesSchema,
   useTemplateSchema,
-  type TemplateRole,
 } from "./schemas/template.ts";
-import { buildTemplatePdfKey } from "./services/storage-keys.ts";
-import { normalizeSigningSteps } from "./signing-steps.ts";
 import {
   createStorageService,
   StorageObjectNotFoundError,
   type StorageService,
 } from "./services/storage.ts";
+import { buildTemplatePdfKey } from "./services/storage-keys.ts";
+import { normalizeSigningSteps } from "./signing-steps.ts";
 
 // A template is a document, the fields placed on it and its signing order,
 // kept so the same thing can be sent again. It names no one: each place in

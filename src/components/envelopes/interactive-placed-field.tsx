@@ -1,12 +1,12 @@
 "use client";
 
 import {
-  useRef,
   type KeyboardEvent,
   type PointerEvent as ReactPointerEvent,
+  useRef,
 } from "react";
 
-import { type FieldResizeHandle } from "@/lib/utils/pdf-coords";
+import type { FieldResizeHandle } from "@/lib/utils/pdf-coords";
 
 const dragThresholdPx = 4;
 const compactFieldHeightThreshold = 0.045;

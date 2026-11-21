@@ -7,12 +7,11 @@ import {
 } from "./db/connection.ts";
 import {
   downloadFileTypeSchema,
-  envelopeRecordSchema,
   type EnvelopeRecord,
+  envelopeRecordSchema,
 } from "./schemas/envelope.ts";
-import { truncateToWholeCharacters } from "./text-truncate.ts";
-import { fieldRecordSchema, type FieldRecord } from "./schemas/field.ts";
-import { signerRecordSchema, type SignerRecord } from "./schemas/signer.ts";
+import { type FieldRecord, fieldRecordSchema } from "./schemas/field.ts";
+import { type SignerRecord, signerRecordSchema } from "./schemas/signer.ts";
 import { listAuditEventsForEnvelope } from "./services/audit.ts";
 import {
   type IssuedDownloadLink,
@@ -30,7 +29,8 @@ import {
   type StorageService,
 } from "./services/storage.ts";
 import { getRecipientCertificateKey } from "./services/storage-keys.ts";
-import { type DownloadFileType } from "./types/domain.ts";
+import { truncateToWholeCharacters } from "./text-truncate.ts";
+import type { DownloadFileType } from "./types/domain.ts";
 
 type EnvelopeRow = {
   completedAt: number | null;

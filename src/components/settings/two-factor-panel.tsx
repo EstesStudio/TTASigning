@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState, type FormEvent } from "react";
+import { type FormEvent, useMemo, useState } from "react";
 import { encode } from "uqr";
 
 import { useBranding } from "@/components/layout/branding-provider";

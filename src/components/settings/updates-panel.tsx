@@ -30,7 +30,9 @@ export function UpdatesPanel({
     try {
       const response = await fetch("/api/admin/updates", { method: "POST" });
       const payload = (await response.json().catch(() => null)) as
-        (UpdateStatus & { error?: undefined }) | { error: string } | null;
+        | (UpdateStatus & { error?: undefined })
+        | { error: string }
+        | null;
 
       if (!response.ok || !payload || "error" in payload) {
         setError(

@@ -2,16 +2,16 @@ import { headers } from "next/headers";
 
 import { SigningShell } from "@/components/signing/signing-shell";
 import { getDb } from "@/lib/db/connection";
-import { isEmbedOriginAllowed, openEmbedLink } from "@/lib/embedding";
 import { parseEmbedOrigin } from "@/lib/embed-origin";
-import { MessagesProvider } from "@/lib/i18n/messages-provider.tsx";
+import { isEmbedOriginAllowed, openEmbedLink } from "@/lib/embedding";
 import { getMessages } from "@/lib/i18n/messages.ts";
+import { MessagesProvider } from "@/lib/i18n/messages-provider.tsx";
 import { getRequestLocale } from "@/lib/i18n/request.ts";
 import { getClientIpAddress } from "@/lib/security/request";
 import {
+  getSigningPayloadForToken,
   SigningAccessError,
   SigningVerificationRequiredError,
-  getSigningPayloadForToken,
 } from "@/lib/signing";
 
 // The signing page, shown in a frame inside another app (see

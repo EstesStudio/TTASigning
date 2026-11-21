@@ -5,10 +5,10 @@ import Link from "next/link";
 import { useBranding } from "@/components/layout/branding-provider";
 import { LocaleSwitcher } from "@/components/layout/locale-switcher";
 import { SIGNUDOC_NAME, SIGNUDOC_URL } from "@/lib/branding";
+import { cn } from "@/lib/cn";
 import { formatMessage } from "@/lib/i18n/format.ts";
 import { useMessages } from "@/lib/i18n/messages-provider.tsx";
 import { PUBLIC_COPYRIGHT_YEAR, publicFooterLinks } from "@/lib/legal";
-import { cn } from "@/lib/cn";
 import { PERMITTED_USE_PATH } from "@/lib/permitted-uses";
 
 type PublicLegalFooterProps = {

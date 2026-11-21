@@ -18,7 +18,8 @@ const SEARCH_DELAY_MS = 250;
 const SEARCH_FROM_TOTAL = 9;
 
 type PeopleResponse =
-  (Partial<PeopleList> & { error?: string; you?: string }) | null;
+  | (Partial<PeopleList> & { error?: string; you?: string })
+  | null;
 
 function readPeopleList(payload: PeopleResponse): PeopleList | null {
   if (!payload || !Array.isArray(payload.people)) {
@@ -97,9 +98,11 @@ export function PeoplePanel({ part11Mode = false }: { part11Mode?: boolean }) {
       .catch((loadError: unknown) => {
         // Leaving the page, or typing on, cancels the request; that is not
         // a failure.
-        if (!(
-          loadError instanceof DOMException && loadError.name === "AbortError"
-        )) {
+        if (
+          !(
+            loadError instanceof DOMException && loadError.name === "AbortError"
+          )
+        ) {
           setError(GENERIC_ERROR_MESSAGE);
         }
       });

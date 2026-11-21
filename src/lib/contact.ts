@@ -1,8 +1,8 @@
-import { contactFormSchema, type ContactFormInput } from "./schemas/contact.ts";
 import { resolvePublicSupportAddress } from "./public-contact.ts";
+import { type ContactFormInput, contactFormSchema } from "./schemas/contact.ts";
 import { createEmailService } from "./services/email.ts";
 import { ServiceConfigurationError } from "./services/service-config.ts";
-import { type EnvSource } from "./utils/env.ts";
+import type { EnvSource } from "./utils/env.ts";
 import { escapeHtml } from "./utils/html.ts";
 
 type ContactFieldName = "email" | "message" | "name";

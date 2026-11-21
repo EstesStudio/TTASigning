@@ -4,12 +4,12 @@ import { test } from "node:test";
 import {
   buildDisclosureSections,
   buildElectronicRecordsDisclosure,
+  consentStatement,
   DISCLOSURE_MAX_LENGTH,
   disclosureSectionsAsText,
   ELECTRONIC_RECORDS_DISCLOSURE_VERSION,
   getDisclosureVersion,
   INDONESIAN_DISCLOSURE_VERSION,
-  consentStatement,
   normalizeCustomDisclosure,
   standardDisclosureTemplate,
   toStoredCustomDisclosure,

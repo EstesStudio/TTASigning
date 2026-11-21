@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 
-import { type Branding } from "./branding.ts";
+import type { Branding } from "./branding.ts";
 import { buildVoidNotificationEmail } from "./envelopes.ts";
 
 const branding: Branding = {

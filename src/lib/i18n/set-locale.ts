@@ -3,9 +3,9 @@
 import { cookies } from "next/headers";
 
 import {
+  isLocale,
   LOCALE_COOKIE,
   LOCALE_COOKIE_MAX_AGE_SECONDS,
-  isLocale,
   type Locale,
 } from "./types.ts";
 

@@ -1,5 +1,5 @@
 import { defineMessages } from "../define-messages.ts";
-import { type Messages } from "./en.ts";
+import type { Messages } from "./en.ts";
 
 export const idMessages: Messages = defineMessages({
   footer: {

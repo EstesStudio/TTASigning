@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 
-import { HOSTED_BRANDING, type Branding } from "../branding.ts";
+import { type Branding, HOSTED_BRANDING } from "../branding.ts";
 import { withUserEmailLegalFooter } from "./email-legal-footer.ts";
 
 const env = { APP_URL: "https://sign.acme.com" };

@@ -7,14 +7,19 @@ import type {
 } from "@/lib/schemas/signing";
 import { EmbedParentMessage } from "./embed-parent-message";
 import { SignerVerificationScreen } from "./signer-verification-screen";
-import { SigningStateScreen } from "./signing-state-screen";
 import {
-  SigningLiveShell,
   type ProviderSignatureProblem,
+  SigningLiveShell,
 } from "./signing-live-shell";
+import { SigningStateScreen } from "./signing-state-screen";
 
 type SigningUnavailableState =
-  "already-signed" | "completed" | "declined" | "error" | "expired" | "voided";
+  | "already-signed"
+  | "completed"
+  | "declined"
+  | "error"
+  | "expired"
+  | "voided";
 
 type SigningShellProps = {
   /**

@@ -5,7 +5,7 @@ import { createGunzip, createGzip } from "node:zlib";
 import { del, get, list, put } from "@vercel/blob";
 
 import { type DbPool, getDb } from "./db/connection.ts";
-import { readEnv, type EnvSource } from "./utils/env.ts";
+import { type EnvSource, readEnv } from "./utils/env.ts";
 
 // A daily copy of the install to a second Vercel Blob store, kept by the
 // deployer apart from the first (another Vercel team, ideally), so that a

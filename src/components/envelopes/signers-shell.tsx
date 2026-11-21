@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useState, type ChangeEvent } from "react";
+import { type ChangeEvent, useRef, useState } from "react";
 
 import {
   ChevronLeftIcon,
@@ -21,8 +21,8 @@ import { moveListedSigner, removeListedSigner } from "@/lib/signing-steps";
 import {
   DEFAULT_MAX_SIGNERS_PER_ENVELOPE,
   MAX_COPY_RECIPIENTS_PER_ENVELOPE,
-  signatureMeanings,
   type SignatureMeaning,
+  signatureMeanings,
 } from "@/lib/types/domain";
 import { getSignerPalette } from "./signer-palette";
 
@@ -337,7 +337,9 @@ async function parseJsonResponse<T>(
   response: Response,
 ): Promise<{ data: T | null; error: string | null }> {
   const payload = (await response.json().catch(() => null)) as
-    { error?: string } | T | null;
+    | { error?: string }
+    | T
+    | null;
 
   if (!response.ok) {
     return {

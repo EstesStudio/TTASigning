@@ -5,17 +5,16 @@ import {
   ClockIcon,
   DownloadIcon,
   FileTextIcon,
+  type LucideIcon,
   MinusIcon,
   PencilIcon,
   XIcon,
-  type LucideIcon,
 } from "lucide-react";
 import Link from "next/link";
 import { type ReactNode, useState } from "react";
 
 import { DocumentThumbnail } from "@/components/shared/document-thumbnail";
 import { ShellButton } from "@/components/shared/form-shell";
-import { Textarea } from "@/components/ui/textarea";
 import { StatusPanel } from "@/components/shared/status-panel";
 import { SaveTemplateDialog } from "@/components/templates/save-template-dialog";
 import {
@@ -25,6 +24,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import { Textarea } from "@/components/ui/textarea";
 import type {
   EnvelopeDetailData,
   EnvelopeDetailTimelineItem,

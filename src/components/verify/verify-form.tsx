@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, type ChangeEvent } from "react";
+import { type ChangeEvent, useState } from "react";
 
 import { formatMessage } from "@/lib/i18n/format.ts";
 import { useMessages } from "@/lib/i18n/messages-provider.tsx";
@@ -68,7 +68,8 @@ export function VerifyForm({ locale }: { locale: Locale }) {
         method: "POST",
       });
       const payload = (await response.json().catch(() => null)) as
-        (VerifyAnswer & { error?: string }) | null;
+        | (VerifyAnswer & { error?: string })
+        | null;
 
       if (!response.ok || !payload) {
         setError(payload?.error ?? copy.checkError);

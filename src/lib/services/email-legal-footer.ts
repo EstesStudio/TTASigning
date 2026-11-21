@@ -1,8 +1,8 @@
-import { SIGNUDOC_NAME, type Branding } from "../branding.ts";
+import { type Branding, SIGNUDOC_NAME } from "../branding.ts";
 import { formatMessage } from "../i18n/format.ts";
 import { getMessages } from "../i18n/messages.ts";
-import { type Locale } from "../i18n/types.ts";
-import { getEnv, type EnvSource } from "../utils/env.ts";
+import type { Locale } from "../i18n/types.ts";
+import { type EnvSource, getEnv } from "../utils/env.ts";
 import { escapeHtml } from "../utils/html.ts";
 import { requireConfigValue } from "./service-config.ts";
 

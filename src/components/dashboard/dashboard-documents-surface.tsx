@@ -1,15 +1,14 @@
 import { PlusIcon, SearchIcon } from "lucide-react";
 import Link from "next/link";
 import type { ChangeEventHandler, ReactNode } from "react";
-
-import { cn } from "@/lib/cn";
-import type { DashboardEnvelopeListItem } from "@/lib/envelopes";
 import {
   DocumentThumbnail,
   SampleDocumentPage,
 } from "@/components/shared/document-thumbnail";
 import { ShellButton, StaticShellButton } from "@/components/shared/form-shell";
 import { PageHeader } from "@/components/shared/page-header";
+import { cn } from "@/lib/cn";
+import type { DashboardEnvelopeListItem } from "@/lib/envelopes";
 
 export type DashboardShellState = "default" | "empty" | "error";
 
@@ -23,7 +22,12 @@ export type DashboardPagination = {
 };
 
 export type DashboardFilter =
-  "All" | "Draft" | "Sent" | "Completed" | "Declined" | "Voided";
+  | "All"
+  | "Draft"
+  | "Sent"
+  | "Completed"
+  | "Declined"
+  | "Voided";
 
 type EnvelopeStatus = "draft" | "sent" | "completed" | "declined" | "voided";
 

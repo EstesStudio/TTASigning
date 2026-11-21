@@ -1,4 +1,4 @@
-import { expect, test, type Page } from "@playwright/test";
+import { expect, type Page, test } from "@playwright/test";
 import pg from "pg";
 
 import {
@@ -6,11 +6,11 @@ import {
   e2eOutboxDir,
   e2eSetupToken,
 } from "../playwright.config";
-import { extractLink, extractLinks, waitForEmail } from "./support/outbox";
-import { totpCode } from "./support/totp";
 import { startEmbedParent } from "./support/embed-parent";
+import { extractLink, extractLinks, waitForEmail } from "./support/outbox";
 import { writeLargePdf, writeSamplePdf } from "./support/sample-pdf";
 import { startSignInWindowAfresh } from "./support/sign-in-limit";
+import { totpCode } from "./support/totp";
 import {
   hasValidSignature,
   startWebhookReceiver,

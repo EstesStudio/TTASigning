@@ -5,44 +5,26 @@ import {
   CaseSensitiveIcon,
   CircleDotIcon,
   HashIcon,
+  type LucideIcon,
   SignatureIcon,
   SquareCheckIcon,
   SquareChevronDownIcon,
   TypeIcon,
   UserRoundIcon,
-  type LucideIcon,
 } from "lucide-react";
 import {
+  type Dispatch,
+  type MouseEvent,
+  type MutableRefObject,
+  type PointerEvent as ReactPointerEvent,
+  type RefObject,
+  type SetStateAction,
   useEffect,
   useId,
   useRef,
   useState,
-  type Dispatch,
-  type PointerEvent as ReactPointerEvent,
-  type MutableRefObject,
-  type RefObject,
-  type MouseEvent,
-  type SetStateAction,
 } from "react";
-
-import { type PrepareEnvelopeData } from "@/lib/envelopes";
-import {
-  describeChoiceFieldProblem,
-  findChoiceFieldProblem,
-  labelTextToShow,
-  MAX_FIELD_OPTIONS,
-  MAX_FIELD_OPTION_LENGTH,
-  MAX_RADIO_GROUP_BUTTONS,
-  optionsTextToShow,
-  parseOptionLines,
-} from "@/lib/field-choices";
-import { getInitials } from "@/lib/initials";
-import {
-  type FieldPlacement,
-  type ReplaceFieldsResponse,
-} from "@/lib/schemas/field";
 import { CanvasShell } from "@/components/layout/canvas-shell";
-import { Button } from "@/components/ui/button";
 import {
   ChevronLeftIcon,
   ChevronRightIcon,
@@ -51,18 +33,35 @@ import {
   beginDocumentPanGesture,
   clampDocumentZoomLevel,
   DEFAULT_DOCUMENT_ZOOM_LEVEL,
+  DOCUMENT_ZOOM_STEP,
+  type DocumentPanGesture,
   DocumentZoomControls,
   endDocumentPanGesture,
   moveDocumentPanGesture,
-  type DocumentPanGesture,
-  DOCUMENT_ZOOM_STEP,
 } from "@/components/shared/document-viewport";
+import { Button } from "@/components/ui/button";
 import { getCachedDraftPdfBlob } from "@/lib/draft-pdf-cache";
+import type { PrepareEnvelopeData } from "@/lib/envelopes";
 import {
+  describeChoiceFieldProblem,
+  findChoiceFieldProblem,
+  labelTextToShow,
+  MAX_FIELD_OPTION_LENGTH,
+  MAX_FIELD_OPTIONS,
+  MAX_RADIO_GROUP_BUTTONS,
+  optionsTextToShow,
+  parseOptionLines,
+} from "@/lib/field-choices";
+import { getInitials } from "@/lib/initials";
+import type {
+  FieldPlacement,
+  ReplaceFieldsResponse,
+} from "@/lib/schemas/field";
+import {
+  type FieldResizeHandle,
   moveFieldRect,
   placeFieldAtViewportPoint,
   resizeFieldRectFromHandle,
-  type FieldResizeHandle,
 } from "@/lib/utils/pdf-coords";
 import { InteractivePlacedField } from "./interactive-placed-field";
 import { PdfPageCanvas } from "./pdf-page-canvas";
@@ -367,7 +366,9 @@ async function parseJsonResponse<T>(
   response: Response,
 ): Promise<{ data: T | null; error: string | null }> {
   const payload = (await response.json().catch(() => null)) as
-    { error?: string } | T | null;
+    | { error?: string }
+    | T
+    | null;
 
   if (!response.ok) {
     return {

@@ -1,20 +1,19 @@
 "use client";
 
 import { PlusIcon } from "lucide-react";
-import { useState, type ChangeEvent } from "react";
-
-import type { DashboardEnvelopeListItem } from "@/lib/envelopes";
+import { type ChangeEvent, useState } from "react";
 import {
   DashboardDocumentsHeader,
   DashboardDocumentsPanel,
-  dashboardStatusFilterMap,
   type DashboardFilter,
   type DashboardPagination,
   type DashboardShellState,
   type DashboardView,
+  dashboardStatusFilterMap,
 } from "@/components/dashboard/dashboard-documents-surface";
 import { DocumentThumbnail } from "@/components/shared/document-thumbnail";
 import { ShellButton } from "@/components/shared/form-shell";
+import type { DashboardEnvelopeListItem } from "@/lib/envelopes";
 
 type DashboardShellProps = {
   envelopes?: readonly DashboardEnvelopeListItem[];

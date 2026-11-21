@@ -14,11 +14,11 @@ import { ELECTRONIC_RECORDS_DISCLOSURE_VERSION } from "./electronic-records-disc
 import { EnvelopeMutationError, voidSentEnvelope } from "./envelopes.ts";
 import { recordAuditEvent, verifyAuditChain } from "./services/audit.ts";
 import { issueSigningLink } from "./services/signing-links.ts";
-import { buildEnvelopeCertificateKey } from "./services/storage-keys.ts";
 import {
   createStorageService,
   type StorageService,
 } from "./services/storage.ts";
+import { buildEnvelopeCertificateKey } from "./services/storage-keys.ts";
 import {
   declineSigningForToken,
   recordSignerConsent,

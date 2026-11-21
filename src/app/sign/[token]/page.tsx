@@ -2,19 +2,19 @@ import { cookies, headers } from "next/headers";
 
 import { SigningShell } from "@/components/signing/signing-shell";
 import { getDb } from "@/lib/db/connection";
-import { MessagesProvider } from "@/lib/i18n/messages-provider.tsx";
 import { getMessages } from "@/lib/i18n/messages.ts";
+import { MessagesProvider } from "@/lib/i18n/messages-provider.tsx";
 import { getRequestLocale } from "@/lib/i18n/request.ts";
+import type { SigningVerificationState } from "@/lib/schemas/signing";
 import {
   getClientIpAddress,
   getRequestUserAgent,
 } from "@/lib/security/request";
-import type { SigningVerificationState } from "@/lib/schemas/signing";
 import { verifiedMethodsFromCookies } from "@/lib/signer-checks";
 import {
+  getSigningPayloadForToken,
   SigningAccessError,
   SigningVerificationRequiredError,
-  getSigningPayloadForToken,
 } from "@/lib/signing";
 
 type SignPageProps = {

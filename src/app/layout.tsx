@@ -2,8 +2,8 @@ import type { Metadata } from "next";
 import { Plus_Jakarta_Sans } from "next/font/google";
 
 import { TooltipProvider } from "@/components/ui/tooltip";
-import { MessagesProvider } from "@/lib/i18n/messages-provider.tsx";
 import { getMessages } from "@/lib/i18n/messages.ts";
+import { MessagesProvider } from "@/lib/i18n/messages-provider.tsx";
 import { getRequestLocale } from "@/lib/i18n/request.ts";
 
 import "./globals.css";

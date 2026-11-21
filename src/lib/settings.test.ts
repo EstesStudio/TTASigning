@@ -3,9 +3,9 @@ import { test } from "node:test";
 
 import { buildBranding } from "./branding.ts";
 import {
+  type AppSettings,
   isMissingSchemaError,
   resolveSettings,
-  type AppSettings,
 } from "./settings.ts";
 
 const stored: AppSettings = {

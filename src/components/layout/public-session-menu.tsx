@@ -1,8 +1,8 @@
 "use client";
 
-import Link from "next/link";
-import { useState, type ReactNode } from "react";
 import { CircleUserRound, LayoutDashboard, LogOut } from "lucide-react";
+import Link from "next/link";
+import { type ReactNode, useState } from "react";
 
 import {
   DropdownMenu,

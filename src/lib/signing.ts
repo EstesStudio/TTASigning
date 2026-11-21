@@ -1,7 +1,7 @@
 import { Buffer } from "node:buffer";
 import { randomUUID } from "node:crypto";
 
-import { type Branding } from "./branding.ts";
+import type { Branding } from "./branding.ts";
 import { removeUnclaimedEnvelopeCertificates } from "./certificate-cleanup.ts";
 import {
   type DbExecutor,
@@ -12,50 +12,62 @@ import {
   withTransaction,
 } from "./db/connection.ts";
 import {
-  type AuditEventRecord,
-  envelopePageSchema,
-  envelopeRecordSchema,
-} from "./schemas/envelope.ts";
-import {
   createRecipientDownloadLink,
   sanitizeFileNameSegment,
 } from "./downloads.ts";
 import {
-  fieldRecordSchema,
-  MAX_DRAWN_SIGNATURE_BYTES,
-  signingSubmissionSchema,
-  type SigningFieldSubmission,
-  type SigningSubmission,
-} from "./schemas/field.ts";
+  buildDisclosureSections,
+  consentStatement,
+  disclosureSectionsAsText,
+  getDisclosureVersion,
+  normalizeCustomDisclosure,
+} from "./electronic-records-disclosure.ts";
+import { readEmbedEvidence } from "./embedding.ts";
 import {
-  signerCheckRequestSchema,
-  signerConsentRequestSchema,
-  signingFieldFitRequestSchema,
-  signingPayloadSchema,
-  signingDeclineResponseSchema,
-  type SigningVerificationState,
-  type SigningDeclineResponse,
-  type SigningPayload,
-  signingSubmitResponseSchema,
-  type SigningSubmitResponse,
-  type SigningUnavailableResponse,
-} from "./schemas/signing.ts";
-import {
-  declineEnvelopeSchema,
-  signerRecordSchema,
-  type CopyRecipientRecord,
-} from "./schemas/signer.ts";
-import {
-  getBranding,
-  readStoredSettings,
-  resolveSettings,
-} from "./settings.ts";
+  isEnvelopeExpired,
+  nextSignerLinkExpiresAt,
+} from "./envelope-deadline.ts";
+import { describeEntryProblem, judgeRadioGroups } from "./field-choices.ts";
+import { formatMessage } from "./i18n/format.ts";
+import { getMessages } from "./i18n/messages.ts";
+import { DEFAULT_LOCALE, isLocale, type Locale } from "./i18n/types.ts";
 import {
   checkSigningCredentials,
   MAX_SIGNING_PASSWORD_ATTEMPTS,
   type PasswordVerifier,
   SIGNATURE_MEANING_DETAILS,
 } from "./part11.ts";
+import {
+  type AuditEventRecord,
+  envelopePageSchema,
+  envelopeRecordSchema,
+} from "./schemas/envelope.ts";
+import {
+  fieldRecordSchema,
+  MAX_DRAWN_SIGNATURE_BYTES,
+  type SigningFieldSubmission,
+  type SigningSubmission,
+  signingSubmissionSchema,
+} from "./schemas/field.ts";
+import {
+  type CopyRecipientRecord,
+  declineEnvelopeSchema,
+  signerRecordSchema,
+} from "./schemas/signer.ts";
+import {
+  type SigningDeclineResponse,
+  type SigningPayload,
+  type SigningSubmitResponse,
+  type SigningUnavailableResponse,
+  type SigningVerificationState,
+  signerCheckRequestSchema,
+  signerConsentRequestSchema,
+  signingDeclineResponseSchema,
+  signingFieldFitRequestSchema,
+  signingPayloadSchema,
+  signingSubmitResponseSchema,
+} from "./schemas/signing.ts";
+import { consumeRateLimit, refundRateLimit } from "./security/rate-limit.ts";
 import {
   listAuditEventsForEnvelope,
   lockEnvelopeAuditChain,
@@ -65,9 +77,9 @@ import {
 import {
   createEmailService,
   createLazyEmailService,
-  fitsAsAttachments,
   type EmailAttachment,
   type EmailService,
+  fitsAsAttachments,
 } from "./services/email.ts";
 import { withUserEmailLegalFooter } from "./services/email-legal-footer.ts";
 import { hashOpaqueToken } from "./services/opaque-tokens.ts";
@@ -78,42 +90,24 @@ import {
   storeEnvelopeCertificatePdf,
   storeRecipientEnvelopeCertificatePdf,
 } from "./services/pdf-finalize.ts";
+import { requireConfigValue } from "./services/service-config.ts";
 import { buildSigningInvitationEmail } from "./services/signing-invitation-email.ts";
-import { readEmbedEvidence } from "./embedding.ts";
 import { issueSigningLink } from "./services/signing-links.ts";
 import { signingProviderById } from "./services/signing-providers.ts";
+import {
+  createStorageService,
+  type StorageService,
+} from "./services/storage.ts";
 import {
   buildEnvelopeCertificateKey,
   buildEnvelopeSignedPdfKey,
   buildSignatureImageKey,
 } from "./services/storage-keys.ts";
 import {
-  createStorageService,
-  type StorageService,
-} from "./services/storage.ts";
-import { requireConfigValue } from "./services/service-config.ts";
-import {
-  RECIPIENT_DOWNLOAD_LINK_TTL_SECONDS,
-  type FieldType,
-} from "./types/domain.ts";
-import { getEnv } from "./utils/env.ts";
-import { escapeHtml } from "./utils/html.ts";
-import {
-  isEnvelopeExpired,
-  nextSignerLinkExpiresAt,
-} from "./envelope-deadline.ts";
-import { describeEntryProblem, judgeRadioGroups } from "./field-choices.ts";
-import { consumeRateLimit, refundRateLimit } from "./security/rate-limit.ts";
-import {
-  buildDisclosureSections,
-  consentStatement,
-  disclosureSectionsAsText,
-  getDisclosureVersion,
-  normalizeCustomDisclosure,
-} from "./electronic-records-disclosure.ts";
-import { DEFAULT_LOCALE, isLocale, type Locale } from "./i18n/types.ts";
-import { formatMessage } from "./i18n/format.ts";
-import { getMessages } from "./i18n/messages.ts";
+  getBranding,
+  readStoredSettings,
+  resolveSettings,
+} from "./settings.ts";
 import {
   checkAccessCode,
   checkEmailCode,
@@ -132,6 +126,12 @@ import {
   routeAfterSignatures,
   signingStepOf,
 } from "./signing-steps.ts";
+import {
+  type FieldType,
+  RECIPIENT_DOWNLOAD_LINK_TTL_SECONDS,
+} from "./types/domain.ts";
+import { getEnv } from "./utils/env.ts";
+import { escapeHtml } from "./utils/html.ts";
 
 export type SigningRequestMeta = {
   ipAddress?: string | null;
@@ -187,7 +187,11 @@ type SigningSignerRow = {
   signOrder: number;
   signingStep: number | null;
   signatureMeaning:
-    "approval" | "authorship" | "responsibility" | "review" | null;
+    | "approval"
+    | "authorship"
+    | "responsibility"
+    | "review"
+    | null;
   signedAt: number | null;
   signingTokenExpiresAt: number | null;
   signingTokenHash: string | null;
@@ -2258,7 +2262,8 @@ async function reauthenticatePart11Signer(
   context: ResolvedSigningContext,
   state: SignerCheckState,
   reauthentication:
-    { email: string; meaningConfirmed: true; password: string } | undefined,
+    | { email: string; meaningConfirmed: true; password: string }
+    | undefined,
   {
     database,
     emailService,

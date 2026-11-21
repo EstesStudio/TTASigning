@@ -4,12 +4,12 @@ import { NextResponse } from "next/server";
 import { frameAncestorsFor } from "@/lib/embed-origin";
 import {
   DEFAULT_LOCALE,
+  isLocale,
   LOCALE_COOKIE,
   LOCALE_COOKIE_MAX_AGE_SECONDS,
   LOCALE_HEADER,
-  isLocale,
-  localeFromAcceptLanguage,
   type Locale,
+  localeFromAcceptLanguage,
 } from "@/lib/i18n/types.ts";
 import { supportsDirectUploads } from "@/lib/services/storage/driver";
 

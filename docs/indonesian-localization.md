@@ -161,12 +161,12 @@ Hasil verifikasi pada mesin pengembangan:
 - `bun run typecheck`: lulus.
 - `bun run test`: 503 dari 503 lulus.
 - `bun run test:db`: 393 dari 393 lulus.
-- `bunx prettier --check` dan `git diff --check`: bersih.
+- `bun run format:check` dan `git diff --check`: bersih.
 - `bun run test:e2e -- e2e/localization.spec.ts`: 3 dari 3 lulus; `Accept-Language: id-ID` menghasilkan `<html lang="id">`, teks Indonesia, dan cookie `NEXT_LOCALE=id` yang bertahan setelah reload. Pemilih di footer mengganti bahasa tanpa mengubah URL.
 
 Kegagalan e2e penuh yang semula terlihat berasal dari lingkungan, bukan lokalisasi: `SUPPORT_EMAIL` di `.env` lokal membuat langkah validasi setup dilewati, dan aset worker PDF.js 5.5.207 tidak cocok dengan `pdfjs-dist` 6.5.438 yang dipakai aplikasi, sehingga unggahan PDF gagal dirender di editor. Keduanya dibersihkan lewat environment test dan perbaikan aset di luar cakupan lokalisasi. Tidak ada kegagalan yang menyentuk teks atau rute lokalisasi.
 
-Masih perlu sebelum rilis: tinjauan hukum/penutur asli atas terjemahan disclosure, konfirmasi akhir e2e penuh setelah perbaikan aset worker, serta menyelesaikan ketidakcocokan `typescript-eslint` dengan TypeScript 7 agar `bun run lint` bisa berjalan (`bun run lint` saat ini gagal sebelum memeriksa kode).
+Masih perlu sebelum rilis: tinjauan hukum/penutur asli atas terjemahan disclosure dan konfirmasi akhir e2e penuh setelah perbaikan aset worker. `bun run lint` kini memakai Biome dan dapat berjalan dengan TypeScript 7.
 
 ## 10. Referensi
 

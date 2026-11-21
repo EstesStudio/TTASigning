@@ -1,14 +1,14 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useRef, useState, type CSSProperties, type ChangeEvent } from "react";
+import { type ChangeEvent, type CSSProperties, useRef, useState } from "react";
 
 import { BrandLogo } from "@/components/layout/brand";
 import {
-  DEFAULT_BRAND_COLOR,
-  DEFAULT_BRAND_PALETTE,
   brandPaletteVariables,
   buildBrandPalette,
+  DEFAULT_BRAND_COLOR,
+  DEFAULT_BRAND_PALETTE,
   normalizeBrandColor,
 } from "@/lib/brand-color";
 import { LOGO_CONTENT_TYPES, MAX_LOGO_BYTES } from "@/lib/branding";

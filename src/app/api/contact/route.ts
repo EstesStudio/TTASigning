@@ -7,14 +7,14 @@ import {
 import { rejectBots } from "@/lib/security/botid";
 import { logRouteError, logSecurityEvent } from "@/lib/security/logging";
 import {
-  applyRateLimit,
-  buildRateLimitKey,
-} from "@/lib/security/route-controls";
-import {
   getClientIpAddress,
   getRequestPathname,
   getRequestUserAgent,
 } from "@/lib/security/request";
+import {
+  applyRateLimit,
+  buildRateLimitKey,
+} from "@/lib/security/route-controls";
 import { isHostedMode } from "@/lib/utils/env";
 
 export async function POST(request: Request) {

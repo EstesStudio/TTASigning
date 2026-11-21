@@ -1,7 +1,7 @@
 "use client";
 
 import { ShieldCheckIcon } from "lucide-react";
-import { useEffect, useState, type FormEvent } from "react";
+import { type FormEvent, useEffect, useState } from "react";
 
 import { Brand } from "@/components/layout/brand";
 import { PublicLegalFooter } from "@/components/layout/public-legal-links";
@@ -9,8 +9,6 @@ import { FieldShell, ShellButton } from "@/components/shared/form-shell";
 import { formatMessage } from "@/lib/i18n/format.ts";
 import { useMessages } from "@/lib/i18n/messages-provider.tsx";
 import type { SigningVerificationState } from "@/lib/schemas/signing";
-
-type Method = SigningVerificationState["required"][number];
 
 export function SignerVerificationScreen({
   state,

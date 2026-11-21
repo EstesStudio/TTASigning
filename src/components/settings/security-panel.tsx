@@ -239,9 +239,11 @@ export function SecurityPanel({
         );
       })
       .catch((loadError: unknown) => {
-        if (!(
-          loadError instanceof DOMException && loadError.name === "AbortError"
-        )) {
+        if (
+          !(
+            loadError instanceof DOMException && loadError.name === "AbortError"
+          )
+        ) {
           setAudit({ error: GENERIC_ERROR_MESSAGE });
         }
       });

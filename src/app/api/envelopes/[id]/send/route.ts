@@ -3,18 +3,18 @@ import { NextResponse } from "next/server";
 import { requireVerifiedSenderSession } from "@/lib/auth/route-session";
 import { getDb } from "@/lib/db/connection";
 import { EnvelopeMutationError, sendDraftEnvelope } from "@/lib/envelopes";
-import { LOCALE_HEADER, isLocale } from "@/lib/i18n/types.ts";
+import { isLocale, LOCALE_HEADER } from "@/lib/i18n/types.ts";
 import { sendEnvelopeOptionsSchema } from "@/lib/schemas/envelope";
 import { logRouteError } from "@/lib/security/logging";
-import {
-  applyRateLimit,
-  buildRateLimitKey,
-} from "@/lib/security/route-controls";
 import {
   getClientIpAddress,
   getRequestPathname,
   getRequestUserAgent,
 } from "@/lib/security/request";
+import {
+  applyRateLimit,
+  buildRateLimitKey,
+} from "@/lib/security/route-controls";
 
 type EnvelopeSendRouteContext = {
   params: Promise<{

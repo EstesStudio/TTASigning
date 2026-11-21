@@ -1,11 +1,11 @@
-import type { ReactNode } from "react";
 import { connection } from "next/server";
+import type { ReactNode } from "react";
 
 import { Brand } from "@/components/layout/brand";
 import { BrandingProvider } from "@/components/layout/branding-provider";
 import { PublicLegalFooter } from "@/components/layout/public-legal-links";
 import { PublicSessionMenu } from "@/components/layout/public-session-menu";
-import { buildBranding, type Branding } from "@/lib/branding";
+import { type Branding, buildBranding } from "@/lib/branding";
 import { getBranding, resolveSettings } from "@/lib/settings";
 
 type PublicDocumentShellProps = {

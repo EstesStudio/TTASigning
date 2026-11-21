@@ -1,9 +1,4 @@
-import { type Branding } from "./branding.ts";
-import {
-  formatDeadline,
-  isEnvelopeExpired,
-  signingLinkLifetimeSeconds,
-} from "./envelope-deadline.ts";
+import type { Branding } from "./branding.ts";
 import {
   type DbExecutor,
   type DbPool,
@@ -12,13 +7,20 @@ import {
   queryOne,
   withTransaction,
 } from "./db/connection.ts";
+import { isEmbeddedEnvelope } from "./embedding.ts";
 import {
-  manualNudgeResponseSchema,
-  type EnvelopeRecord,
-} from "./schemas/envelope.ts";
+  formatDeadline,
+  isEnvelopeExpired,
+  signingLinkLifetimeSeconds,
+} from "./envelope-deadline.ts";
+import { formatMessage } from "./i18n/format.ts";
+import { getMessages } from "./i18n/messages.ts";
 import { DEFAULT_LOCALE, isLocale, type Locale } from "./i18n/types.ts";
-import { type SignerRecord } from "./schemas/signer.ts";
-import { getBranding } from "./settings.ts";
+import {
+  type EnvelopeRecord,
+  manualNudgeResponseSchema,
+} from "./schemas/envelope.ts";
+import type { SignerRecord } from "./schemas/signer.ts";
 import {
   lockEnvelopeAuditChain,
   recordAuditEvent,
@@ -27,23 +29,21 @@ import {
 import {
   createEmailService,
   EMAIL_NOT_CONNECTED_MESSAGE,
-  isEmailNotConnectedError,
   type EmailService,
+  isEmailNotConnectedError,
 } from "./services/email.ts";
-import { getMessages } from "./i18n/messages.ts";
-import { formatMessage } from "./i18n/format.ts";
-import { buildDeadlineLine } from "./services/signing-invitation-email.ts";
-import { isEmbeddedEnvelope } from "./embedding.ts";
 import { withUserEmailLegalFooter } from "./services/email-legal-footer.ts";
 import {
   formatReminderAvailableAt,
   getManualNudgeAvailableAt,
   isAutomaticReminderDue,
 } from "./services/reminders.ts";
+import { buildDeadlineLine } from "./services/signing-invitation-email.ts";
 import {
-  issueSigningLink,
   type IssuedSigningLink,
+  issueSigningLink,
 } from "./services/signing-links.ts";
+import { getBranding } from "./settings.ts";
 import { escapeHtml } from "./utils/html.ts";
 
 type ReminderEnvelopeRow = {

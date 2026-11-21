@@ -1,9 +1,9 @@
 "use client";
 
-import { createContext, useContext, type ReactNode } from "react";
+import { createContext, type ReactNode, useContext } from "react";
 
-import { type Messages } from "./locales/en.ts";
-import { type Locale } from "./types.ts";
+import type { Messages } from "./locales/en.ts";
+import type { Locale } from "./types.ts";
 
 type MessagesContextValue = {
   locale: Locale;

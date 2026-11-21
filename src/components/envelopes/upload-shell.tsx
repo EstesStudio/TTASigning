@@ -4,13 +4,13 @@ import { FileTextIcon, UploadIcon } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import {
+  type ChangeEvent,
+  type DragEvent,
+  type KeyboardEvent,
   startTransition,
   useEffect,
   useRef,
   useState,
-  type ChangeEvent,
-  type DragEvent,
-  type KeyboardEvent,
 } from "react";
 
 import { FieldShell, ShellButton } from "@/components/shared/form-shell";
@@ -20,15 +20,15 @@ import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/cn";
 import { cacheDraftPdfBlob } from "@/lib/draft-pdf-cache";
 import {
-  renderPdfThumbnail,
-  uploadEnvelopeThumbnail,
-} from "@/lib/pdf-thumbnail";
-import {
   describePdfPreviewFailure,
   PREVIEW_UNAVAILABLE_MESSAGE,
 } from "@/lib/pdf-preview-error";
+import {
+  renderPdfThumbnail,
+  uploadEnvelopeThumbnail,
+} from "@/lib/pdf-thumbnail";
 import { assertPdfPreviewRenderable } from "@/lib/pdfjs-client";
-import { type CreateEnvelopeResponse } from "@/lib/schemas/envelope";
+import type { CreateEnvelopeResponse } from "@/lib/schemas/envelope";
 
 const envelopeSteps = ["Upload", "Signers", "Place fields", "Review"];
 const MAX_FILE_SIZE_BYTES = 20 * 1024 * 1024;
@@ -391,7 +391,9 @@ export function UploadShell({ directUploadPrefix = null }: UploadShellProps) {
     response: Response,
   ): Promise<{ data: T | null; error: string | null }> {
     const payload = (await response.json().catch(() => null)) as
-      { error?: string } | T | null;
+      | { error?: string }
+      | T
+      | null;
 
     if (!response.ok) {
       return {

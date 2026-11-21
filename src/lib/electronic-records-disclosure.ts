@@ -11,7 +11,7 @@
 import { createHash } from "node:crypto";
 
 import { tidyDisclosureText } from "./consent-disclosure-notice.ts";
-import { type Locale } from "./i18n/types.ts";
+import type { Locale } from "./i18n/types.ts";
 
 export const ELECTRONIC_RECORDS_DISCLOSURE_VERSION = "2026-11-13";
 

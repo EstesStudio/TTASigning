@@ -1,11 +1,11 @@
-import { type Branding } from "../branding.ts";
+import type { Branding } from "../branding.ts";
 import { formatDeadline } from "../envelope-deadline.ts";
 import { formatMessage } from "../i18n/format.ts";
 import { getMessages } from "../i18n/messages.ts";
-import { type Locale } from "../i18n/types.ts";
+import type { Locale } from "../i18n/types.ts";
 import { escapeHtml } from "../utils/html.ts";
+import type { TransactionalEmailMessage } from "./email.ts";
 import { withUserEmailLegalFooter } from "./email-legal-footer.ts";
-import { type TransactionalEmailMessage } from "./email.ts";
 
 type SigningInvitationEmailInput = {
   branding: Branding;

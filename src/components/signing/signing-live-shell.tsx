@@ -3,11 +3,11 @@
 import { DownloadIcon } from "lucide-react";
 import Image from "next/image";
 import {
+  type ReactNode,
   type PointerEvent as ReactPointerEvent,
   useEffect,
   useRef,
   useState,
-  type ReactNode,
 } from "react";
 
 import {
@@ -24,13 +24,15 @@ import {
   beginDocumentPanGesture,
   clampDocumentZoomLevel,
   DEFAULT_DOCUMENT_ZOOM_LEVEL,
+  DOCUMENT_ZOOM_STEP,
+  type DocumentPanGesture,
   DocumentZoomControls,
   endDocumentPanGesture,
   moveDocumentPanGesture,
-  type DocumentPanGesture,
-  DOCUMENT_ZOOM_STEP,
 } from "@/components/shared/document-viewport";
 import { FieldShell, ShellButton } from "@/components/shared/form-shell";
+import { SigningStateScreen } from "@/components/signing/signing-state-screen";
+import { Checkbox } from "@/components/ui/checkbox";
 import {
   Dialog,
   DialogContent,
@@ -38,22 +40,20 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { Checkbox } from "@/components/ui/checkbox";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
-import { SigningStateScreen } from "@/components/signing/signing-state-screen";
-import {
-  type SigningCurrentField,
-  type SigningPayload,
-  type SigningVisibleField,
-} from "@/lib/schemas/signing";
-import { type SigningSubmission } from "@/lib/schemas/field";
 import { countAnswerableFields, isNumberEntry } from "@/lib/field-choices";
-import { getInitials } from "@/lib/initials";
 import { formatMessage } from "@/lib/i18n/format.ts";
-import { type Messages } from "@/lib/i18n/locales/en.ts";
+import type { Messages } from "@/lib/i18n/locales/en.ts";
 import { useMessages } from "@/lib/i18n/messages-provider.tsx";
 import { intlLocales } from "@/lib/i18n/types.ts";
+import { getInitials } from "@/lib/initials";
+import type { SigningSubmission } from "@/lib/schemas/field";
+import type {
+  SigningCurrentField,
+  SigningPayload,
+  SigningVisibleField,
+} from "@/lib/schemas/signing";
 import { truncateToWholeCharacters } from "@/lib/text-truncate";
 import { postToEmbedParent } from "./embed-parent-message";
 
@@ -477,7 +477,10 @@ function buildSigningSubmissionPayload(
 
 /** Why a signer came back from their signing provider without signing. */
 export type ProviderSignatureProblem =
-  "cancelled" | "expired" | "failed" | "name";
+  | "cancelled"
+  | "expired"
+  | "failed"
+  | "name";
 
 function describeProviderProblem(
   problem: ProviderSignatureProblem,

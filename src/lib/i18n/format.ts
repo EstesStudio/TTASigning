@@ -9,8 +9,6 @@ export function formatMessage(
   values: MessageValues = {},
 ): string {
   return template.replace(/\{(\w+)\}/g, (placeholder, name: string) =>
-    Object.prototype.hasOwnProperty.call(values, name)
-      ? String(values[name])
-      : placeholder,
+    Object.hasOwn(values, name) ? String(values[name]) : placeholder,
   );
 }

@@ -1,6 +1,6 @@
 import { randomUUID } from "node:crypto";
 
-import { type Branding } from "./branding.ts";
+import type { Branding } from "./branding.ts";
 import { removeUnclaimedEnvelopeCertificates } from "./certificate-cleanup.ts";
 import {
   type DbExecutor,
@@ -10,6 +10,8 @@ import {
   queryOne,
   withTransaction,
 } from "./db/connection.ts";
+import { hasEmbedOrigins, isEmbeddedEnvelope } from "./embedding.ts";
+import { formatEnvelopeOwner } from "./envelope-access.ts";
 import {
   deadlineFromDays,
   formatDeadline,
@@ -21,61 +23,59 @@ import {
   describeChoiceFieldProblem,
   findChoiceFieldProblem,
 } from "./field-choices.ts";
-import { DEFAULT_LOCALE, isLocale, type Locale } from "./i18n/types.ts";
 import { formatMessage } from "./i18n/format.ts";
 import { getMessages } from "./i18n/messages.ts";
-import { idSchema } from "./schemas/common.ts";
-import {
-  changeDeadlineResponseSchema,
-  changeRemindersResponseSchema,
-  copyEnvelopeResponseSchema,
-  envelopeListFiltersSchema,
-  type AuditEventRecord,
-  type ChangeDeadlineResponse,
-  type ChangeRemindersResponse,
-  type CopyEnvelopeResponse,
-  envelopeCreateResponseSchema,
-  envelopePageSchema,
-  envelopeRecordSchema,
-  sendEnvelopeResponseSchema,
-  voidEnvelopeResponseSchema,
-  type CreateEnvelopeResponse,
-  type EnvelopeListFilters,
-  type EnvelopePageRecord,
-  type EnvelopeRecord,
-  type SendEnvelopeResponse,
-  type VoidEnvelopeResponse,
-} from "./schemas/envelope.ts";
-import {
-  fieldPlacementSchema,
-  fieldRecordSchema,
-  replaceFieldsResponseSchema,
-  replaceFieldsSchema,
-  type FieldRecord,
-  type ReplaceFieldsResponse,
-} from "./schemas/field.ts";
-import {
-  correctSentSignerResponseSchema,
-  correctSentSignerSchema,
-  duplicateCopyRecipientEmailMessage,
-  duplicateSignerEmailMessage,
-  replaceSignersResponseSchema,
-  replaceSignersSchema,
-  signerRecordSchema,
-  type CopyRecipientRecord,
-  type CorrectSentSignerResponse,
-  type ReplaceSignersResponse,
-  type SignerRecord,
-} from "./schemas/signer.ts";
+import { DEFAULT_LOCALE, isLocale, type Locale } from "./i18n/types.ts";
 import {
   describePart11SignerProblem,
   findSignerAccounts,
   parseSignatureMeaning,
   signatureMeaningLabel,
 } from "./part11.ts";
-import { getBranding, readStoredSettings } from "./settings.ts";
-import { type SignatureMeaning } from "./types/domain.ts";
-import { importPdfDocument } from "./services/document-import.ts";
+import { PERMITTED_USE_VERSION } from "./permitted-uses.ts";
+import { idSchema } from "./schemas/common.ts";
+import {
+  type AuditEventRecord,
+  type ChangeDeadlineResponse,
+  type ChangeRemindersResponse,
+  type CopyEnvelopeResponse,
+  type CreateEnvelopeResponse,
+  changeDeadlineResponseSchema,
+  changeRemindersResponseSchema,
+  copyEnvelopeResponseSchema,
+  type EnvelopeListFilters,
+  type EnvelopePageRecord,
+  type EnvelopeRecord,
+  envelopeCreateResponseSchema,
+  envelopeListFiltersSchema,
+  envelopePageSchema,
+  envelopeRecordSchema,
+  type SendEnvelopeResponse,
+  sendEnvelopeResponseSchema,
+  type VoidEnvelopeResponse,
+  voidEnvelopeResponseSchema,
+} from "./schemas/envelope.ts";
+import {
+  type FieldRecord,
+  fieldPlacementSchema,
+  fieldRecordSchema,
+  type ReplaceFieldsResponse,
+  replaceFieldsResponseSchema,
+  replaceFieldsSchema,
+} from "./schemas/field.ts";
+import {
+  type CopyRecipientRecord,
+  type CorrectSentSignerResponse,
+  correctSentSignerResponseSchema,
+  correctSentSignerSchema,
+  duplicateCopyRecipientEmailMessage,
+  duplicateSignerEmailMessage,
+  type ReplaceSignersResponse,
+  replaceSignersResponseSchema,
+  replaceSignersSchema,
+  type SignerRecord,
+  signerRecordSchema,
+} from "./schemas/signer.ts";
 import {
   describeSignerCorrectedEvent,
   listAuditEventsForEnvelope,
@@ -83,15 +83,15 @@ import {
   recordAuditEvent,
   recordEmailSent,
 } from "./services/audit.ts";
+import { importPdfDocument } from "./services/document-import.ts";
 import {
   createEmailService,
   EMAIL_NOT_CONNECTED_MESSAGE,
+  type EmailService,
   isEmailNotConnectedError,
   resolveEmailAddresses,
-  type EmailService,
 } from "./services/email.ts";
 import { withUserEmailLegalFooter } from "./services/email-legal-footer.ts";
-import { buildSigningInvitationEmail } from "./services/signing-invitation-email.ts";
 import {
   findTypedValueTooLongForField,
   loadInstallSealer,
@@ -99,18 +99,19 @@ import {
   storeRecipientEnvelopeCertificatePdf,
 } from "./services/pdf-finalize.ts";
 import {
-  issueSigningLink,
+  formatReminderAvailableAt,
+  getManualNudgeAvailableAt,
+  isManualNudgeAvailable,
+} from "./services/reminders.ts";
+import { buildSigningInvitationEmail } from "./services/signing-invitation-email.ts";
+import {
   type IssuedSigningLink,
+  issueSigningLink,
 } from "./services/signing-links.ts";
 import {
-  buildEnvelopeCertificateKey,
-  buildEnvelopeOriginalPdfKey,
-  buildEnvelopeThumbnailKey,
-} from "./services/storage-keys.ts";
-import {
   configuredSigningProvider,
-  signingProviderById,
   type SigningProviderId,
+  signingProviderById,
 } from "./services/signing-providers.ts";
 import {
   createStorageService,
@@ -119,18 +120,17 @@ import {
   type StorageService,
 } from "./services/storage.ts";
 import {
+  buildEnvelopeCertificateKey,
+  buildEnvelopeOriginalPdfKey,
+  buildEnvelopeThumbnailKey,
+} from "./services/storage-keys.ts";
+import {
   assertThumbnailImage,
   buildThumbnailEtag,
   matchesEtag,
   THUMBNAIL_CONTENT_TYPE,
 } from "./services/thumbnails.ts";
-import {
-  formatReminderAvailableAt,
-  getManualNudgeAvailableAt,
-  isManualNudgeAvailable,
-} from "./services/reminders.ts";
-import { formatEnvelopeOwner } from "./envelope-access.ts";
-import { PERMITTED_USE_VERSION } from "./permitted-uses.ts";
+import { getBranding, readStoredSettings } from "./settings.ts";
 import { hashAccessCode } from "./signer-checks.ts";
 import {
   describeSignerLimit,
@@ -141,11 +141,11 @@ import {
   hasSharedSigningStep,
   joinNames,
   normalizeSigningSteps,
-  signingStepOf,
   SigningStepError,
+  signingStepOf,
 } from "./signing-steps.ts";
+import type { SignatureMeaning } from "./types/domain.ts";
 import { escapeHtml } from "./utils/html.ts";
-import { hasEmbedOrigins, isEmbeddedEnvelope } from "./embedding.ts";
 import { releaseSentWebhook } from "./webhooks/outbox.ts";
 
 type CreateDraftEnvelopeOptions = {

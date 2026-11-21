@@ -4,8 +4,8 @@ import { useEffect, useState } from "react";
 
 import type { WebhookEndpoint } from "@/lib/webhooks/endpoints";
 import {
-  webhookEventTypes,
   type WebhookEventType,
+  webhookEventTypes,
 } from "@/lib/webhooks/events";
 import type { WebhookDeliverySummary } from "@/lib/webhooks/log";
 

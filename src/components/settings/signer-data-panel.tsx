@@ -36,7 +36,8 @@ export function SignerDataPanel() {
         method: "DELETE",
       });
       const payload = (await response.json().catch(() => null)) as
-        (ErasureResult & { error?: string }) | null;
+        | (ErasureResult & { error?: string })
+        | null;
 
       if (!response.ok || !payload) {
         setMessage({

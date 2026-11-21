@@ -1,15 +1,15 @@
 import { type DbExecutor, getDb } from "./db/connection.ts";
-import { formatMessage } from "./i18n/format.ts";
-import { DEFAULT_LOCALE, isLocale } from "./i18n/types.ts";
-import { getMessages } from "./i18n/messages.ts";
 import {
-  renewRecipientDownloadLinks,
   type RenewedDownloadLinks,
+  renewRecipientDownloadLinks,
 } from "./downloads.ts";
-import { getBranding } from "./settings.ts";
+import { formatMessage } from "./i18n/format.ts";
+import { getMessages } from "./i18n/messages.ts";
+import { DEFAULT_LOCALE, isLocale } from "./i18n/types.ts";
 import { recordEmailSent } from "./services/audit.ts";
 import { createEmailService, type EmailService } from "./services/email.ts";
 import { withUserEmailLegalFooter } from "./services/email-legal-footer.ts";
+import { getBranding } from "./settings.ts";
 import { RECIPIENT_DOWNLOAD_LINK_TTL_SECONDS } from "./types/domain.ts";
 import { escapeHtml } from "./utils/html.ts";
 

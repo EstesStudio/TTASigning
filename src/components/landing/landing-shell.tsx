@@ -1,5 +1,4 @@
 import type { LucideIcon } from "lucide-react";
-import Link from "next/link";
 import {
   CheckIcon,
   ClipboardCheck,
@@ -8,15 +7,15 @@ import {
   ShieldCheck,
   XIcon,
 } from "lucide-react";
-
-import { Brand, BrandMark } from "@/components/layout/brand";
-import { PublicSessionMenu } from "@/components/layout/public-session-menu";
-import { PublicLegalFooter } from "@/components/layout/public-legal-links";
+import Link from "next/link";
 import { LandingDashboardPreview } from "@/components/landing/dashboard-preview";
 import {
   LandingSessionLoginAction,
   LandingSessionPrimaryAction,
 } from "@/components/landing/landing-session-actions";
+import { Brand, BrandMark } from "@/components/layout/brand";
+import { PublicLegalFooter } from "@/components/layout/public-legal-links";
+import { PublicSessionMenu } from "@/components/layout/public-session-menu";
 import { buttonVariants } from "@/components/ui/button";
 import { cn } from "@/lib/cn";
 

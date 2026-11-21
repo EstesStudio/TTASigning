@@ -2,8 +2,6 @@ import { z } from "zod";
 
 import { locales } from "../i18n/types.ts";
 import { signatureMeanings } from "../types/domain.ts";
-import { envelopePageSchema } from "./envelope.ts";
-import { fieldInputMethodSchema, fieldTypeSchema } from "./field.ts";
 import {
   emailSchema,
   envelopeTitleSchema,
@@ -14,6 +12,8 @@ import {
   optionalTrimmedString,
   unixTimestampSchema,
 } from "./common.ts";
+import { envelopePageSchema } from "./envelope.ts";
+import { fieldInputMethodSchema, fieldTypeSchema } from "./field.ts";
 
 export const signingUnavailableStateSchema = z.enum([
   "expired",

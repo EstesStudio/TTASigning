@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { useState, type ComponentProps, type ReactNode } from "react";
+import { type ComponentProps, type ReactNode, useState } from "react";
 
 import { Brand } from "@/components/layout/brand";
 import {
@@ -32,7 +32,11 @@ type AppShellProps = {
 };
 
 type ShellSection =
-  "documents" | "new-envelope" | "settings" | "templates" | "workspace";
+  | "documents"
+  | "new-envelope"
+  | "settings"
+  | "templates"
+  | "workspace";
 
 export function AppShell({
   children,

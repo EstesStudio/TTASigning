@@ -1,9 +1,7 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useEffect, useState, type ChangeEvent, type FormEvent } from "react";
-
-import { FieldShell, ShellButton } from "@/components/shared/form-shell";
+import { type ChangeEvent, type FormEvent, useEffect, useState } from "react";
 import { ApiKeysPanel } from "@/components/settings/api-keys-panel";
 import { BrandingPanel } from "@/components/settings/branding-panel";
 import { EmbeddingPanel } from "@/components/settings/embedding-panel";
@@ -12,12 +10,7 @@ import { PeoplePanel } from "@/components/settings/people-panel";
 import { SecurityPanel } from "@/components/settings/security-panel";
 import { SignerDataPanel } from "@/components/settings/signer-data-panel";
 import { WebhooksPanel } from "@/components/settings/webhooks-panel";
-import {
-  Field,
-  FieldDescription,
-  FieldError,
-  FieldLabel,
-} from "@/components/ui/field";
+import { FieldShell, ShellButton } from "@/components/shared/form-shell";
 import {
   Dialog,
   DialogContent,
@@ -26,6 +19,12 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import {
+  Field,
+  FieldDescription,
+  FieldError,
+  FieldLabel,
+} from "@/components/ui/field";
 import { Textarea } from "@/components/ui/textarea";
 import {
   CUSTOM_DISCLOSURE_LEGAL_NOTE,
@@ -417,6 +416,7 @@ export function OrganizationSettings({
                   className="font-semibold text-(--accent-ink) underline decoration-[rgb(var(--accent-rgb)/0.35)] underline-offset-4"
                   href="/signer-privacy"
                   target="_blank"
+                  rel="noopener"
                 >
                   a notice built from these settings
                 </a>

@@ -2,11 +2,11 @@ import { cookies, headers } from "next/headers";
 
 import {
   DEFAULT_LOCALE,
+  isLocale,
   LOCALE_COOKIE,
   LOCALE_HEADER,
-  isLocale,
-  localeFromAcceptLanguage,
   type Locale,
+  localeFromAcceptLanguage,
 } from "./types.ts";
 
 /**

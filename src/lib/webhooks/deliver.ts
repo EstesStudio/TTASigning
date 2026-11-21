@@ -4,10 +4,10 @@ import { waitUntil } from "@vercel/functions";
 
 import { getApiEnvelopeWithOwner } from "../api/envelope-view.ts";
 import {
+  type DbExecutor,
   getDb,
   queryMany,
   queryOne,
-  type DbExecutor,
 } from "../db/connection.ts";
 import { isMissingSchemaError } from "../settings.ts";
 import type { EnvSource } from "../utils/env.ts";
