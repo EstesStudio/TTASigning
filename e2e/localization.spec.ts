@@ -72,4 +72,12 @@ test("the footer switcher changes the language without changing the URL", async 
     (await context.cookies()).find((cookie) => cookie.name === "NEXT_LOCALE")
       ?.value,
   ).toBe("id");
+
+  // The Indonesian name is the longest option: keep it readable on a phone.
+  await page.setViewportSize({ width: 375, height: 812 });
+  const selectBox = await page.locator("select[aria-label]").boundingBox();
+  expect(selectBox?.width).toBeGreaterThanOrEqual(160);
+  expect(
+    await page.evaluate(() => document.documentElement.scrollWidth),
+  ).toBeLessThanOrEqual(375);
 });

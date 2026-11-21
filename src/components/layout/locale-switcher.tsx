@@ -39,7 +39,7 @@ export function LocaleSwitcher({ className }: LocaleSwitcherProps) {
   }
 
   return (
-    <div className={cn("flex items-center gap-2", className)}>
+    <div className={cn("flex shrink-0 items-center gap-2", className)}>
       <span className="flex shrink-0 items-center" data-testid="locale-flag">
         {locale === "id" ? (
           <IDFlagRound height="18px" width="18px" />
@@ -49,7 +49,7 @@ export function LocaleSwitcher({ className }: LocaleSwitcherProps) {
       </span>
       <select
         aria-label={messages.footer.languageAriaLabel}
-        className="rounded-md border border-(--border) bg-(--paper) px-2 py-1 text-[0.8125rem] font-medium text-(--tertiary) outline-none focus-visible:ring-2 focus-visible:ring-(--accent)"
+        className="max-w-full min-w-[10rem] shrink-0 rounded-md border border-(--border) bg-(--paper) px-2 py-1 text-[0.8125rem] font-medium text-(--tertiary) outline-none focus-visible:ring-2 focus-visible:ring-(--accent)"
         disabled={isPending}
         onChange={(event) => changeLocale(event.target.value)}
         value={locale}
