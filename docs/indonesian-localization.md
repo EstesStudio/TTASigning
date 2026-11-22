@@ -180,11 +180,12 @@ Hasil verifikasi pada mesin pengembangan:
 
 - `bun run typecheck`: lulus.
 - `bun run build`: lulus.
-- `bun run test`: 527 test; 526 lulus. Satu test palet gagal hanya karena nilai `--accent` lokal yang diubah di luar cakupan lokalisasi dan belum di-commit; test terkait lokalisasi dan hukum lolos semua.
+- `bun run test`: 530 test; 529 lulus. Satu test palet gagal hanya karena nilai `--accent` lokal yang diubah di luar cakupan lokalisasi dan belum di-commit; test terkait lokalisasi dan hukum lolos semua.
 - Tes i18n terarah (`src/lib/i18n/i18n.test.ts`): 17 dari 17 lulus, termasuk assertion copy `/settings`, opsi pengingat, dan detail amplop serta paritas kuncinya.
 - `bun run test:db`: 392 dari 393 lulus. Satu kasus di `src/lib/signer-correction.dbtest.ts` gagal karena perubahan lokal di `src/lib/signing.ts` yang mengganti pesan "This link has expired." menjadi "This envelope has been expired."; perubahan itu di luar cakupan lokalisasi dan sengaja tidak disentuh.
 - `git diff --check`: bersih. `bun run format:check` dan `bun run lint` hanya melaporkan satu temuan format di `src/lib/brand-color.ts` dari perubahan palet lokal di luar cakupan ini (plus satu info Biome bawaan di `src/lib/envelopes.ts`); file dalam cakupan lokalisasi bersih.
 - `bun run test:e2e -- e2e/localization.spec.ts`: 5 dari 5 lulus; `Accept-Language: id-ID` menghasilkan `<html lang="id">`, teks Indonesia, dan cookie `NEXT_LOCALE=id` yang bertahan setelah reload. Pemilih di footer mengganti bahasa tanpa mengubah URL. Regresi `/settings` memastikan rute itu tidak berubah menjadi `/id/settings`. Teks panel settings sendiri diverifikasi lewat tes kamus karena E2E mandiri tidak memiliki sesi administrator.
+- Verifikasi akhir diulang pada 2026-11-22 setelah batch detail amplop: `bun run build`, tes i18n terarah, E2E lokalisasi, dan `git diff --check` lulus. Dua kegagalan yang tercatat di atas masih berasal dari perubahan lokal di luar cakupan lokalisasi.
 
 Kegagalan e2e penuh yang semula terlihat berasal dari lingkungan, bukan lokalisasi: `SUPPORT_EMAIL` di `.env` lokal membuat langkah validasi setup dilewati, dan aset worker PDF.js 5.5.207 tidak cocok dengan `pdfjs-dist` 6.5.438 yang dipakai aplikasi, sehingga unggahan PDF gagal dirender di editor. Keduanya dibersihkan lewat environment test dan perbaikan aset di luar cakupan lokalisasi. Tidak ada kegagalan yang menyentuk teks atau rute lokalisasi.
 
