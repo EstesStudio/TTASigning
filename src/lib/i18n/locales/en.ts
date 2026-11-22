@@ -938,6 +938,66 @@ export const enMessages = defineMessages({
     },
     workspaceAriaLabel: "Workspace",
   },
+  envelope: {
+    steps: ["Upload", "Signers", "Place fields", "Review"],
+    upload: {
+      action: {
+        fromTemplate: "Start from a template",
+        next: "Next →",
+        remove: "Remove",
+      },
+      dropzone: {
+        ariaLabel: "Document upload dropzone",
+        browse: "click to browse",
+        constraint: "PDF only - 20 MB max",
+        drag: "Drag and drop your PDF here",
+        or: "or",
+        progressAriaLabel: "Upload progress",
+        uploading: "Uploading...",
+        validating: "Validating the PDF before you continue to signer setup.",
+      },
+      error: {
+        generic: "Something went wrong. Please try again.",
+        invalidType: "Only PDF files are supported. Please upload a valid PDF.",
+        locked:
+          "This PDF is password-protected or encrypted. Please upload an unlocked PDF.",
+        previewUnavailable:
+          "We couldn't render this PDF in the editor. Please export it as a standard PDF and try again.",
+        tooLarge: "This file exceeds the 20 MB limit.",
+      },
+      fileInputAriaLabel: "Upload PDF",
+      header: {
+        description: "Step 1 of 4 - Upload document",
+        title: "New envelope",
+      },
+      title: {
+        label: "Envelope title",
+        placeholder: "e.g., NDA - Client Bravo",
+      },
+    },
+    placedField: {
+      ariaLabel: "{name} · {label}",
+      corners: {
+        bottomLeft: "bottom left",
+        bottomRight: "bottom right",
+        topLeft: "top left",
+        topRight: "top right",
+      },
+      resizeAriaLabel: "Resize {label} field from {corner}",
+    },
+    pdfPage: {
+      ariaLabel: "Rendered PDF page {page}",
+      error: {
+        description: "Reload the page or try this draft again in a moment.",
+        title: "We couldn't render this PDF page.",
+      },
+      loading: {
+        description:
+          "Preparing the source PDF so placed fields stay aligned with the stored page size.",
+        title: "Rendering document page...",
+      },
+    },
+  },
   footer: {
     accessibilityLong: "Accessibility Statement",
     accessibilityShort: "Accessibility",

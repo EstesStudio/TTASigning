@@ -2,6 +2,8 @@
 
 import { useEffect, useRef, useState } from "react";
 
+import { formatMessage } from "@/lib/i18n/format.ts";
+import { useMessages } from "@/lib/i18n/messages-provider.tsx";
 import {
   loadPdfJsModule,
   PDF_JS_STANDARD_FONT_DATA_URL,
@@ -26,6 +28,7 @@ export function PdfPageCanvas({
   onRenderStateChange,
   pageNumber,
 }: PdfPageCanvasProps) {
+  const { messages } = useMessages();
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const [documentProxy, setDocumentProxy] = useState<PdfDocumentProxy | null>(
     null,
@@ -232,7 +235,9 @@ export function PdfPageCanvas({
 
   return (
     <div
-      aria-label={`Rendered PDF page ${pageNumber}`}
+      aria-label={formatMessage(messages.envelope.pdfPage.ariaLabel, {
+        page: pageNumber,
+      })}
       className="absolute inset-0 flex items-center justify-center"
       role="img"
     >
@@ -247,13 +252,13 @@ export function PdfPageCanvas({
           <div className="well max-w-[320px] px-5 py-4">
             <p className="text-sm font-bold text-(--fg)">
               {renderState === "error"
-                ? "We couldn't render this PDF page."
-                : "Rendering document page..."}
+                ? messages.envelope.pdfPage.error.title
+                : messages.envelope.pdfPage.loading.title}
             </p>
             <p className="mt-1.5 text-sm leading-6 text-(--secondary)">
               {renderState === "error"
-                ? "Reload the page or try this draft again in a moment."
-                : "Preparing the source PDF so placed fields stay aligned with the stored page size."}
+                ? messages.envelope.pdfPage.error.description
+                : messages.envelope.pdfPage.loading.description}
             </p>
           </div>
         </div>

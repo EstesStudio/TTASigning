@@ -223,6 +223,26 @@ test("the app shell and account menus have translated copy", () => {
   }
 });
 
+test("the envelope editor has translated copy in both languages", () => {
+  const en = enMessages.envelope;
+  const id = idMessages.envelope;
+
+  assert.equal(en.steps.length, 4);
+  assert.equal(id.steps.length, 4);
+  assert.equal(en.upload.header.title, "New envelope");
+  assert.equal(id.upload.header.title, "Amplop baru");
+  assert.equal(en.pdfPage.error.title, "We couldn't render this PDF page.");
+  assert.match(id.pdfPage.error.title, /tidak dapat dirender/);
+
+  for (const copy of [en, id]) {
+    assert.match(copy.placedField.ariaLabel, /\{name\}.*\{label\}/);
+    assert.match(copy.placedField.resizeAriaLabel, /\{label\}.*\{corner\}/);
+    assert.equal(Object.keys(copy.placedField.corners).length, 4);
+    assert.equal(Object.keys(copy.upload.error).length, 5);
+    assert.match(copy.pdfPage.ariaLabel, /\{page\}/);
+  }
+});
+
 test("the permitted-use page uses the current name and covers Indonesia", () => {
   const en = enMessages.permittedUse;
   const id = idMessages.permittedUse;

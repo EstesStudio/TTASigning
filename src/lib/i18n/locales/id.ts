@@ -949,6 +949,68 @@ export const idMessages: Messages = defineMessages({
     },
     workspaceAriaLabel: "Ruang kerja",
   },
+  envelope: {
+    steps: ["Unggah", "Penandatangan", "Tempatkan kolom", "Tinjau"],
+    upload: {
+      action: {
+        fromTemplate: "Mulai dari templat",
+        next: "Lanjut →",
+        remove: "Hapus",
+      },
+      dropzone: {
+        ariaLabel: "Area unggah dokumen",
+        browse: "klik untuk memilih berkas",
+        constraint: "Hanya PDF - maks. 20 MB",
+        drag: "Tarik dan lepas PDF Anda di sini",
+        or: "atau",
+        progressAriaLabel: "Progres unggahan",
+        uploading: "Sedang mengunggah...",
+        validating:
+          "Memvalidasi PDF sebelum Anda melanjutkan ke pengaturan penandatangan.",
+      },
+      error: {
+        generic: "Terjadi kesalahan. Silakan coba lagi.",
+        invalidType:
+          "Hanya berkas PDF yang didukung. Silakan unggah PDF yang valid.",
+        locked:
+          "PDF ini dilindungi kata sandi atau terenkripsi. Silakan unggah PDF yang tidak terkunci.",
+        previewUnavailable:
+          "PDF ini tidak dapat dirender di editor. Ekspor sebagai PDF standar lalu coba lagi.",
+        tooLarge: "Berkas ini melebihi batas 20 MB.",
+      },
+      fileInputAriaLabel: "Unggah PDF",
+      header: {
+        description: "Langkah 1 dari 4 - Unggah dokumen",
+        title: "Amplop baru",
+      },
+      title: {
+        label: "Judul amplop",
+        placeholder: "mis., NDA - Klien Bravo",
+      },
+    },
+    placedField: {
+      ariaLabel: "{name} · {label}",
+      corners: {
+        bottomLeft: "kiri bawah",
+        bottomRight: "kanan bawah",
+        topLeft: "kiri atas",
+        topRight: "kanan atas",
+      },
+      resizeAriaLabel: "Ubah ukuran kolom {label} dari {corner}",
+    },
+    pdfPage: {
+      ariaLabel: "Halaman PDF yang dirender {page}",
+      error: {
+        description: "Muat ulang halaman atau coba draf ini lagi sebentar.",
+        title: "Halaman PDF ini tidak dapat dirender.",
+      },
+      loading: {
+        description:
+          "Menyiapkan PDF sumber agar kolom yang ditempatkan tetap sejajar dengan ukuran halaman yang tersimpan.",
+        title: "Sedang merender halaman dokumen...",
+      },
+    },
+  },
   footer: {
     accessibilityLong: "Pernyataan Aksesibilitas",
     accessibilityShort: "Aksesibilitas",
