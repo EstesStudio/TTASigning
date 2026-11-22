@@ -1,4 +1,4 @@
-import { type Branding } from "./branding.ts";
+import { buildBranding, type Branding } from "./branding.ts";
 import {
   formatDeadline,
   isEnvelopeExpired,
@@ -12,12 +12,13 @@ import {
   queryOne,
   withTransaction,
 } from "./db/connection.ts";
+import { type SignerLocale, t } from "./i18n.ts";
 import {
   manualNudgeResponseSchema,
   type EnvelopeRecord,
 } from "./schemas/envelope.ts";
 import { type SignerRecord } from "./schemas/signer.ts";
-import { getBranding } from "./settings.ts";
+import { readStoredSettings, resolveSettings } from "./settings.ts";
 import {
   lockEnvelopeAuditChain,
   recordAuditEvent,
@@ -29,10 +30,7 @@ import {
   isEmailNotConnectedError,
   type EmailService,
 } from "./services/email.ts";
-import {
-  buildDeadlineLine,
-  describeRequestedAction,
-} from "./services/signing-invitation-email.ts";
+import { buildDeadlineLine } from "./services/signing-invitation-email.ts";
 import { isEmbeddedEnvelope } from "./embedding.ts";
 import { withUserEmailLegalFooter } from "./services/email-legal-footer.ts";
 import {
@@ -60,6 +58,7 @@ type ReminderEnvelopeRow = {
 };
 
 type ReminderSignerRow = {
+  language: SignerLocale | null;
   email: string;
   envelopeId: string;
   id: string;
@@ -90,6 +89,7 @@ type ReminderRequest =
   | { kind: "automatic" };
 
 type PersistedReminder = {
+  language: SignerLocale;
   auditEventId: string;
   envelopeExpiresAt: number | null;
   envelopeId: string;
@@ -225,6 +225,7 @@ async function getCurrentSignerForEnvelope(
         name,
         email,
         role,
+        language,
         sign_order AS "signOrder",
         status,
         signing_token_hash AS "signingTokenHash",
@@ -249,44 +250,83 @@ function buildReminderEmail(input: {
   envelopeTitle: string;
   expiresAt?: number | null;
   kind: ReminderRequest["kind"];
+  /** The signer's language: the install's signer language. */
+  locale: SignerLocale;
   senderName: string;
   signerEmail: string;
   signerName: string;
   signerRole?: "approver" | "signer";
   signingUrl: string;
 }) {
+  const { locale } = input;
   const automatic = input.kind === "automatic";
-  const action = describeRequestedAction(input.signerRole);
-  const subject = automatic
-    ? `Reminder: ${input.senderName} is waiting for your ${action.noun} on "${input.envelopeTitle}"`
-    : `${input.senderName} sent you a reminder to ${action.verb} "${input.envelopeTitle}"`;
-  const introLine = automatic
-    ? `${input.senderName} is still waiting for your ${action.noun} on "${input.envelopeTitle}", sent through ${input.branding.productName}.`
-    : `${input.senderName} sent you a reminder to ${action.verb} "${input.envelopeTitle}" through ${input.branding.productName}.`;
-  const deadlineLine = buildDeadlineLine(input.expiresAt);
+  const subject = t(
+    locale,
+    input.signerRole === "approver"
+      ? automatic
+        ? "approval.reminder.auto.subject"
+        : "approval.reminder.manual.subject"
+      : automatic
+        ? "email.reminder.auto.subject"
+        : "email.reminder.manual.subject",
+    { sender: input.senderName, title: input.envelopeTitle },
+  );
+  const introLine = t(
+    locale,
+    input.signerRole === "approver"
+      ? automatic
+        ? "approval.reminder.auto.intro"
+        : "approval.reminder.manual.intro"
+      : automatic
+        ? "email.reminder.auto.intro"
+        : "email.reminder.manual.intro",
+    {
+      sender: input.senderName,
+      title: input.envelopeTitle,
+      product: input.branding.productName,
+    },
+  );
+  const greeting = t(locale, "email.greeting", { name: input.signerName });
+  const cta = t(
+    locale,
+    input.signerRole === "approver" ? "approval.cta" : "email.cta",
+  );
+  const deadlineLine = buildDeadlineLine(input.expiresAt, locale);
+  const noAccount = t(
+    locale,
+    input.signerRole === "approver" ? "approval.noAccount" : "email.noAccount",
+    {
+      product: input.branding.productName,
+    },
+  );
+  const newestLink = t(locale, "email.newestLink");
   const textBody = [
-    `Hi ${input.signerName},`,
+    greeting,
     "",
     introLine,
     "",
-    `${action.linkText} here:`,
+    t(
+      locale,
+      input.signerRole === "approver" ? "approval.ctaText" : "email.ctaText",
+    ),
     input.signingUrl,
     ...(deadlineLine ? ["", deadlineLine] : []),
     "",
-    `You do not need a ${input.branding.productName} account to ${action.accountLine}.`,
-    "If you receive a newer invitation or reminder link, use the newest one.",
+    noAccount,
+    newestLink,
   ].join("\n");
   const htmlBody = [
-    `<p>Hi ${escapeHtml(input.signerName)},</p>`,
+    `<p>${escapeHtml(greeting)}</p>`,
     `<p>${escapeHtml(introLine)}</p>`,
-    `<p><a href="${escapeHtml(input.signingUrl)}">${escapeHtml(action.linkText)}</a></p>`,
+    `<p><a href="${escapeHtml(input.signingUrl)}">${escapeHtml(cta)}</a></p>`,
     deadlineLine ? `<p>${escapeHtml(deadlineLine)}</p>` : "",
-    `<p>You do not need a ${escapeHtml(input.branding.productName)} account to ${action.accountLine}.</p>`,
-    "<p>If you receive a newer invitation or reminder link, use the newest one.</p>",
+    `<p>${escapeHtml(noAccount)}</p>`,
+    `<p>${escapeHtml(newestLink)}</p>`,
   ].join("");
   const legalFooter = withUserEmailLegalFooter(
     {
       htmlBody,
+      locale,
       textBody,
     },
     input.branding,
@@ -498,6 +538,7 @@ async function persistReminder(
     const signerMetadata = {
       signerEmail: persistedSigner.email,
       signerId: persistedSigner.id,
+      language: persistedSigner.language ?? "en",
       signerName: persistedSigner.name,
       signerOrder: persistedSigner.signOrder,
     };
@@ -548,6 +589,7 @@ async function persistReminder(
           : persistedEnvelope.ownerName?.trim() || persistedEnvelope.ownerEmail,
       signerEmail: persistedSigner.email,
       signerId: persistedSigner.id,
+      language: persistedSigner.language ?? "en",
       signerName: persistedSigner.name,
       signerRole: persistedSigner.role === "approver" ? "approver" : "signer",
       userId: persistedEnvelope.userId,
@@ -564,6 +606,7 @@ async function deliverReminder(
   kind: ReminderRequest["kind"],
   database: DbPool,
   emailService: EmailService,
+  branding: Branding,
 ): Promise<void> {
   const template = kind === "automatic" ? "automatic_reminder" : "manual_nudge";
   let reminderMessageId: string | undefined;
@@ -572,11 +615,12 @@ async function deliverReminder(
     reminderMessageId = (
       await emailService.send(
         buildReminderEmail({
-          branding: await getBranding(),
+          branding,
           envelopeId: persisted.envelopeId,
           envelopeTitle: persisted.envelopeTitle,
           expiresAt: persisted.envelopeExpiresAt,
           kind,
+          locale: persisted.language,
           senderName: persisted.senderName,
           signerEmail: persisted.signerEmail,
           signerName: persisted.signerName,
@@ -698,9 +742,13 @@ export async function sendManualEnvelopeNudge(
   // Before the reminder is saved: saving retires the signer's current link,
   // so with no email to carry the new one the signer would be left with none.
   let service: EmailService;
+  let branding: Branding;
 
   try {
     service = emailService ?? createEmailService();
+    branding = buildBranding(
+      resolveSettings(await readStoredSettings(database)),
+    );
   } catch (error) {
     if (isEmailNotConnectedError(error)) {
       throw new ReminderMutationError(EMAIL_NOT_CONNECTED_MESSAGE, 503);
@@ -749,7 +797,7 @@ export async function sendManualEnvelopeNudge(
     }
 
     try {
-      await deliverReminder(persisted, "manual", database, service);
+      await deliverReminder(persisted, "manual", database, service, branding);
       reminded.push(persisted);
     } catch (error) {
       // Put back as it was by deliverReminder. The others still go, and
@@ -821,8 +869,14 @@ export async function sendAutomaticEnvelopeReminder(
 
   for (const target of targets) {
     let persisted: PersistedReminder;
+    let service: EmailService;
+    let branding: Branding;
 
     try {
+      service = emailService ?? createEmailService();
+      branding = buildBranding(
+        resolveSettings(await readStoredSettings(database)),
+      );
       persisted = await persistReminder(
         envelopeId,
         { kind: "automatic" },
@@ -838,12 +892,7 @@ export async function sendAutomaticEnvelopeReminder(
       throw error;
     }
 
-    await deliverReminder(
-      persisted,
-      "automatic",
-      database,
-      emailService ?? createEmailService(),
-    );
+    await deliverReminder(persisted, "automatic", database, service, branding);
 
     sent = true;
   }

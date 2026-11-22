@@ -87,7 +87,7 @@ export async function POST(request: Request, context: VerifyRouteContext) {
 
     if (error instanceof SigningMutationError) {
       return NextResponse.json(
-        { error: error.message },
+        { error: error.message, ...error.verificationFailure },
         { headers: NO_STORE, status: error.statusCode },
       );
     }

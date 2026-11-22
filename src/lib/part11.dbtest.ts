@@ -1,3 +1,5 @@
+import { issueSigningLink } from "./services/signing-links.ts";
+import { verifySignerCheck, SigningMutationError } from "./signing.ts";
 import assert from "node:assert/strict";
 import { randomUUID } from "node:crypto";
 import { after, before, test } from "node:test";
@@ -398,3 +400,71 @@ test("confirming someone again after a name change lets them sign in the new nam
     { ok: true },
   );
 });
+
+for (const scenario of ["wrong", "locked", "identity"] as const) {
+  test(
+    "account verification exposes stable recovery details: " + scenario,
+    async () => {
+      const user = await createUser();
+      const envelopeId = randomUUID();
+      const now = Math.floor(Date.now() / 1000);
+      const link = await issueSigningLink(
+        { issuedAt: now, expiresInSeconds: 3600 },
+        { env: { APP_URL: "https://sign.example.test" } },
+      );
+      await database.query(
+        `insert into envelopes (id,user_id,title,status,source_pdf_key,source_pdf_filename,source_pdf_size_bytes,page_count,source_pdf_hash,sent_at) values ($1,$2,'Account recovery','sent','k.pdf','test.pdf',10,1,$3,$4)`,
+        [envelopeId, user.id, "a".repeat(64), now],
+      );
+      await database.query(
+        `insert into signers (id,envelope_id,name,email,sign_order,status,signing_token_hash,signing_token_expires_at,last_notified_at,user_id,language) values ($1,$2,$3,$4,1,'notified',$5,$6,$7,$8,'es')`,
+        [
+          randomUUID(),
+          envelopeId,
+          `Person ${user.id.slice(0, 4)}`,
+          user.email,
+          link.tokenHash,
+          link.exp,
+          now,
+          user.id,
+        ],
+      );
+      if (scenario === "locked")
+        await database.query(
+          'update "user" set signing_locked_at=$1 where id=$2',
+          [now, user.id],
+        );
+      if (scenario === "identity")
+        await database.query(
+          'update "user" set identity_verified_at=null where id=$1',
+          [user.id],
+        );
+      const expected =
+        scenario === "wrong"
+          ? { code: "account_credentials_invalid", attemptsLeft: 4 }
+          : scenario === "locked"
+            ? {
+                code: "account_locked",
+                maxAttempts: MAX_SIGNING_PASSWORD_ATTEMPTS,
+              }
+            : { code: "account_identity_unconfirmed" };
+      await assert.rejects(
+        verifySignerCheck(
+          link.token,
+          { method: "account", email: user.email, password: "wrong" },
+          {
+            database,
+            verifyPassword,
+            emailService: recordingEmailService().service,
+          },
+        ),
+        (error: unknown) => {
+          assert.ok(error instanceof SigningMutationError);
+          assert.equal(error.statusCode, 400);
+          assert.deepEqual(error.verificationFailure, expected);
+          return true;
+        },
+      );
+    },
+  );
+}

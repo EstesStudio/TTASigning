@@ -1,3 +1,4 @@
+import { t, dateLocale, type SignerLocale } from "../i18n.ts";
 import { randomUUID } from "node:crypto";
 
 import { PDFDocument, type PDFImage, type PDFPage, rgb } from "pdf-lib";
@@ -193,13 +194,24 @@ type WrappedLine = {
   text: string;
 };
 
-function formatAuditTimestamp(timestamp: number | null | undefined): string {
+function formatAuditTimestamp(
+  timestamp: number | null | undefined,
+  locale: SignerLocale = "en",
+): string {
   if (typeof timestamp !== "number") {
     return "—";
   }
 
   const value = new Date(timestamp * 1000);
 
+  if (locale !== "en")
+    return (
+      new Intl.DateTimeFormat(dateLocale(locale), {
+        dateStyle: "long",
+        timeStyle: "medium",
+        timeZone: "UTC",
+      }).format(value) + " UTC"
+    );
   return value.toISOString().replace(".000Z", " UTC");
 }
 
@@ -588,18 +600,21 @@ function stripCompletedAuditEvents(
   return auditEvents.filter((event) => event.event !== "completed");
 }
 
-function getEnvelopeStatusLabel(status: EnvelopeRecord["status"]): string {
+function getEnvelopeStatusLabel(
+  status: EnvelopeRecord["status"],
+  locale: SignerLocale = "en",
+): string {
   switch (status) {
     case "completed":
-      return "Completed";
+      return t(locale, "certificate.completed");
     case "declined":
-      return "Declined";
+      return t(locale, "certificate.declined");
     case "voided":
-      return "Voided";
+      return t(locale, "certificate.voided");
     case "sent":
-      return "Sent";
+      return t(locale, "certificate.sent");
     case "draft":
-      return "Draft";
+      return t(locale, "certificate.draft");
     default:
       return status;
   }
@@ -607,20 +622,20 @@ function getEnvelopeStatusLabel(status: EnvelopeRecord["status"]): string {
 
 function getCertificateTitle(envelope: EnvelopeRecord): string {
   return envelope.status === "completed"
-    ? "SignuDoc Certificate of Completion"
-    : "SignuDoc Audit Certificate";
+    ? t(envelope.language ?? "en", "certificate.title")
+    : t(envelope.language ?? "en", "certificate.auditTitle");
 }
 
 function getTerminalTimestampLabel(envelope: EnvelopeRecord): string {
   switch (envelope.status) {
     case "completed":
-      return "Completed at";
+      return t(envelope.language ?? "en", "certificate.completedAt");
     case "declined":
-      return "Declined at";
+      return t(envelope.language ?? "en", "certificate.declinedAt");
     case "voided":
-      return "Voided at";
+      return t(envelope.language ?? "en", "certificate.voidedAt");
     default:
-      return "Recorded at";
+      return t(envelope.language ?? "en", "certificate.recordedAt");
   }
 }
 
@@ -972,6 +987,7 @@ function buildAuditLines(input: {
   signedPdfSha256?: string | null;
   signers: SignerRecord[];
 }) {
+  const locale = input.envelope.language ?? "en";
   const titleFontSize = 18;
   const sectionFontSize = 11;
   const bodyFontSize = 9.25;
@@ -1018,28 +1034,32 @@ function buildAuditLines(input: {
     },
   );
   pushParagraph(
-    `Envelope ID: ${input.envelope.id}`,
+    t(locale, "certificate.id", { value: input.envelope.id }),
     input.fonts.regular,
     bodyFontSize,
   );
   pushParagraph(
-    `Document title: ${input.envelope.title}`,
+    t(locale, "certificate.document", { value: input.envelope.title }),
     input.fonts.regular,
     bodyFontSize,
   );
   pushParagraph(
-    `Source PDF: ${input.envelope.sourcePdfFilename}`,
+    t(locale, "certificate.source", {
+      value: input.envelope.sourcePdfFilename,
+    }),
     input.fonts.regular,
     bodyFontSize,
   );
   pushParagraph(
-    `Source document hash: ${input.envelope.sourcePdfHash}`,
+    t(locale, "certificate.sourceHash", {
+      value: input.envelope.sourcePdfHash,
+    }),
     input.fonts.regular,
     bodyFontSize,
   );
   if (input.signedPdfSha256) {
     pushParagraph(
-      `Signed document SHA-256: ${input.signedPdfSha256}`,
+      t(locale, "certificate.signedHash", { value: input.signedPdfSha256 }),
       input.fonts.regular,
       bodyFontSize,
     );
@@ -1047,19 +1067,21 @@ function buildAuditLines(input: {
 
   if (input.auditFingerprint) {
     pushParagraph(
-      `Audit trail fingerprint (SHA-256): ${input.auditFingerprint}`,
+      t(locale, "certificate.auditHash", { value: input.auditFingerprint }),
       input.fonts.regular,
       bodyFontSize,
     );
   }
 
   pushParagraph(
-    `Status: ${getEnvelopeStatusLabel(input.envelope.status)}`,
+    t(locale, "certificate.status", {
+      value: getEnvelopeStatusLabel(input.envelope.status, locale),
+    }),
     input.fonts.regular,
     bodyFontSize,
   );
   pushParagraph(
-    `${getTerminalTimestampLabel(input.envelope)}: ${formatAuditTimestamp(terminalTimestamp)}`,
+    `${getTerminalTimestampLabel(input.envelope)}: ${formatAuditTimestamp(terminalTimestamp, locale)}`,
     input.fonts.regular,
     bodyFontSize,
     {
@@ -1072,7 +1094,12 @@ function buildAuditLines(input: {
   );
 
   pushParagraph(
-    approvers.length > 0 ? "Signers and approvers" : "Signers",
+    t(
+      locale,
+      approvers.length > 0
+        ? "certificate.signersApprovers"
+        : "certificate.signers",
+    ),
     input.fonts.bold,
     sectionFontSize,
     {
@@ -1082,7 +1109,7 @@ function buildAuditLines(input: {
 
   if (approvers.length > 0) {
     pushParagraph(
-      "Approvers reviewed the document and approved or rejected it. They placed no signature and nothing of theirs is stamped on the document.",
+      t(locale, "certificate.approverNote"),
       input.fonts.regular,
       bodyFontSize,
     );
@@ -1094,7 +1121,7 @@ function buildAuditLines(input: {
   // below says so.
   if (hasSharedSigningStep(input.signers)) {
     pushParagraph(
-      "Signers with the same number were asked to sign at the same time. Each number started once everyone with the number before it had signed.",
+      t(locale, "certificate.parallel"),
       input.fonts.regular,
       bodyFontSize,
     );
@@ -1125,10 +1152,15 @@ function buildAuditLines(input: {
   );
 
   if (decided.length > 0) {
-    pushParagraph("Approvals", input.fonts.bold, sectionFontSize, {
-      gapAfter: 4,
-      gapBefore: 10,
-    });
+    pushParagraph(
+      t(locale, "certificate.approvals"),
+      input.fonts.bold,
+      sectionFontSize,
+      {
+        gapAfter: 4,
+        gapBefore: 10,
+      },
+    );
 
     for (const approver of decided) {
       const who = input.redactForRecipients
@@ -1137,10 +1169,20 @@ function buildAuditLines(input: {
 
       pushParagraph(
         approver.status === "signed"
-          ? `Approved by ${who} at ${formatAuditTimestamp(approver.signedAt)}`
-          : `Rejected by ${who} at ${formatAuditTimestamp(approver.declinedAt)}${
-              approver.declineReason ? `: ${approver.declineReason}` : ""
-            }`,
+          ? t(approver.language ?? "en", "certificate.approvedBy", {
+              who,
+              date: formatSignerTimestamp(approver.signedAt, approver.language),
+            })
+          : t(approver.language ?? "en", "certificate.rejectedBy", {
+              who,
+              date: formatSignerTimestamp(
+                approver.declinedAt,
+                approver.language,
+              ),
+              reason: approver.declineReason
+                ? `: ${approver.declineReason}`
+                : "",
+            }),
         input.fonts.regular,
         bodyFontSize,
       );
@@ -1148,12 +1190,17 @@ function buildAuditLines(input: {
   }
 
   if (input.copyRecipients && input.copyRecipients.length > 0) {
-    pushParagraph("Copy recipients", input.fonts.bold, sectionFontSize, {
-      gapAfter: 4,
-      gapBefore: 10,
-    });
     pushParagraph(
-      "Sent a copy of the finished document. They did not sign it.",
+      t(locale, "certificate.cc"),
+      input.fonts.bold,
+      sectionFontSize,
+      {
+        gapAfter: 4,
+        gapBefore: 10,
+      },
+    );
+    pushParagraph(
+      t(locale, "certificate.ccNote"),
       input.fonts.regular,
       bodyFontSize,
     );
@@ -1169,10 +1216,15 @@ function buildAuditLines(input: {
     }
   }
 
-  pushParagraph("Audit events", input.fonts.bold, sectionFontSize, {
-    gapAfter: 4,
-    gapBefore: 10,
-  });
+  pushParagraph(
+    t(locale, "certificate.events"),
+    input.fonts.bold,
+    sectionFontSize,
+    {
+      gapAfter: 4,
+      gapBefore: 10,
+    },
+  );
 
   for (const event of auditEvents) {
     const actorLabel = describeAuditActor(event);
@@ -1180,7 +1232,7 @@ function buildAuditLines(input: {
       event.event === "signer_corrected" ? "Signer corrected" : event.event;
 
     pushParagraph(
-      `${formatAuditTimestamp(event.createdAt)} | ${eventLabel} | ${actorLabel}`,
+      `${formatAuditTimestamp(event.createdAt, locale)} | ${eventLabel} | ${actorLabel}`,
       input.fonts.regular,
       bodyFontSize,
     );
@@ -1190,12 +1242,17 @@ function buildAuditLines(input: {
     }
   }
 
-  pushParagraph("How to check this record", input.fonts.bold, sectionFontSize, {
-    gapAfter: 4,
-    gapBefore: 10,
-  });
   pushParagraph(
-    "The signed document and this certificate are each sealed with a digital signature. A PDF reader shows the seal as valid only if the file has not changed since it was sealed. The SHA-256 values above can also be checked on this site's Verify page.",
+    t(locale, "certificate.check"),
+    input.fonts.bold,
+    sectionFontSize,
+    {
+      gapAfter: 4,
+      gapBefore: 10,
+    },
+  );
+  pushParagraph(
+    t(locale, "certificate.checkBody"),
     input.fonts.regular,
     bodyFontSize,
   );
@@ -1204,9 +1261,9 @@ function buildAuditLines(input: {
 }
 
 const AUTHENTICATION_LABELS: Record<string, string> = {
-  access_code: "access code from the sender",
-  account: "own account, with email address and password to open it",
-  email_code: "one-time code sent by email",
+  access_code: t("en", "certificate.auth.access_code"),
+  account: t("en", "certificate.auth.account"),
+  email_code: t("en", "certificate.auth.email_code"),
 };
 
 function readStringArray(value: unknown): string[] {
@@ -1220,6 +1277,7 @@ function readStringArray(value: unknown): string[] {
  * install's signing provider: its level, the provider, and the certificate.
  */
 function describeProviderSignatureEvidence(
+  locale: SignerLocale,
   signed: AuditEventRecord | undefined,
   redacted: boolean,
 ): string[] {
@@ -1232,9 +1290,9 @@ function describeProviderSignatureEvidence(
   const signature = value as Record<string, unknown>;
   const level =
     signature.level === "qualified"
-      ? "a qualified electronic signature"
+      ? t(locale, "certificate.qualified")
       : signature.level === "advanced"
-        ? "an advanced electronic signature"
+        ? t(locale, "certificate.advanced")
         : null;
 
   if (!level) {
@@ -1243,37 +1301,46 @@ function describeProviderSignatureEvidence(
 
   const provider =
     typeof signature.provider === "string"
-      ? ` through ${signature.provider}`
+      ? t(locale, "certificate.through", { provider: signature.provider })
       : "";
   const method =
     typeof signature.method === "string" ? ` (${signature.method})` : "";
   const details = [
-    `Signed with ${level}${provider}${method}; the signature is in the signed PDF`,
+    t(locale, "certificate.provider", { level, provider, method }),
   ];
 
   if (!redacted && typeof signature.certificateSubject === "string") {
     const issuer =
       typeof signature.certificateIssuer === "string"
-        ? `, issued by ${signature.certificateIssuer}`
+        ? t(locale, "certificate.issuer", {
+            issuer: signature.certificateIssuer,
+          })
         : "";
     const serial =
       typeof signature.certificateSerialNumber === "string"
-        ? `, serial ${signature.certificateSerialNumber}`
+        ? t(locale, "certificate.serial", {
+            serial: signature.certificateSerialNumber,
+          })
         : "";
     const validTo =
       typeof signature.certificateValidTo === "number"
-        ? `, valid to ${formatAuditTimestamp(signature.certificateValidTo)}`
+        ? t(locale, "certificate.validTo", {
+            date: formatAuditTimestamp(signature.certificateValidTo, locale),
+          })
         : "";
 
     details.push(
-      `Signing certificate: ${signature.certificateSubject}${issuer}${serial}${validTo}`,
+      t(locale, "certificate.signingCertificate", {
+        subject: signature.certificateSubject,
+        issuer,
+        serial,
+        validTo,
+      }),
     );
   }
 
   if (signature.timestamped === true) {
-    details.push(
-      "The signature carries a timestamp from a time-stamping service",
-    );
+    details.push(t(locale, "certificate.timestamp"));
   }
 
   return details;
@@ -1320,15 +1387,20 @@ function currentSignerIdentityStart(
  * given, not that the app checked who opened it, so the certificate says
  * the check was left to the app rather than that it happened.
  */
-function describeEmbeddedDelivery(embedded: Record<string, unknown>): string {
+function describeEmbeddedDelivery(
+  locale: SignerLocale,
+  embedded: Record<string, unknown>,
+): string {
   const origin =
-    typeof embedded.origin === "string" ? embedded.origin : "another site";
+    typeof embedded.origin === "string"
+      ? embedded.origin
+      : t(locale, "certificate.anotherSite");
   const key =
     typeof embedded.apiKeyName === "string"
-      ? ` through the API key "${embedded.apiKeyName}"`
+      ? t(locale, "certificate.apiKey", { key: embedded.apiKeyName })
       : "";
 
-  return `a signing link given to the app at ${origin}${key} (embedded signing; identifying the signer was left to that app)`;
+  return t(locale, "certificate.embedded", { origin, key });
 }
 
 /** What the record shows about how one signer was identified and agreed. */
@@ -1337,10 +1409,13 @@ function describeSignerEvidence(
   auditEvents: readonly AuditEventRecord[],
   redacted: boolean,
 ): string[] {
+  const locale = signer.language ?? "en";
   const forSigner = auditEvents.filter(
     (event) => event.metadata?.signerId === signer.id,
   );
-  const details: string[] = [];
+  const details: string[] = signer.language
+    ? [t(locale, "certificate.language", { language: signer.language })]
+    : [];
   const approver = signer.role === "approver";
   // The signature, or an approver's approval.
   const signed = forSigner.find(
@@ -1385,10 +1460,17 @@ function describeSignerEvidence(
       : null;
   const checks = [
     embedded
-      ? describeEmbeddedDelivery(embedded)
-      : "possession of the emailed signing link",
+      ? describeEmbeddedDelivery(locale, embedded)
+      : t(locale, "certificate.link"),
     ...readStringArray((signed ?? ended)?.metadata?.authMethods).map(
-      (method) => AUTHENTICATION_LABELS[method] ?? method,
+      (method) =>
+        ["access_code", "account", "email_code"].includes(method)
+          ? t(
+              locale,
+              ("certificate.auth." +
+                method) as import("../i18n.ts").SignerMessageKey,
+            )
+          : method,
     ),
   ];
 
@@ -1398,11 +1480,13 @@ function describeSignerEvidence(
       : null;
 
   if (part11) {
-    checks.push("email address and password given again to sign");
+    checks.push(t(locale, "certificate.reauth"));
   }
 
   if (signed || signer.status === "declined") {
-    details.push(`Identified by: ${checks.join(", ")}`);
+    details.push(
+      t(locale, "certificate.identified", { methods: checks.join(", ") }),
+    );
   }
 
   const manifestation = buildSignatureManifestation(signer);
@@ -1418,26 +1502,57 @@ function describeSignerEvidence(
   }
 
   if (consented) {
+    if (typeof consented.metadata?.language === "string") {
+      if (!signer.language)
+        details.push(
+          t(locale, "certificate.language", {
+            language: consented.metadata.language,
+          }),
+        );
+      if (typeof consented.metadata.statement === "string")
+        details.push(
+          t(locale, "certificate.statement", {
+            statement: consented.metadata.statement,
+          }),
+        );
+    }
     details.push(
-      `Agreed to use electronic records and signatures at ${formatAuditTimestamp(consented.createdAt)}${
-        typeof consented.metadata?.disclosureVersion === "string"
-          ? ` (disclosure ${consented.metadata.disclosureVersion})`
-          : ""
-      }`,
+      t(locale, "certificate.agreed", {
+        date: formatAuditTimestamp(consented.createdAt, locale),
+        version:
+          typeof consented.metadata?.disclosureVersion === "string"
+            ? t(locale, "certificate.version", {
+                version: consented.metadata.disclosureVersion,
+              })
+            : "",
+      }),
     );
   }
 
-  const methods = readStringArray(signed?.metadata?.signatureMethods);
+  const methods = readStringArray(signed?.metadata?.signatureMethods).map(
+    (method) =>
+      ["typed", "drawn", "uploaded"].includes(method)
+        ? t(
+            locale,
+            ("certificate.method." +
+              method) as import("../i18n.ts").SignerMessageKey,
+          )
+        : method,
+  );
 
   if (methods.length > 0) {
-    details.push(`Signature adopted by: ${methods.join(", ")}`);
+    details.push(
+      t(locale, "certificate.adopted", { methods: methods.join(", ") }),
+    );
   }
 
-  details.push(...describeProviderSignatureEvidence(signed, redacted));
+  details.push(...describeProviderSignatureEvidence(locale, signed, redacted));
 
   if (!redacted && signed?.ipAddress) {
     details.push(
-      `${approver ? "Approved" : "Signed"} from IP ${signed.ipAddress}`,
+      t(locale, approver ? "certificate.approvedIp" : "certificate.ip", {
+        ip: signed.ipAddress,
+      }),
     );
   }
 
@@ -1516,31 +1631,67 @@ function describeEventEvidence(event: AuditEventRecord): string[] {
   return details;
 }
 
+function formatSignerTimestamp(
+  timestamp: number | null | undefined,
+  language: SignerLocale | null | undefined,
+): string {
+  if (!language || typeof timestamp !== "number")
+    return formatAuditTimestamp(timestamp);
+  return (
+    new Intl.DateTimeFormat(dateLocale(language), {
+      dateStyle: "long",
+      timeStyle: "medium",
+      timeZone: "UTC",
+    }).format(new Date(timestamp * 1000)) + " UTC"
+  );
+}
+
 function getSignerCertificateActionLabel(
   envelope: EnvelopeRecord,
   signer: SignerRecord,
 ): string {
+  const locale = signer.language ?? "en";
   // An approver's turn done is an approval, and their decline a rejection.
   const approver = signer.role === "approver";
-  const awaiting = approver ? "Awaiting approval" : "Awaiting signature";
 
   switch (signer.status) {
     case "signed":
-      return `${approver ? "Approved" : "Signed"} at ${formatAuditTimestamp(signer.signedAt)}`;
+      return t(
+        locale,
+        approver ? "certificate.approvedAt" : "certificate.signedAt",
+        { date: formatSignerTimestamp(signer.signedAt, signer.language) },
+      );
     case "declined":
-      return `${approver ? "Rejected" : "Declined"} at ${formatAuditTimestamp(signer.declinedAt)}`;
+      return t(
+        locale,
+        approver ? "certificate.rejectedAt" : "certificate.signerDeclinedAt",
+        { date: formatSignerTimestamp(signer.declinedAt, signer.language) },
+      );
     case "notified":
       if (envelope.status === "voided") {
-        return `${awaiting} when envelope was voided`;
+        return t(
+          locale,
+          approver
+            ? "certificate.approvalWaitingVoided"
+            : "certificate.waitingVoided",
+        );
       }
 
       if (envelope.status === "declined") {
-        return `${awaiting} when envelope was declined`;
+        return t(
+          locale,
+          approver
+            ? "certificate.approvalWaitingDeclined"
+            : "certificate.waitingDeclined",
+        );
       }
 
-      return awaiting;
+      return t(
+        locale,
+        approver ? "certificate.approvalWaiting" : "certificate.waiting",
+      );
     case "pending":
-      return "Not reached";
+      return t(locale, "certificate.notReached");
     default: {
       const exhaustiveStatus: never = signer.status;
       return exhaustiveStatus;
