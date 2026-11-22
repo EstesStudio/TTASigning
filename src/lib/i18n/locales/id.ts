@@ -1186,6 +1186,188 @@ export const idMessages: Messages = defineMessages({
         nameRequired: "Nama wajib diisi.",
       },
     },
+    detail: {
+      actions: {
+        cancel: "Batal",
+        cancelDeletion: "Batalkan penghapusan",
+        change: "Ubah",
+        continueEditing: "Lanjut mengedit",
+        copyToDraft: "Salin ke draf baru",
+        deleteDraft: "Hapus draf",
+        deleteEnvelope: "Hapus amplop",
+        downloadCertificate: "Unduh sertifikat",
+        downloadSignedPdf: "Unduh PDF yang ditandatangani",
+        exportAudit: "Ekspor jejak audit",
+        save: "Simpan",
+        saveTemplate: "Simpan sebagai templat",
+        saving: "Menyimpan...",
+        sendReminder: "Kirim pengingat",
+        viewDocument: "Lihat dokumen",
+        viewTemplates: "Lihat templat",
+        voidEnvelope: "Batalkan amplop",
+      },
+      back: {
+        all: "← Semua amplop",
+        own: "← Dokumen",
+      },
+      copyRecipients: {
+        completed: "Dokumen akhir dan sertifikatnya telah dikirim.",
+        pending: "Menerima dokumen akhir setelah semua selesai menandatangani.",
+        title: "Menerima tembusan",
+      },
+      created: "Dibuat {date}",
+      deadline: {
+        change: "Ubah batas waktu",
+        changeReminders: "Ubah pengingat",
+        expired:
+          "Kedaluwarsa {date}. Tidak ada yang dapat menandatangani sampai Anda menetapkan batas waktu baru.",
+        expires: "Kedaluwarsa {date}.",
+        noDeadline:
+          "Tanpa batas waktu. Setiap tautan penandatanganan berlaku tujuh hari.",
+        reminderCooldown: "Anda dapat mengirim pengingat lagi setelah {date}.",
+        remindersOff: "Pengingat otomatis nonaktif.",
+        remindersOn: "Pengingat otomatis: {interval}.",
+        setNew: "Tetapkan batas waktu baru",
+      },
+      deletion: {
+        askedByAdmin:
+          "{email} memintanya. Administrator mana pun dapat membatalkannya sampai saat itu.",
+        askedByOther:
+          "Seorang administrator ({email}) memintanya. Unduh PDF yang ditandatangani dan sertifikatnya sebelum itu jika perlu menyimpannya.",
+        reason: "Alasan: {reason}",
+        scheduled: "Dijadwalkan untuk dihapus pada {date}",
+      },
+      dialogs: {
+        cancelDeletion: {
+          confirm: "Batalkan penghapusan",
+          description: [
+            "Amplop tetap apa adanya dan tidak akan dihapus.",
+            "Jika pengirimnya diberi tahu bahwa amplop akan dihapus, mereka akan diberi tahu bahwa tidak jadi.",
+          ],
+          title: "Batalkan penghapusan ini?",
+        },
+        copy: {
+          body: [
+            "Ini memulai draf baru dengan dokumen, orang, dan kolom yang sama. Apa pun yang sudah diisi tidak disalin.",
+            "Kode akses tidak disalin: kode disimpan dalam bentuk hash, jadi tidak dapat dibawa. Anda dapat menetapkan yang baru sebelum mengirim.",
+            "Tidak ada surel yang dikirim, dan amplop ini dibiarkan apa adanya.",
+          ],
+          confirm: "Salin ke draf baru",
+          copying: "Menyalin...",
+          title: "Salin ke draf baru",
+        },
+        deadline: {
+          activeHint:
+            "Tautan penandatanganan yang sudah dikirim tetap berfungsi sampai saat itu.",
+          expiredHint:
+            "Tautan penandatanganan yang sudah dikirim akan berfungsi lagi.",
+          explanation: "Batas waktu baru dihitung mulai sekarang.",
+          label: "Batas waktu penandatanganan",
+          option: "{days} hari dari sekarang",
+          save: "Simpan batas waktu",
+          title: "Ubah batas waktu",
+          titleExpired: "Tetapkan batas waktu baru",
+        },
+        deleteDraft: {
+          confirm: "Hapus draf",
+          description: [
+            "Draf ini belum dikirim.",
+            "Menghapusnya akan menghapus draf dan kolom yang ditempatkan secara permanen.",
+          ],
+          title: "Hapus draf ini?",
+        },
+        deleteFinished: {
+          confirm: "Jadwalkan penghapusan",
+          description: [
+            "Amplop, PDF yang ditandatangani, sertifikat, dan jejak auditnya akan dihapus permanen dalam 14 hari. Tautan unduh yang sudah dikirim kepada penandatangan akan berhenti berfungsi saat itu.",
+            "Pengirimnya menerima surel sekarang, berisi tautan untuk mengunduh apa yang perlu mereka simpan.",
+            "Sampai saat itu administrator mana pun dapat membatalkan. Log audit instalasi mencatat permintaan ini, serta penghapusan beserta sidik jari dokumen.",
+          ],
+          title: "Jadwalkan penghapusan amplop ini?",
+        },
+        reason: {
+          auditEnvelope: "Disimpan dalam jejak audit amplop.",
+          auditInstall: "Disimpan dalam log audit instalasi.",
+          optional: "Alasan (opsional)",
+          required: "Alasan (wajib)",
+        },
+        reminders: {
+          description:
+            "Pengingat dikirim kepada penandatangan yang sedang giliran jika mereka tidak menerima kabar dari Anda selama ini. Pengingat berhenti setelah semua selesai menandatangani atau batas waktu terlewat.",
+          label: "Kirim pengingat",
+          save: "Simpan pengingat",
+          title: "Pengingat otomatis",
+        },
+        signer: {
+          description:
+            "Tautan penandatanganan yang sudah dikirim kepada orang ini akan berhenti berfungsi. Jika mereka sedang giliran, undangan baru dikirim ke alamat yang sudah diperbaiki.",
+          email: "Surel",
+          name: "Nama",
+          title: "Perbaiki penandatangan ini",
+        },
+        void: {
+          confirm: "Batalkan amplop",
+          description: [
+            "Ini akan membatalkan proses penandatanganan.",
+            "Penandatangan yang menerima amplop, termasuk yang sudah menandatangani, akan diberi tahu bahwa amplop dibatalkan.",
+            "Tindakan ini tidak dapat dibatalkan.",
+          ],
+          title: "Batalkan amplop ini?",
+        },
+      },
+      error: {
+        backToDocuments: "Kembali ke dokumen",
+        cancelDeletion: "Penghapusan tidak dapat dibatalkan.",
+        cancelDeletionNetwork:
+          "Server tidak dapat dihubungi. Muat ulang halaman untuk melihat apakah penghapusan dibatalkan.",
+        copy: "Amplop tidak dapat disalin.",
+        correctSigner: "Penandatangan tidak dapat diperbaiki.",
+        deadline: "Batas waktu tidak dapat diubah.",
+        deleteDraft: "Draf tidak dapat dihapus.",
+        load: "Amplop tidak dapat dimuat",
+        loadDescription: "Amplop ini tidak dapat dimuat. Silakan coba lagi.",
+        notFound: "Amplop tidak tersedia",
+        notFoundDescription:
+          "Amplop tidak ditemukan, atau Anda tidak lagi memiliki akses.",
+        notFoundEyebrow: "Tidak tersedia",
+        nudge: "Pengingat tidak dapat dikirim sekarang.",
+        reminders: "Pengingat tidak dapat diubah.",
+        retry: "Coba lagi",
+        scheduleDeletion: "Penghapusan amplop tidak dapat dijadwalkan.",
+        scheduleDeletionNetwork:
+          "Server tidak dapat dihubungi. Muat ulang halaman untuk melihat apakah penghapusan dijadwalkan.",
+        void: "Amplop tidak dapat dibatalkan.",
+      },
+      savedTemplate: "Disimpan sebagai templat “{name}”.",
+      sentBy: "Dikirim oleh {name}",
+      signers: {
+        title: "Penandatangan",
+        total: "{count} orang",
+      },
+      status: {
+        envelope: {
+          completed: "Selesai",
+          declined: "Ditolak",
+          draft: "Draf",
+          sent: "Terkirim",
+          voided: "Dibatalkan",
+        },
+        expired: "Kedaluwarsa",
+        signer: {
+          declined: "Ditolak",
+          pending: "Tertunda",
+          signed: "Sudah menandatangani",
+          waiting: "Menunggu",
+        },
+      },
+      templatePrompt:
+        "Sering mengirim dokumen seperti ini? Simpan kolom dan urutan penandatanganannya sebagai templat.",
+      timeline: {
+        events: "{count} peristiwa",
+        title: "Linimasa",
+      },
+      viewDocumentAria: "Lihat {title} (membuka tab baru)",
+    },
     upload: {
       action: {
         fromTemplate: "Mulai dari templat",

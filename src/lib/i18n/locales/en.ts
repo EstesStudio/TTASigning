@@ -1169,6 +1169,187 @@ export const enMessages = defineMessages({
         nameRequired: "Name is required",
       },
     },
+    detail: {
+      actions: {
+        cancel: "Cancel",
+        cancelDeletion: "Cancel deletion",
+        change: "Change",
+        continueEditing: "Continue editing",
+        copyToDraft: "Copy to new draft",
+        deleteDraft: "Delete draft",
+        deleteEnvelope: "Delete envelope",
+        downloadCertificate: "Download certificate",
+        downloadSignedPdf: "Download signed PDF",
+        exportAudit: "Export audit trail",
+        save: "Save",
+        saveTemplate: "Save as template",
+        saving: "Saving...",
+        sendReminder: "Send reminder",
+        viewDocument: "View document",
+        viewTemplates: "View templates",
+        voidEnvelope: "Void envelope",
+      },
+      back: {
+        all: "← All envelopes",
+        own: "← Documents",
+      },
+      copyRecipients: {
+        completed: "Sent the finished document and its certificate.",
+        pending: "Gets the finished document once everyone has signed.",
+        title: "Receives a copy",
+      },
+      created: "Created {date}",
+      deadline: {
+        change: "Change deadline",
+        changeReminders: "Change reminders",
+        expired:
+          "Expired {date}. Nobody can sign until you set a new deadline.",
+        expires: "Expires {date}.",
+        noDeadline: "No deadline. Each signing link lasts seven days.",
+        reminderCooldown: "You can send another reminder after {date}.",
+        remindersOff: "Automatic reminders are off.",
+        remindersOn: "Automatic reminders: {interval}.",
+        setNew: "Set a new deadline",
+      },
+      deletion: {
+        askedByAdmin:
+          "{email} asked for it. Any administrator can cancel until then.",
+        askedByOther:
+          "An administrator ({email}) asked for it. Download the signed PDF and the certificate before then if you need to keep them.",
+        reason: "Reason: {reason}",
+        scheduled: "Scheduled to be deleted on {date}",
+      },
+      dialogs: {
+        cancelDeletion: {
+          confirm: "Cancel deletion",
+          description: [
+            "The envelope stays as it is and will not be deleted.",
+            "If its sender was told it would be deleted, they are told it will not.",
+          ],
+          title: "Cancel this deletion?",
+        },
+        copy: {
+          body: [
+            "This starts a new draft with the same document, the same people and the same fields. Nothing that was filled in is copied.",
+            "Access codes are not copied: they are stored hashed, so they cannot be brought across. You can set new ones before sending.",
+            "Nobody is emailed, and this envelope is left as it is.",
+          ],
+          confirm: "Copy to new draft",
+          copying: "Copying...",
+          title: "Copy to a new draft",
+        },
+        deadline: {
+          activeHint:
+            "The signing link that was already sent keeps working until then.",
+          expiredHint:
+            "The signing link that was already sent will work again.",
+          explanation: "The new deadline counts from now.",
+          label: "Signing deadline",
+          option: "{days} days from now",
+          save: "Save deadline",
+          title: "Change the deadline",
+          titleExpired: "Set a new deadline",
+        },
+        deleteDraft: {
+          confirm: "Delete draft",
+          description: [
+            "This draft has not been sent yet.",
+            "Deleting it will permanently remove the draft and its placed fields.",
+          ],
+          title: "Delete this draft?",
+        },
+        deleteFinished: {
+          confirm: "Schedule deletion",
+          description: [
+            "The envelope, its signed PDF, its certificate and its audit trail will be deleted for good in 14 days. Download links already sent to signers will stop working then.",
+            "Its sender is emailed now, with a link to download what they need to keep.",
+            "Until then any administrator can cancel. The install's audit log records the request, and the deletion with the document's fingerprints.",
+          ],
+          title: "Schedule this envelope for deletion?",
+        },
+        reason: {
+          auditEnvelope: "Kept in the envelope's audit trail.",
+          auditInstall: "Kept in the install's audit log.",
+          optional: "Reason (optional)",
+          required: "Reason (required)",
+        },
+        reminders: {
+          description:
+            "A reminder goes to the signer whose turn it is when they have not heard from you for this long. Reminders stop once everyone has signed or the deadline passes.",
+          label: "Send a reminder",
+          save: "Save reminders",
+          title: "Automatic reminders",
+        },
+        signer: {
+          description:
+            "The signing link already sent to this person will stop working. If it is their turn, a new invitation goes to the corrected address.",
+          email: "Email",
+          name: "Name",
+          title: "Correct this signer",
+        },
+        void: {
+          confirm: "Void envelope",
+          description: [
+            "This will cancel the signing process.",
+            "Signers who were sent the envelope, including those who already signed, will be told it was voided.",
+            "This action cannot be undone.",
+          ],
+          title: "Void this envelope?",
+        },
+      },
+      error: {
+        backToDocuments: "Back to documents",
+        cancelDeletion: "Unable to cancel this deletion.",
+        cancelDeletionNetwork:
+          "Could not reach the server. Reload the page to see whether the deletion was cancelled.",
+        copy: "Unable to copy this envelope.",
+        correctSigner: "Unable to correct this signer.",
+        deadline: "Unable to change the deadline.",
+        deleteDraft: "Unable to delete this draft.",
+        load: "Couldn't load this envelope",
+        loadDescription: "Couldn't load this envelope. Please try again.",
+        notFound: "This envelope is unavailable",
+        notFoundDescription:
+          "We couldn't find this envelope, or you no longer have access to it.",
+        notFoundEyebrow: "Unavailable",
+        nudge: "Unable to send a reminder right now.",
+        reminders: "Unable to change the reminders.",
+        retry: "Retry",
+        scheduleDeletion: "Unable to schedule this envelope's deletion.",
+        scheduleDeletionNetwork:
+          "Could not reach the server. Reload the page to see whether the deletion was scheduled.",
+        void: "Unable to void this envelope.",
+      },
+      savedTemplate: "Saved as the template “{name}”.",
+      sentBy: "Sent by {name}",
+      signers: {
+        title: "Signers",
+        total: "{count} total",
+      },
+      status: {
+        envelope: {
+          completed: "Completed",
+          declined: "Declined",
+          draft: "Draft",
+          sent: "Sent",
+          voided: "Voided",
+        },
+        expired: "Expired",
+        signer: {
+          declined: "Declined",
+          pending: "Pending",
+          signed: "Signed",
+          waiting: "Waiting",
+        },
+      },
+      templatePrompt:
+        "Send this kind of document often? Keep its fields and signing order as a template.",
+      timeline: {
+        events: "{count} events",
+        title: "Timeline",
+      },
+      viewDocumentAria: "View {title} (opens in a new tab)",
+    },
     upload: {
       action: {
         fromTemplate: "Start from a template",

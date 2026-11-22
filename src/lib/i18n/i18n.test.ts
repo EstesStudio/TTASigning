@@ -241,6 +241,8 @@ test("the envelope editor has translated copy in both languages", () => {
     "Signers will receive the document in this order.",
   );
   assert.match(id.signers.intro.title, /urutan ini/);
+  assert.equal(en.detail.dialogs.void.title, "Void this envelope?");
+  assert.match(id.detail.dialogs.void.title, /Batalkan amplop/);
   assert.equal(en.reminderIntervals.everyDay, "Every day");
   assert.equal(id.reminderIntervals.everyDay, "Setiap hari");
 
@@ -267,6 +269,9 @@ test("the envelope editor has translated copy in both languages", () => {
     assert.equal(Object.keys(copy.signers.signatureMeaning.options).length, 4);
     assert.equal(Object.keys(copy.signers.checks.options).length, 3);
     assert.equal(Object.keys(copy.signers.fields).length, 2);
+    assert.match(copy.detail.deadline.reminderCooldown, /\{date\}/);
+    assert.equal(copy.detail.dialogs.deleteFinished.description.length, 3);
+    assert.match(copy.detail.viewDocumentAria, /\{title\}/);
     assert.match(copy.reminderIntervals.everyDays, /\{days\}/);
   }
 });
