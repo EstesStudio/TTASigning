@@ -1797,7 +1797,7 @@ function CurrentSignerField({
         style={frame}
       >
         <p
-          className="field-fit-text flex h-full items-center px-1.5 font-semibold whitespace-nowrap"
+          className="field-fit-text flex h-full items-center justify-center px-1.5 font-semibold whitespace-nowrap"
           style={{ fontSize: fitFieldTextSize(value, 12) }}
         >
           {value}
@@ -2033,7 +2033,11 @@ function VisibleFieldStamp({ field }: { field: SigningVisibleField }) {
     >
       <div className="flex h-full w-full items-center overflow-hidden px-1">
         <p
-          className="field-fit-text truncate font-medium"
+          className={`field-fit-text truncate font-medium ${
+            field.type === "date" || field.type === "name"
+              ? "w-full text-center"
+              : ""
+          }`}
           style={{
             fontFamily: isTypedSignature ? typedSignatureFont : undefined,
             fontSize: fitFieldTextSize(

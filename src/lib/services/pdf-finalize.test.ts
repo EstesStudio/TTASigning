@@ -942,6 +942,25 @@ test("a date in a narrow box stays on one line, with its words whole", async () 
   assert.ok(items[0]!.right <= fieldRight, "the date runs past its box");
 });
 
+test("a date is centred in its box, as the signing page shows it", async () => {
+  const box = { height: 0.045, width: 0.6, x: 0.2, y: 0.5 };
+  const items = await extractTextItems(
+    await renderOneField({
+      ...box,
+      type: "date",
+      value: "November 22, 2026",
+    }),
+  );
+  const [date] = items;
+  const boxCentre = (box.x + box.width / 2) * 612;
+
+  assert.equal(items.length, 1);
+  assert.ok(
+    Math.abs((date!.left + date!.right) / 2 - boxCentre) < 1,
+    `centre ${String((date!.left + date!.right) / 2)}, box ${String(boxCentre)}`,
+  );
+});
+
 test("a typed signature is centred in its box, as a drawn one is", async () => {
   const box = { height: 0.07, width: 0.24, x: 0.37, y: 0.64 };
   const items = await extractTextItems(

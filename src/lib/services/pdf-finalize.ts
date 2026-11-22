@@ -877,12 +877,18 @@ async function drawFieldValue(
 
       const { size } = layout;
       const top = rect.yPt + (rect.heightPt + layout.blockHeight) / 2;
+      // A date or a name is centred in its box, as the signing page shows it.
+      const centred = field.type === "date" || field.type === "name";
 
       layout.lines.forEach((line, index) => {
+        const lineWidth = fonts.auditRegular.widthOfTextAtSize(line, size);
+
         fonts.auditRegular.drawText(page, line, {
           color: rgb(0.12, 0.12, 0.12),
           size,
-          x: rect.xPt + box.padding,
+          x: centred
+            ? rect.xPt + Math.max(box.padding, (rect.widthPt - lineWidth) / 2)
+            : rect.xPt + box.padding,
           y: top - size * 0.8 - index * size * FIELD_TEXT_LINE_HEIGHT,
         });
       });
