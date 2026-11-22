@@ -86,3 +86,19 @@ test("formatMessage replaces named placeholders", () => {
     "Keep {unknown} visible.",
   );
 });
+
+test("the privacy notice uses Indonesian law and names its processors", () => {
+  const en = enMessages.legal.privacy.sections;
+  const id = idMessages.legal.privacy.sections;
+
+  assert.match(en.recipients.items.join(" "), /Resend/);
+  assert.match(id.recipients.items.join(" "), /Resend/);
+  assert.match(en.incidents.paragraphs.join(" "), /3 × 24 hours/);
+  assert.match(id.incidents.paragraphs.join(" "), /3 × 24 jam/);
+  assert.match(en.rights.intro, /PDP Law/);
+  assert.match(id.rights.intro, /UU PDP/);
+  assert.match(en.requests.paragraphs.join(" "), /30 days/);
+  assert.match(id.requests.paragraphs.join(" "), /30 hari/);
+  assert.match(en.children.paragraphs.join(" "), /18 years/);
+  assert.match(id.children.paragraphs.join(" "), /18 \(delapan belas\) tahun/);
+});

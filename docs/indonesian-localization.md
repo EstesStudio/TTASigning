@@ -157,6 +157,7 @@ Sudah terpasang:
 - Halaman harga publik (`/pricing`) memakai kamus yang sama; teksnya ada di `pricingPage`, sedangkan angka dan batas paket ada di `src/lib/pricing.ts`. Harga dan batas paket tersebut masih usulan bisnis, bukan batas teknis aplikasi, dan belum ada alur pembayaran.
 - Logo hosted memakai `public/img/logo.svg` di header web dan `public/img/logo.png` di email. Keduanya aset statis yang dipercaya; jalur upload logo organisasi tetap hanya menerima PNG/JPEG/WebP karena SVG berisiko sebagai konten pengguna dan sering tidak tampil di klien email. `HOSTED_BRANDING.logoUrl` dipakai `<Brand />`, sementara `emailLogoUrl` dipakai `buildLogoHeader()`.
 - Halaman `/terms` tetap satu URL; seluruh teksnya berasal dari `legal.terms` di kedua kamus. Isinya ditulis ulang untuk konteks Indonesia (UU ITE, PP 71/2019, UU PDP 27/2022, UU Perlindungan Konsumen), bukan sekadar diterjemahkan. Tanggal efektif tunggal ada di `src/lib/legal-date.ts` dan diformat memakai `Intl.DateTimeFormat` sesuai locale; label "Terakhir diperbarui" ada di `common.lastUpdated`. Versi ini masih menunggu tinjauan penasihat hukum Indonesia.
+- Halaman `/privacy` juga tetap satu URL dan memakai `legal.privacy` di kedua kamus. Isinya ditulis ulang untuk UU PDP 27/2022 (dasar pemrosesan Pasal 20, hak Pasal 5–13, notifikasi insiden 3 × 24 jam Pasal 46, transfer Pasal 56), UU ITE, dan PP 71/2019; PP 33/2026 mulai berlaku 16 Januari 2027. Penyedia dipakai dengan nama (Vercel, Vercel Blob, Neon, Resend, HIBP, eID Easy/CSC, webhook, dan lain-lain), retensi memakai angka dari kode, dan SLA permohonan hak adalah 30 hari. Tanggal efektif privacy terpisah (`PRIVACY_EFFECTIVE_DATE`) memakai formatter yang sama. Helper `LegalContactParagraph` dipakai bersama oleh `/terms` dan `/privacy`. Teks ini masih menunggu tinjauan penasihat hukum dan penutur asli, termasuk konfirmasi identitas badan hukum pengendali dan narahubung PDP.
 - Pratinjau dasbor di halaman landing bersifat dekoratif (`aria-hidden`) dan masih memakai data contoh berbahasa Inggris; menu akun publik juga belum diterjemahkan karena dipakai bersama permukaan lain.
 - README tidak lagi menyatakan halaman tanda tangan hanya berbahasa Inggris.
 
@@ -170,7 +171,7 @@ Hasil verifikasi pada mesin pengembangan:
 
 Kegagalan e2e penuh yang semula terlihat berasal dari lingkungan, bukan lokalisasi: `SUPPORT_EMAIL` di `.env` lokal membuat langkah validasi setup dilewati, dan aset worker PDF.js 5.5.207 tidak cocok dengan `pdfjs-dist` 6.5.438 yang dipakai aplikasi, sehingga unggahan PDF gagal dirender di editor. Keduanya dibersihkan lewat environment test dan perbaikan aset di luar cakupan lokalisasi. Tidak ada kegagalan yang menyentuk teks atau rute lokalisasi.
 
-Masih perlu sebelum rilis: tinjauan hukum/penutur asli atas terjemahan disclosure dan Syarat Layanan baru, serta konfirmasi akhir e2e penuh setelah perbaikan aset worker. `bun run lint` kini memakai Biome dan dapat berjalan dengan TypeScript 7.
+Masih perlu sebelum rilis: tinjauan hukum/penutur asli atas terjemahan disclosure, Syarat Layanan, dan Kebijakan Privasi baru, serta konfirmasi akhir e2e penuh setelah perbaikan aset worker. `bun run lint` kini memakai Biome dan dapat berjalan dengan TypeScript 7.
 
 ## 10. Referensi
 

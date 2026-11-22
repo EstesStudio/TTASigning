@@ -699,6 +699,220 @@ export const idMessages: Messages = defineMessages({
     },
   },
   legal: {
+    privacy: {
+      hero: {
+        description:
+          "Kebijakan ini menjelaskan data pribadi apa yang diproses Sakta, mengapa kami memprosesnya, siapa yang menerimanya, berapa lama kami menyimpannya, serta hak yang tersedia bagi Anda berdasarkan hukum Indonesia.",
+        title: "Kebijakan Privasi",
+      },
+      metadata: {
+        description:
+          "Baca bagaimana Sakta mengumpulkan, menggunakan, membagikan, menyimpan, dan melindungi data pribadi sesuai UU PDP Indonesia.",
+        title: "Kebijakan Privasi | Sakta",
+      },
+      sections: {
+        changes: {
+          heading: "13. Perubahan kebijakan ini",
+          paragraphs: [
+            "Kami dapat memperbarui kebijakan ini untuk menyesuaikan perubahan layanan atau hukum. Jika data yang kami kumpulkan atau tujuan pemrosesan berubah, kami akan memberi tahu Anda sebelum perubahan berlaku, sebagaimana diwajibkan Pasal 21 UU PDP.",
+            "Versi terbaru selalu tersedia di /privacy dengan tanggal berlaku yang ditampilkan di bagian atas halaman.",
+          ],
+        },
+        children: {
+          heading: "12. Anak",
+          paragraphs: [
+            "Sakta tidak ditujukan kepada anak. Untuk kebijakan ini, yang dimaksud anak adalah orang yang berusia di bawah 18 (delapan belas) tahun dan belum menikah, sesuai UU PDP dan peraturan pelaksananya.",
+            "Kami tidak dengan sengaja mengumpulkan data pribadi anak tanpa persetujuan orang tua atau wali. Jika Anda meyakini seorang anak telah memberikan data melalui Sakta, hubungi kami agar kami dapat meninjau catatannya dan, bila diwajibkan, memperoleh persetujuan wali atau menghapus datanya.",
+          ],
+        },
+        contact: {
+          contactWithSupport:
+            "Untuk pertanyaan, permohonan, atau pengaduan tentang kebijakan ini, tuliskan ke {supportAddress} atau gunakan halaman {contactLink}.",
+          heading: "14. Kontak dan pengaduan",
+          paragraphs: [
+            "Jika Anda tidak puas dengan tanggapan kami, Anda dapat mengajukan pengaduan kepada lembaga pelindungan data pribadi atau otoritas yang berwenang di Indonesia. Sampai lembaga PDP khusus terbentuk, pengaduan dapat disampaikan kepada kementerian terkait.",
+          ],
+        },
+        cookies: {
+          closing:
+            "Pemrosesan opsional Vercel BotID hanya berlaku jika fitur tersebut diaktifkan. Anda dapat menghapus cookie dan cache lokal di browser, meskipun Anda mungkin perlu masuk kembali.",
+          heading: "8. Cookie, verifikasi, dan penyimpanan lokal",
+          intro:
+            "Kami menggunakan cookie dan penyimpanan browser hanya untuk menjalankan dan mengamankan layanan:",
+          items: [
+            "better-auth.session_token — menjaga Anda tetap masuk selama 7 hari.",
+            "better-auth.session_data dan better-auth.account_data — cache autentikasi berumur pendek, berlaku 5 menit.",
+            "dont_remember dan cookie OAuth/PKCE — menyimpan status masuk dan melindungi proses login selama 5 sampai 10 menit.",
+            "sd_v_<prefiks hash token> — memverifikasi penandatangan setelah kode akses, pemeriksaan akun, atau kode surel, berlaku 8 jam.",
+            "NEXT_LOCALE — mengingat pilihan bahasa Anda selama 365 hari. Cookie ini hanya dipakai untuk memilih bahasa dan dapat dibaca skrip.",
+            "IndexedDB signudoc-draft-preview-cache — menyimpan pratinjau PDF draf di browser maksimal 24 jam.",
+          ],
+        },
+        dataCategories: {
+          heading: "2. Data pribadi yang kami proses",
+          intro: "Kami memproses kategori data pribadi berikut:",
+          items: [
+            "Data akun: nama, alamat surel, kredensial sandi yang disimpan sebagai hash, status verifikasi surel, gambar profil, dan pengaturan akun.",
+            "Data autentikasi dan sesi: pengenal sesi, alamat IP, user agent, peristiwa masuk, rahasia dan kode cadangan two-factor, serta pengenal OAuth/SSO bila Anda menggunakan masuk tunggal.",
+            "Data dokumen dan alur kerja: PDF yang diunggah, judul, jumlah halaman, kolom yang dipasang, urutan penandatanganan, status amplop, templat, serta berkas turunan seperti miniatura, PDF tersegel, dan sertifikat.",
+            "Data penandatangan: nama, surel, peran, locale, metode akses, tanda tangan ketik atau gambar, nilai kolom, pilihan kotak centang, alasan penolakan, dan cap waktu.",
+            "Data audit dan keamanan: peristiwa audit, surel pelaku, alamat IP, user agent, pengenal token, hash kunci API, nilai hash-chain, dan catatan pengiriman webhook.",
+            "Data komunikasi dan dukungan: pesan yang Anda kirim melalui formulir kontak atau surel, termasuk nama, surel, isi pesan, dan konteks pembatasan laju.",
+            "Pengaturan organisasi: nama organisasi, alamat pengirim dan dukungan, pengaturan retensi, pemberitahuan persetujuan, dan konfigurasi mode hosted.",
+            "Preferensi dan data lokal: pilihan bahasa Anda serta cache pratinjau draf di browser sebagaimana dijelaskan pada bagian 8.",
+          ],
+        },
+        incidents: {
+          heading: "11. Keamanan dan kegagalan pelindungan data pribadi",
+          noticeItems: [
+            "data pribadi yang terungkap;",
+            "kapan dan bagaimana data terungkap; dan",
+            "upaya penanganan dan pemulihan atas kejadian tersebut.",
+          ],
+          paragraphs: [
+            "Kami menggunakan kontrol akses, pencatatan audit, pembatasan laju, header keamanan, enkripsi saat transmisi, dan penyimpanan objek privat untuk melindungi data pribadi. Tidak ada sistem yang sepenuhnya aman.",
+            "Jika terjadi kegagalan pelindungan data pribadi, kami akan memberi tahu subjek data yang terdampak dan lembaga yang berwenang secara tertulis paling lambat 3 × 24 jam, sebagaimana diwajibkan Pasal 46 UU PDP. Pemberitahuan tersebut memuat sedikitnya:",
+          ],
+          publicNotice:
+            "Jika kegagalan tersebut kemungkinan berdampak pada masyarakat, kami juga akan mengumumkannya secara terbuka.",
+        },
+        purposes: {
+          heading: "4. Tujuan dan dasar hukum pemrosesan",
+          intro:
+            "Kami memproses data pribadi hanya untuk tujuan di bawah ini dan berdasarkan dasar hukum yang tersedia menurut Pasal 20 UU PDP:",
+          rows: [
+            {
+              basis:
+                "Dasar: pelaksanaan perjanjian dan kepentingan sah kami dalam mengamankan akun.",
+              purpose:
+                "Membuat akun, mengautentikasi pengguna, serta mengirim pesan verifikasi atau keamanan.",
+            },
+            {
+              basis:
+                "Dasar: pelaksanaan perjanjian dan pemenuhan kewajiban hukum atas catatan elektronik menurut UU ITE dan PP Nomor 71 Tahun 2019.",
+              purpose:
+                "Menyiapkan, mengirim, menandatangani, menolak, dan menyimpan amplop, termasuk jejak audit dan PDF tersegel.",
+            },
+            {
+              basis: "Dasar: pelaksanaan perjanjian.",
+              purpose:
+                "Mengirim surel transaksional dan, jika diaktifkan, melampirkan dokumen atau sertifikat yang telah selesai.",
+            },
+            {
+              basis:
+                "Dasar: kepentingan sah dan pemenuhan kewajiban keamanan menurut UU PDP.",
+              purpose:
+                "Mendeteksi penipuan, penyalahgunaan, dan akses tanpa izin, serta menerapkan pembatasan laju dan kontrol keamanan.",
+            },
+            {
+              basis:
+                "Dasar: kepentingan sah, pelaksanaan perjanjian, dan kewajiban hukum.",
+              purpose:
+                "Memberikan dukungan serta menanggapi permohonan privasi, aksesibilitas, dan penutupan akun.",
+            },
+            {
+              basis:
+                "Dasar: kepentingan sah dan kewajiban hukum; kami tidak menggunakan data pribadi untuk iklan.",
+              purpose:
+                "Mengelola retensi, penghapusan, cadangan, dan perbaikan layanan.",
+            },
+            {
+              basis:
+                "Dasar: kewajiban hukum dan kepentingan sah untuk menetapkan, menjalankan, atau membela tuntutan hukum.",
+              purpose:
+                "Menangani pengaduan, sengketa, serta permintaan dari regulator atau pengadilan.",
+            },
+          ],
+        },
+        recipients: {
+          closing:
+            "Kami tidak menjual data pribadi, tidak menjalankan bisnis iklan, dan tidak mengonfigurasi SMS atau analitik pihak ketiga di layanan hosted. Jika penyedia memproses data atas nama kami, kami menggunakan pengaturan kontrak sebagaimana diperlukan UU PDP.",
+          heading: "5. Penerima dan penyedia layanan",
+          intro:
+            "Kami membagikan data pribadi hanya kepada penyedia yang memerlukannya untuk menjalankan Sakta, kepada pihak dalam amplop, atau ketika hukum mewajibkannya. Penerima utamanya adalah:",
+          items: [
+            "Vercel — hosting aplikasi, layanan edge dan jaringan, serta perlindungan bot BotID yang opsional.",
+            "Vercel Blob — penyimpanan privat untuk dokumen yang diunggah, PDF hasil, sertifikat, dan cadangan.",
+            "Neon atau penyedia PostgreSQL lain — hosting basis data untuk catatan akun, amplop, penandatangan, dan audit.",
+            "Resend — pengiriman surel transaksional; surel dokumen selesai dapat memuat lampiran PDF atau sertifikat.",
+            "Have I Been Pwned (api.pwnedpasswords.com) — pemeriksaan kebocoran sandi opsional yang hanya mengirim beberapa karakter awal hash SHA-1; pemeriksaan ini dapat dinonaktifkan.",
+            "eID Easy dan CSC — penyedia tanda tangan elektronik opsional yang menerima nama dokumen, jenis MIME, digest SHA-256, dan metadata penandatanganan.",
+            "Server timestamp RFC 3161 serta responder OCSP/CRL — menerima digest atau permintaan status sertifikat untuk memvalidasi segel.",
+            "Penyedia OIDC/SSO yang Anda konfigurasi — menerima alihan autentikasi serta cakupan openid, email, dan profile ketika Anda masuk dengan cara tersebut.",
+            "Endpoint webhook yang dikonfigurasi organisasi Anda — menerima payload peristiwa amplop dan penandatangan yang dipilih administrator.",
+            "Penyedia log drain/SIEM opsional — menerima log keamanan dan audit jika diaktifkan.",
+          ],
+        },
+        requests: {
+          heading: "10. Cara mengajukan permohonan",
+          paragraphs: [
+            "Kami dapat meminta keterangan untuk memverifikasi identitas Anda, misalnya kendali atas alamat surel, aktivitas akun terbaru, atau detail amplop. Kami tidak meminta data melebihi yang diperlukan.",
+            "Kami menanggapi dalam waktu 30 hari setelah permohonan lengkap diterima. Jika kami memerlukan waktu tambahan atau menolak permohonan, kami akan menjelaskan alasannya. Permohonan tidak dikenakan biaya kecuali dianggap tidak wajar atau berulang; dalam hal itu kami dapat mengenakan biaya administrasi yang wajar atau menolaknya sesuai hukum.",
+          ],
+          requestWithSupport:
+            "Untuk menggunakan hak Anda, tuliskan ke {supportAddress} atau gunakan halaman {contactLink}. Anda juga dapat meminta penutupan akun melalui pengaturan, sementara administrator organisasi dapat memakai alat ekspor dan penghapusan data penandatangan untuk amplop yang dikirim organisasi.",
+        },
+        retention: {
+          closing:
+            "Anda dapat meminta kami menghapus data penandatangan lebih awal. Kami akan melakukannya kecuali kewajiban hukum atau amplop yang masih berjalan melarangnya.",
+          heading: "7. Retensi dan penghapusan",
+          intro:
+            "Kami menyimpan data pribadi hanya selama diperlukan untuk tujuan pengumpulannya, lalu menghapus atau menganonimkannya, dengan tunduk pada jangka waktu berikut:",
+          items: [
+            "Amplop draf yang belum dikirim dan dokumen sumbernya: dihapus setelah 30 hari tanpa aktivitas pengirim.",
+            "Amplop selesai, ditandatangani, ditolak, dan dibatalkan: disimpan selama akun aktif, atau sesuai jangka retensi yang ditetapkan organisasi. Penghapusan terjadwal menunggu 14 hari dan terlebih dahulu memberi pengirim tautan unduhan.",
+            "Penutupan akun: setelah pemberitahuan dan jendela ekspor 30 hari, dokumen dan catatan amplop yang tersimpan dihapus, kecuali catatan yang wajib disimpan untuk keamanan, pemenuhan hukum, atau sengketa.",
+            "Log audit dan keamanan: disimpan selama diperlukan untuk menyelidiki insiden, memenuhi kewajiban hukum, dan menegakkan perjanjian.",
+            "Salinan cadangan: disimpan maksimal 30 hari secara default, lalu dihapus pada rotasi cadangan.",
+            "Catatan token unduhan penerima yang kedaluwarsa: dihapus setelah 365 hari.",
+            "Amplop Part 11 dan catatan yang berada di bawah penahanan hukum tidak dihapus oleh tugas retensi otomatis.",
+          ],
+        },
+        rights: {
+          heading: "9. Hak Anda menurut UU PDP",
+          intro:
+            "Berdasarkan UU PDP, Anda dapat, dengan tunduk pada ketentuan undang-undang tersebut:",
+          items: [
+            "mendapatkan informasi yang jelas tentang identitas kami, tujuan, dan dasar hukum pemrosesan (Pasal 5);",
+            "melengkapi, memperbarui, dan/atau memperbaiki data pribadi Anda (Pasal 6);",
+            "mengakses data Anda dan memperoleh salinannya (Pasal 7);",
+            "mengakhiri pemrosesan, menghapus, dan/atau memusnahkan data Anda (Pasal 8);",
+            "menarik kembali persetujuan jika pemrosesan didasarkan pada persetujuan (Pasal 9);",
+            "mengajukan keberatan atas keputusan yang hanya didasarkan pada pemrosesan otomatis dan berakibat hukum atau dampak signifikan (Pasal 10);",
+            "menunda atau membatasi pemrosesan sesuai tujuannya (Pasal 11);",
+            "menerima data dalam format terstruktur, lazim digunakan, dan dapat dibaca mesin, serta mengirimkannya ke pengendali lain sepanjang sistemnya dapat berkomunikasi secara aman (Pasal 13); dan",
+            "menggugat dan menerima ganti rugi atas pelanggaran pemrosesan data pribadi (Pasal 12).",
+          ],
+          limitations:
+            "Sebagian hak dapat dikecualikan dalam keadaan yang diatur Pasal 15 UU PDP, misalnya untuk penegakan hukum atau kepentingan umum. Kami juga dapat menyimpan catatan terbatas bila diperlukan untuk menetapkan, menjalankan, atau membela tuntutan hukum.",
+        },
+        scope: {
+          heading: "1. Ruang lingkup, pengendali, dan narahubung privasi",
+          paragraphs: [
+            "Kebijakan Privasi ini menjelaskan bagaimana Sakta memproses data pribadi ketika Anda menggunakan layanan hosted di sakta.my.id, termasuk situs web, akun dan dasbor, halaman penandatanganan, surel, dan kanal dukungan. Kebijakan ini berlaku bagi pemegang akun, pengirim, penandatangan, penerima, dan pengunjung.",
+            "Untuk keperluan UU Perlindungan Data Pribadi (UU PDP Nomor 27 Tahun 2022), Sakta berkedudukan sebagai pengendali data pribadi atas pemrosesan yang dijelaskan di sini. Pertanyaan tentang identitas pengendali dan narahubung privasi dapat disampaikan melalui kanal pada bagian 14.",
+          ],
+        },
+        sources: {
+          heading: "3. Sumber data",
+          intro: "Kami memperoleh data dari:",
+          items: [
+            "Anda secara langsung saat mendaftar, mengunggah dokumen, mengundang penandatangan, mengisi kolom, menandatangani, menolak, atau menghubungi dukungan;",
+            "penandatangan atau peserta lain dalam amplop yang Anda kirim;",
+            "perangkat dan browser Anda secara otomatis saat Anda memakai layanan, termasuk alamat IP dan user agent;",
+            "penyedia identitas atau tanda tangan opsional saat Anda memilih memakainya; dan",
+            "administrator organisasi Anda saat membuat atau mengelola akun dan pengaturan.",
+          ],
+        },
+        transfers: {
+          heading: "6. Transfer ke luar Indonesia",
+          paragraphs: [
+            "Sebagian penyedia di atas dapat memproses data di luar Indonesia, termasuk di Amerika Serikat. Jika hal itu terjadi, kami berupaya memastikan negara tujuan memiliki tingkat pelindungan data pribadi yang setara atau lebih tinggi dari UU PDP, atau tersedia jaminan yang memadai dan mengikat, sebagaimana diwajibkan Pasal 56.",
+            "Jika kedua kondisi tersebut tidak terpenuhi, kami akan meminta persetujuan Anda bila diwajibkan oleh Pasal 56 ayat (4) UU PDP. Anda dapat menghubungi kami untuk mengetahui jaminan yang berlaku bagi penyedia tertentu.",
+          ],
+        },
+      },
+    },
     terms: {
       hero: {
         description:

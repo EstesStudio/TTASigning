@@ -694,6 +694,220 @@ export const enMessages = defineMessages({
     },
   },
   legal: {
+    privacy: {
+      hero: {
+        description:
+          "This policy explains what personal data Sakta processes, why we process it, who receives it, how long we keep it, and the rights available to you under Indonesian law.",
+        title: "Privacy Policy",
+      },
+      metadata: {
+        description:
+          "Read how Sakta collects, uses, shares, retains, and protects personal data in line with Indonesia's PDP Law.",
+        title: "Privacy Policy | Sakta",
+      },
+      sections: {
+        changes: {
+          heading: "13. Changes to this policy",
+          paragraphs: [
+            "We may update this policy to reflect changes in the service or in the law. If the data we collect or the purposes of processing change, we will inform you before the change takes effect, as required by Article 21 of the PDP Law.",
+            "The current version is always available at /privacy, with its effective date shown at the top of the page.",
+          ],
+        },
+        children: {
+          heading: "12. Children",
+          paragraphs: [
+            "Sakta is not directed to children. For this policy, a child is a person under 18 years of age who is not married, consistent with the PDP Law and its implementing regulation.",
+            "We do not knowingly collect a child's personal data without the consent of a parent or guardian. If you believe a child has provided data through Sakta, contact us so we can review the record and, where required, obtain guardian consent or delete the data.",
+          ],
+        },
+        contact: {
+          contactWithSupport:
+            "For questions, requests, or complaints about this policy, write to {supportAddress} or use the {contactLink} page.",
+          heading: "14. Contact and complaints",
+          paragraphs: [
+            "If you are not satisfied with our response, you may lodge a complaint with the personal data protection institution or the competent authority in Indonesia. Until the dedicated PDP authority is established, complaints can be directed to the relevant ministry.",
+          ],
+        },
+        cookies: {
+          closing:
+            "Optional Vercel BotID processing applies only when that feature is enabled. You can clear these cookies and the local cache in your browser, although you may need to sign in again.",
+          heading: "8. Cookies, verification, and local storage",
+          intro:
+            "We use cookies and browser storage only to operate and secure the service:",
+          items: [
+            "better-auth.session_token — keeps you signed in for 7 days.",
+            "better-auth.session_data and better-auth.account_data — short-lived authentication cache, valid for 5 minutes.",
+            "dont_remember and OAuth/PKCE cookies — keep sign-in state and protect login for 5 to 10 minutes.",
+            "sd_v_<token hash prefix> — verifies a signer after an access code, account check, or email code, valid for 8 hours.",
+            "NEXT_LOCALE — remembers your language preference for 365 days. It is used only for language selection and can be read by scripts.",
+            "IndexedDB signudoc-draft-preview-cache — caches draft PDF previews in your browser for up to 24 hours.",
+          ],
+        },
+        dataCategories: {
+          heading: "2. Personal data we process",
+          intro: "We process the following categories of personal data:",
+          items: [
+            "Account data: name, email address, password credential stored as a hash, email verification status, profile image, and account settings.",
+            "Authentication and session data: session identifiers, IP address, user agent, sign-in events, two-factor secrets and backup codes, and OAuth/SSO identifiers when you use single sign-on.",
+            "Document and workflow data: uploaded PDFs, titles, page counts, placed fields, routing order, envelope status, templates, and generated files such as thumbnails, sealed PDFs, and certificates.",
+            "Signer data: name, email, role, locale, access method, typed or drawn signature, field values, checkbox selections, decline reasons, and timestamps.",
+            "Audit and security data: audit events, actor email, IP address, user agent, token identifiers, API key hashes, hash-chain values, and webhook delivery records.",
+            "Communications and support data: messages you send through the contact form or email, including name, email, message content, and rate-limit context.",
+            "Organization settings: organization name, sender and support addresses, retention settings, consent notice, and hosted configuration.",
+            "Preferences and local state: your language choice and the browser-side draft preview cache described in section 8.",
+          ],
+        },
+        incidents: {
+          heading: "11. Security and personal data breaches",
+          noticeItems: [
+            "the personal data that was exposed;",
+            "when and how it was exposed; and",
+            "the steps we took to handle and recover from the incident.",
+          ],
+          paragraphs: [
+            "We use access controls, audit logging, rate limits, security headers, encryption in transit, and private object storage to protect personal data. No system is completely secure.",
+            "If a personal data protection failure occurs, we will notify affected data subjects and the competent institution in writing within 3 × 24 hours, as required by Article 46 of the PDP Law. The notice will contain at least:",
+          ],
+          publicNotice:
+            "Where the failure is likely to affect the public, we will also issue a public notice.",
+        },
+        purposes: {
+          heading: "4. Purposes and legal bases",
+          intro:
+            "We process personal data only for the purposes below and on the legal bases available under Article 20 of the PDP Law:",
+          rows: [
+            {
+              basis:
+                "Basis: performance of a contract and our legitimate interest in account security.",
+              purpose:
+                "Creating accounts, authenticating users, and sending verification or security messages.",
+            },
+            {
+              basis:
+                "Basis: performance of a contract and compliance with legal obligations for electronic records under UU ITE and PP 71/2019.",
+              purpose:
+                "Preparing, sending, signing, declining, and storing envelopes, including audit trails and sealed PDFs.",
+            },
+            {
+              basis: "Basis: performance of a contract.",
+              purpose:
+                "Sending transactional emails and, where enabled, attaching completed documents or certificates.",
+            },
+            {
+              basis:
+                "Basis: legitimate interests and compliance with security obligations under the PDP Law.",
+              purpose:
+                "Detecting fraud, abuse, and unauthorized access, and enforcing rate limits and security controls.",
+            },
+            {
+              basis:
+                "Basis: legitimate interests, contract performance, and legal obligations.",
+              purpose:
+                "Providing support and responding to privacy, accessibility, and account-closure requests.",
+            },
+            {
+              basis:
+                "Basis: legitimate interests and legal obligations; we do not use personal data for advertising.",
+              purpose:
+                "Managing retention, deletion, backups, and service improvements.",
+            },
+            {
+              basis:
+                "Basis: legal obligations and legitimate interests in establishing, exercising, or defending legal claims.",
+              purpose:
+                "Handling complaints, disputes, and requests from regulators or courts.",
+            },
+          ],
+        },
+        recipients: {
+          closing:
+            "We do not sell personal data, do not run an advertising business, and have not configured SMS messaging or third-party analytics in the hosted service. Where a provider processes data on our behalf, we use contractual arrangements as required by the PDP Law.",
+          heading: "5. Recipients and service providers",
+          intro:
+            "We share personal data only with providers that need it to run Sakta, with participants in an envelope, or where the law requires it. The main recipients are:",
+          items: [
+            "Vercel — application hosting, edge and network services, and optional BotID bot protection.",
+            "Vercel Blob — private storage for uploaded documents, generated PDFs, certificates, and backups.",
+            "Neon or another PostgreSQL provider — database hosting for account, envelope, signer, and audit records.",
+            "Resend — transactional email delivery; completed-document emails may include signed PDFs or certificates as attachments.",
+            "Have I Been Pwned (api.pwnedpasswords.com) — optional password breach check that sends only the first characters of a SHA-1 hash; this check can be disabled.",
+            "eID Easy and CSC — optional electronic signing providers that receive a document name, MIME type, SHA-256 digest, and signing metadata.",
+            "RFC 3161 timestamp servers and OCSP/CRL responders — receive digests or certificate status requests to validate seals.",
+            "Your configured OIDC/SSO provider — receives authentication redirects and the openid, email, and profile scopes when you sign in that way.",
+            "Webhook endpoints configured by your organization — receive envelope and signer event payloads chosen by the administrator.",
+            "Optional log drain/SIEM providers — receive security and audit logs when enabled.",
+          ],
+        },
+        requests: {
+          heading: "10. How to make a request",
+          paragraphs: [
+            "We may ask for information to verify your identity, such as control of the email address, recent account activity, or envelope details. We will not ask for more data than necessary.",
+            "We will respond within 30 days of receiving a complete request. If we need more time or refuse a request, we will explain why. Requests are free unless they are unreasonable or repetitive, in which case we may charge a reasonable administrative fee or decline as allowed by law.",
+          ],
+          requestWithSupport:
+            "To exercise a right, write to {supportAddress} or use the {contactLink} page. You can also request account closure in settings, and an organization administrator can use the signer-data export and erasure tools for envelopes the organization sent.",
+        },
+        retention: {
+          closing:
+            "You may ask us to delete signer data earlier. We will do so unless a legal obligation or an in-progress envelope prevents it.",
+          heading: "7. Retention and deletion",
+          intro:
+            "We keep personal data only as long as needed for the purpose it was collected, then delete or anonymize it, subject to the following periods:",
+          items: [
+            "Unsent draft envelopes and their source documents: deleted after 30 days without sender activity.",
+            "Completed, signed, declined, and voided envelopes: kept while the account is active, or for the retention period set by the organization. A scheduled deletion waits 14 days and gives the sender a download link first.",
+            "Account closure: after notice and a 30-day export window, stored documents and envelope records are deleted, except records we must keep for security, legal compliance, or disputes.",
+            "Audit and security logs: kept as long as needed to investigate incidents, meet legal obligations, and enforce agreements.",
+            "Backup copies: kept for up to 30 days by default, then removed on the backup rotation.",
+            "Expired recipient download-token records: deleted after 365 days.",
+            "Part 11 envelopes and records under a legal hold are not removed by the automatic retention job.",
+          ],
+        },
+        rights: {
+          heading: "9. Your rights under the PDP Law",
+          intro:
+            "Under the PDP Law you may, subject to the conditions in that law:",
+          items: [
+            "receive clear information about our identity, the purposes, and the legal basis for processing (Article 5);",
+            "complete, update, or correct your personal data (Article 6);",
+            "access your data and receive a copy (Article 7);",
+            "end processing, delete, or destroy your data (Article 8);",
+            "withdraw consent where processing is based on consent (Article 9);",
+            "object to decisions based solely on automated processing that have legal or similarly significant effects (Article 10);",
+            "restrict or delay processing where the purpose no longer requires it (Article 11);",
+            "receive your data in a structured, commonly used, machine-readable format and transmit it to another controller where technically feasible (Article 13); and",
+            "bring a claim and receive compensation for a breach of data processing (Article 12).",
+          ],
+          limitations:
+            "Some rights may be excluded in the circumstances listed in Article 15 of the PDP Law, such as law enforcement or public-interest processing. We may also keep limited records where necessary to establish, exercise, or defend legal claims.",
+        },
+        scope: {
+          heading: "1. Scope, controller, and privacy contact",
+          paragraphs: [
+            "This Privacy Policy explains how Sakta processes personal data when you use the hosted service at sakta.my.id, including the website, account and dashboard, signing pages, emails, and support channels. It applies to account holders, senders, signers, recipients, and visitors.",
+            "For the purposes of the Indonesian Personal Data Protection Law (UU PDP No. 27 of 2022), Sakta acts as the personal data controller for the processing described here. Questions about the controller's identity and the privacy contact can be sent through the channel in section 14.",
+          ],
+        },
+        sources: {
+          heading: "3. Where the data comes from",
+          intro: "We obtain data from:",
+          items: [
+            "you directly, when you register, upload documents, invite signers, fill fields, sign, decline, or contact support;",
+            "the signer or other participants in an envelope you sent;",
+            "your device and browser automatically when you use the service, including IP address and user agent;",
+            "optional identity or signing providers when you choose to use them; and",
+            "your organization's administrator when they create or manage your account and settings.",
+          ],
+        },
+        transfers: {
+          heading: "6. Transfers outside Indonesia",
+          paragraphs: [
+            "Some of the providers above may process data outside Indonesia, including in the United States. When that happens, we seek to ensure that the destination country offers a level of personal data protection equivalent to or higher than the PDP Law, or that adequate and binding safeguards are in place, as required by Article 56.",
+            "If neither condition can be met, we will ask for your consent where Article 56(4) of the PDP Law requires it. You may contact us to ask which safeguards apply to a specific provider.",
+          ],
+        },
+      },
+    },
     terms: {
       hero: {
         description:

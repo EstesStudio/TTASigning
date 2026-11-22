@@ -1,10 +1,9 @@
 import type { Metadata } from "next";
-import Link from "next/link";
 import type { ReactNode } from "react";
 
+import { LegalContactParagraph } from "@/components/layout/legal-contact-paragraph";
 import { PublicDocumentShell } from "@/components/layout/public-document-shell";
 import { requireHostedMode } from "@/lib/hosted-pages";
-import { formatMessage } from "@/lib/i18n/format.ts";
 import { getMessages } from "@/lib/i18n/messages.ts";
 import { getRequestLocale } from "@/lib/i18n/request.ts";
 import { formatLegalDate, TERMS_EFFECTIVE_DATE } from "@/lib/legal-date.ts";
@@ -14,8 +13,6 @@ import { resolvePublicSupportAddress } from "@/lib/public-contact";
 // and the Consumer Protection Law. Indonesian counsel should review it before
 // release; this is product copy, not a legal opinion.
 
-const linkClassName =
-  "font-semibold text-(--accent-ink) underline decoration-[rgb(var(--accent-rgb)/0.35)] underline-offset-4";
 const headingClassName =
   "text-xl font-extrabold tracking-[-0.02em] text-(--fg)";
 
@@ -86,7 +83,7 @@ export default async function TermsPage() {
 
       <Section heading={sections.suspension.heading}>
         <Paragraphs items={sections.suspension.paragraphs} />
-        <ContactParagraph
+        <LegalContactParagraph
           contactLabel={messages.footer.contact}
           supportAddress={supportAddress}
           template={sections.suspension.closureWithSupport}
@@ -110,7 +107,7 @@ export default async function TermsPage() {
       </Section>
 
       <Section heading={sections.contact.heading}>
-        <ContactParagraph
+        <LegalContactParagraph
           contactLabel={messages.footer.contact}
           supportAddress={supportAddress}
           template={sections.contact.contactWithSupport}
@@ -137,45 +134,4 @@ function Section({
 
 function Paragraphs({ items }: { items: readonly string[] }) {
   return items.map((item) => <p key={item}>{item}</p>);
-}
-
-/**
- * Keeps the two links as anchors while the surrounding sentence comes from
- * the dictionary. `formatMessage` fills the placeholders first, so a missing
- * value stays visible in review instead of becoming an empty link.
- */
-function ContactParagraph({
-  contactLabel,
-  supportAddress,
-  template,
-}: {
-  contactLabel: string;
-  supportAddress: string;
-  template: string;
-}) {
-  const rendered = formatMessage(template, {
-    contactLink: contactLabel,
-    supportAddress,
-  });
-  const [beforeSupport, rest = ""] = rendered.split(supportAddress);
-  const hasContactLink = rendered.includes(contactLabel);
-  const [middle, after = ""] = hasContactLink
-    ? rest.split(contactLabel)
-    : [rest, ""];
-
-  return (
-    <p>
-      {beforeSupport}
-      <Link className={linkClassName} href={`mailto:${supportAddress}`}>
-        {supportAddress}
-      </Link>
-      {middle}
-      {hasContactLink ? (
-        <Link className={linkClassName} href="/contact">
-          {contactLabel}
-        </Link>
-      ) : null}
-      {after}
-    </p>
-  );
 }
