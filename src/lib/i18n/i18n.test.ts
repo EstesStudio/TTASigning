@@ -205,6 +205,24 @@ test("the settings panels have translated copy in both languages", () => {
   }
 });
 
+test("the app shell and account menus have translated copy", () => {
+  const en = enMessages.shell;
+  const id = idMessages.shell;
+
+  assert.equal(en.nav.documents, "Documents");
+  assert.equal(id.nav.documents, "Dokumen");
+  assert.equal(en.sessionMenu.logOut, "Log out");
+  assert.equal(id.sessionMenu.logOut, "Keluar");
+  assert.equal(en.twoStepSetup.eyebrow, "One more step");
+  assert.equal(id.twoStepSetup.eyebrow, "Satu langkah lagi");
+
+  for (const copy of [en, id]) {
+    assert.match(copy.accountMenuAriaLabel, /\{name\}/);
+    assert.match(copy.twoStepSetup.description, /\{productName\}.*\{email\}/);
+    assert.equal(Object.keys(copy.nav).length, 4);
+  }
+});
+
 test("the permitted-use page uses the current name and covers Indonesia", () => {
   const en = enMessages.permittedUse;
   const id = idMessages.permittedUse;

@@ -907,6 +907,37 @@ export const enMessages = defineMessages({
       listAriaLabel: "Webhook endpoints",
     },
   },
+  shell: {
+    accountMenuAriaLabel: "Account menu for {name}",
+    emailNotice: {
+      action: "Finish email setup",
+      description:
+        "Until it is, signers and new users will not receive messages from this site.",
+      title: "Email is not set up yet.",
+    },
+    nav: {
+      documents: "Documents",
+      newEnvelope: "New envelope",
+      settings: "Settings",
+      templates: "Templates",
+    },
+    sessionMenu: {
+      dashboard: "Dashboard",
+      logOut: "Log out",
+      openAriaLabel: "Open account menu",
+      signingOut: "Signing out...",
+    },
+    settingsLink: "Settings",
+    signOut: "Sign out",
+    signingOut: "Signing out...",
+    twoStepSetup: {
+      description:
+        "Your organization requires two-step sign-in on {productName}. Set it up for {email} to continue. It takes about a minute with an authenticator app on your phone.",
+      eyebrow: "One more step",
+      signOut: "Sign out",
+    },
+    workspaceAriaLabel: "Workspace",
+  },
   footer: {
     accessibilityLong: "Accessibility Statement",
     accessibilityShort: "Accessibility",

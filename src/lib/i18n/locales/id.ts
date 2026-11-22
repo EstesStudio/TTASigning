@@ -918,6 +918,37 @@ export const idMessages: Messages = defineMessages({
       listAriaLabel: "Endpoint webhook",
     },
   },
+  shell: {
+    accountMenuAriaLabel: "Menu akun untuk {name}",
+    emailNotice: {
+      action: "Selesaikan pengaturan email",
+      description:
+        "Sebelum itu, penandatangan dan pengguna baru tidak akan menerima pesan dari situs ini.",
+      title: "Email belum diatur.",
+    },
+    nav: {
+      documents: "Dokumen",
+      newEnvelope: "Amplop baru",
+      settings: "Pengaturan",
+      templates: "Templat",
+    },
+    sessionMenu: {
+      dashboard: "Dasbor",
+      logOut: "Keluar",
+      openAriaLabel: "Buka menu akun",
+      signingOut: "Sedang keluar...",
+    },
+    settingsLink: "Pengaturan",
+    signOut: "Keluar",
+    signingOut: "Sedang keluar...",
+    twoStepSetup: {
+      description:
+        "Organisasi Anda mewajibkan masuk dua langkah di {productName}. Siapkan untuk {email} agar dapat melanjutkan. Prosesnya kurang dari satu menit dengan aplikasi autentikator di ponsel Anda.",
+      eyebrow: "Satu langkah lagi",
+      signOut: "Keluar",
+    },
+    workspaceAriaLabel: "Ruang kerja",
+  },
   footer: {
     accessibilityLong: "Pernyataan Aksesibilitas",
     accessibilityShort: "Aksesibilitas",

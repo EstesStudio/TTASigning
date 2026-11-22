@@ -4,7 +4,7 @@ import {
   type DashboardFilter,
 } from "@/components/dashboard/dashboard-documents-surface";
 import { Brand } from "@/components/layout/brand";
-import { primaryNavItems } from "@/components/layout/nav-items";
+import { getPrimaryNavItems } from "@/components/layout/nav-items";
 import { cn } from "@/lib/cn";
 import { formatDashboardDate } from "@/lib/dashboard-labels.ts";
 import type { DashboardEnvelopeListItem } from "@/lib/envelopes";
@@ -94,7 +94,9 @@ function buildPreviewEnvelopes(
 
 export async function LandingDashboardPreview() {
   const locale = await getRequestLocale();
-  const copy = getMessages(locale).dashboard;
+  const messages = getMessages(locale);
+  const copy = messages.dashboard;
+  const previewNavItems = getPrimaryNavItems(messages.shell.nav);
   const previewEnvelopes = buildPreviewEnvelopes(copy, locale);
 
   return (
@@ -107,7 +109,7 @@ export async function LandingDashboardPreview() {
           <div className="flex min-w-0 items-center gap-7">
             <Brand href="/" />
             <div className="hidden items-center gap-1 md:flex">
-              {primaryNavItems.map((item) => (
+              {previewNavItems.map((item) => (
                 <span
                   className={cn(
                     "inline-flex min-h-9 items-center rounded-[0.625rem] px-3.5 text-sm",
