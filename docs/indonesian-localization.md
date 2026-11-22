@@ -166,6 +166,15 @@ Sudah terpasang:
 - Pengaturan akun (`/settings`) memakai kamus `settings.*` di kedua kamus. `SettingsShell`, organisasi, keamanan, sesi, mode Part 11, data penandatangan, branding, embed, kunci API, webhook, masuk dua langkah, orang, dan pembaruan membaca teks lewat `useMessages()`/`formatMessage()`. Status kunci API, label event webhook, alasan galat audit, dan durasi kini memakai kunci kamus; tanggal serta waktu memakai `intlLocales` (`id-ID`). Endpoint, payload, kode galat, nama event, `name`, `id`, `data-testid`, dan URL tidak diubah. `CUSTOM_DISCLOSURE_NOTICE`/`CUSTOM_DISCLOSURE_LEGAL_NOTE` sengaja tidak diterjemahkan karena menyangkut teks hukum dan versi audit. Pembungkus halaman `/two-step-setup` di luar `TwoFactorPanel` dan pesan galat Better Auth/server yang diteruskan apa adanya masih berbahasa Inggris serta perlu ditangani terpisah.
 - README tidak lagi menyatakan halaman tanda tangan hanya berbahasa Inggris.
 
+### Alur kerja verifikasi
+
+Agar proses terjemahan tidak terhambat oleh pemeriksaan yang mahal, verifikasi dibagi dua tahap:
+
+- **Setiap batch terjemahan:** jalankan hanya `bun run lint` dan `bun run typecheck`. `typecheck` tetap disertakan karena perubahan kamus rawan salah ketik kunci; `lint` saja tidak menangkapnya. Keduanya selesai dalam hitungan detik.
+- **Setelah seluruh permukaan selesai:** jalankan sekali `bun run typecheck`, `bun run build`, tes i18n terarah, `bun run test`, `bun run test:db`, `bun run format:check`, `git diff --check`, dan E2E (minimal `e2e/localization.spec.ts`). E2E sengaja ditunda karena setiap run membangun ulang aplikasi production, menyiapkan database segar, dan menyalakan browser.
+
+Aturan ini disepakati 2026-11-22. Percobaan E2E yang sudah tercatat di bawah tetap berlaku untuk bukti historis, tetapi tidak perlu diulang tiap kali ada perubahan teks.
+
 Hasil verifikasi pada mesin pengembangan:
 
 - `bun run typecheck`: lulus.
