@@ -731,6 +731,79 @@ export const enMessages = defineMessages({
       title: "Confirm it's you",
     },
   },
+  permittedUse: {
+    hero: {
+      description:
+        "{platformName} collects electronic signatures. This page says which documents that is meant for, and which it is not.",
+      title: "What this is for",
+    },
+    metadata: {
+      description:
+        "Which documents can be signed here, and what kind of electronic signature this is.",
+      title: "Electronic signatures: what this is for",
+    },
+    sections: {
+      euLimits: {
+        heading: "Take care with these (European Union)",
+        intro:
+          "eIDAS lets member states decide which documents need a stronger form. Commonly these do:",
+        items: [
+          "Contracts creating or transferring rights in real estate (other than rental), which most member states require in notarial form.",
+          "Contracts that by law need a court, public authority or notary.",
+          "Suretyship and guarantee contracts given by consumers, and family or succession law matters, in many member states.",
+          "Anything your law requires to carry a qualified electronic signature (QES), unless this install has a signing provider and the envelope is sent with qualified signatures, each signer holding a qualified certificate.",
+        ],
+      },
+      indonesia: {
+        heading: "In Indonesia",
+        paragraphs: [
+          "Indonesian law, including the Electronic Information and Transactions Law (UU ITE) as amended and Government Regulation No. 71 of 2019, recognizes electronic signatures and electronic records. This site keeps an audit trail and a sealed copy of each signed PDF so the signing can be explained later.",
+          "{platformName} does not issue a certified electronic certificate from an approved electronic certificate provider (Penyelenggara Sertifikat Elektronik). If your transaction requires one, or needs a notary or witnesses, do not use this site for that document.",
+        ],
+      },
+      usExcluded: {
+        heading: "Do not send these documents (United States)",
+        intro:
+          "The federal ESIGN Act (15 U.S.C. 7003) and the Uniform Electronic Transactions Act (UETA) adopted by the states leave these out, so an electronic signature may not make them valid:",
+        items: [
+          "Wills, codicils and testamentary trusts.",
+          "Adoption, divorce and other family-law matters.",
+          "Court orders, notices and official court documents such as briefs and pleadings.",
+          "Notices of default, foreclosure, eviction or repossession under a credit agreement or lease of a primary residence.",
+          "Notices that utility services (water, heat, power) will be cancelled or terminated.",
+          "Notices that health or life insurance benefits will be cancelled or terminated (not including annuities).",
+          "Product recall notices and notices of material failure that risk health or safety.",
+          "Documents required to accompany the transport or handling of hazardous materials, pesticides or other toxic or dangerous materials.",
+          "Most of the Uniform Commercial Code other than sales and leases (for example negotiable instruments such as promissory notes meant to be transferred).",
+          "Anything else your state or country requires on paper, notarized or witnessed in person, such as many real property deeds.",
+        ],
+      },
+      whatItIs: {
+        heading: "What {platformName} is",
+        items: [
+          "A tool for ordinary business agreements: sales and service contracts, NDAs, offer letters, purchase orders, consent and approval forms, and similar documents.",
+          "In the United States, signatures made here are electronic signatures under ESIGN and UETA (and New York's ESRA).",
+          "In the European Union and the United Kingdom, they are simple electronic signatures (SES) under eIDAS. A court cannot refuse them only because they are electronic, but you may need to show who signed. The audit certificate, the sealed PDF and the optional access code or email code help with that.",
+        ],
+      },
+      whatItIsNot: {
+        heading: "What {platformName} is not",
+        items: [
+          "Not an advanced (AdES) or qualified (QES) electronic signature under eIDAS as it comes. An install can add a signing provider, and then a sender can ask each signer to sign with an advanced or qualified signature in their own name through it; without one, the seal on finished PDFs is the install's own or, with a seal certificate the organization buys, an advanced electronic seal for the organization, not for the signers.",
+          "Not a validated FDA 21 CFR Part 11 system as it comes. An administrator can turn on Part 11 mode (signers sign with their own confirmed accounts and password, and each signature shows its meaning), but your organization still has to validate the install, write and follow its own procedures, and certify its electronic signatures to the FDA.",
+          "Not a HIPAA-covered service. Do not send protected health information unless your organization has its own agreements and controls for every service the install uses.",
+          "Not a consumer-disclosure system beyond the electronic-records agreement each signer gives. If a law requires you to deliver specific consumer notices electronically, check that its own rules are met.",
+          "Not legal advice. Whoever runs this install decides which documents it may be used for.",
+        ],
+      },
+      whoDecides: {
+        heading: "Who decides",
+        paragraphs: [
+          "{productName} runs this site and decides what it may be used for. Before each send, the sender confirms the document is not one of the kinds listed here. This page is general information, not legal advice.",
+        ],
+      },
+    },
+  },
   legal: {
     accessibility: {
       hero: {

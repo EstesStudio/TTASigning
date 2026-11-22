@@ -736,6 +736,79 @@ export const idMessages: Messages = defineMessages({
       title: "Konfirmasi bahwa ini Anda",
     },
   },
+  permittedUse: {
+    hero: {
+      description:
+        "{platformName} mengumpulkan tanda tangan elektronik. Halaman ini menjelaskan dokumen mana yang dimaksud, dan mana yang tidak.",
+      title: "Untuk apa ini",
+    },
+    metadata: {
+      description:
+        "Dokumen apa saja yang dapat ditandatangani di sini, dan seperti apa tanda tangan elektronik yang digunakan.",
+      title: "Tanda tangan elektronik: untuk apa ini",
+    },
+    sections: {
+      euLimits: {
+        heading: "Perlu kehati-hatian (Uni Eropa)",
+        intro:
+          "eIDAS memberi wewenang kepada negara anggota untuk menentukan dokumen mana yang memerlukan bentuk yang lebih kuat. Biasanya yang termasuk:",
+        items: [
+          "Kontrak yang menimbulkan atau memindahkan hak atas properti tetap (selain sewa), yang di sebagian besar negara anggota wajib dibuat dalam bentuk akta notaris.",
+          "Kontrak yang menurut undang-undang memerlukan pengadilan, otoritas publik, atau notaris.",
+          "Kontrak penanggungan dan jaminan yang dibuat konsumen, serta perkara hukum keluarga atau warisan, di banyak negara anggota.",
+          "Hal apa pun yang menurut hukum Anda wajib memakai tanda tangan elektronik terkualifikasi (QES), kecuali instalasi ini memiliki penyedia layanan penandatanganan dan amplop dikirim dengan tanda tangan terkualifikasi, dengan setiap penandatangan memegang sertifikat terkualifikasi.",
+        ],
+      },
+      indonesia: {
+        heading: "Di Indonesia",
+        paragraphs: [
+          "Hukum Indonesia, termasuk Undang-Undang Informasi dan Transaksi Elektronik (UU ITE) sebagaimana telah diubah serta PP Nomor 71 Tahun 2019, mengakui tanda tangan dan catatan elektronik. Situs ini menyimpan jejak audit dan salinan PDF tersegel dari setiap dokumen yang telah ditandatangani agar proses penandatanganan dapat dijelaskan kemudian.",
+          "{platformName} tidak menerbitkan sertifikat elektronik tersertifikasi dari Penyelenggara Sertifikat Elektronik yang disetujui. Jika transaksi Anda memerlukannya, atau memerlukan notaris atau saksi, jangan gunakan situs ini untuk dokumen tersebut.",
+        ],
+      },
+      usExcluded: {
+        heading: "Jangan kirim dokumen ini (Amerika Serikat)",
+        intro:
+          "Undang-Undang ESIGN federal (15 U.S.C. 7003) dan Uniform Electronic Transactions Act (UETA) yang diadopsi negara bagian mengecualikan dokumen ini, sehingga tanda tangan elektronik mungkin tidak membuatnya sah:",
+        items: [
+          "Wasiat, kodisil (perubahan wasiat), dan trust testamenter.",
+          "Adopsi, perceraian, dan perkara hukum keluarga lainnya.",
+          "Perintah, pemberitahuan, dan dokumen resmi pengadilan, seperti memori dan gugatan.",
+          "Pemberitahuan wanprestasi, eksekusi jaminan, pengosongan, atau penarikan kembali barang berdasarkan perjanjian kredit atau sewa tempat tinggal utama.",
+          "Pemberitahuan pembatalan atau penghentian layanan utilitas (air, pemanas, listrik).",
+          "Pemberitahuan pembatalan atau penghentian manfaat asuransi kesehatan atau jiwa (tidak termasuk anuitas).",
+          "Pemberitahuan penarikan produk dan pemberitahuan cacat serius yang dapat membahayakan kesehatan atau keselamatan.",
+          "Dokumen yang wajib menyertai pengangkutan atau penanganan bahan berbahaya, pestisida, atau bahan beracun dan berbahaya lainnya.",
+          "Sebagian besar Uniform Commercial Code selain penjualan dan sewa (misalnya instrumen yang dapat dinegosiasi, seperti surat janji bayar yang akan dipindahtangankan).",
+          "Hal lain yang oleh negara bagian atau negara Anda diwajibkan berupa dokumen kertas, akta notaris, atau saksi secara langsung, seperti banyak akta kepemilikan properti.",
+        ],
+      },
+      whatItIs: {
+        heading: "Apa itu {platformName}",
+        items: [
+          "Alat untuk perjanjian bisnis sehari-hari: kontrak penjualan dan layanan, NDA, surat penawaran kerja, pesanan pembelian, formulir persetujuan, dan dokumen sejenis.",
+          "Di Amerika Serikat, tanda tangan yang dibuat di sini adalah tanda tangan elektronik menurut ESIGN dan UETA (serta ESRA Negara Bagian New York).",
+          "Di Uni Eropa dan Britania Raya, tanda tangan ini adalah tanda tangan elektronik sederhana (SES) menurut eIDAS. Pengadilan tidak boleh menolaknya hanya karena bentuknya elektronik, tetapi Anda mungkin perlu membuktikan siapa yang menandatangani. Sertifikat audit, PDF tersegel, dan kode akses atau kode surel opsional membantu membuktikannya.",
+        ],
+      },
+      whatItIsNot: {
+        heading: "Batasan {platformName}",
+        items: [
+          "Bukan tanda tangan elektronik tingkat lanjut (AdES) atau terkualifikasi (QES) menurut eIDAS secara bawaan. Suatu instalasi dapat menambahkan penyedia layanan penandatanganan; setelah itu, pengirim dapat meminta setiap penandatangan untuk menandatangani dengan tanda tangan tingkat lanjut atau terkualifikasi atas nama mereka sendiri melalui penyedia tersebut. Tanpa penyedia itu, segel pada PDF jadi adalah segel instalasi itu sendiri—atau, jika organisasi membeli sertifikat segel, segel elektronik tingkat lanjut untuk organisasi, bukan untuk para penandatangan.",
+          "Bukan sistem yang telah divalidasi terhadap FDA 21 CFR Part 11 secara bawaan. Administrator dapat mengaktifkan mode Part 11 (penandatangan menandatangani dengan akun dan kata sandi mereka sendiri yang sudah dikonfirmasi, dan setiap tanda tangan menunjukkan maknanya), tetapi organisasi Anda tetap harus memvalidasi instalasi, menulis dan mengikuti prosedurnya sendiri, serta menyertifikasi tanda tangan elektroniknya ke FDA.",
+          "Bukan layanan yang tercakup dalam HIPAA. Jangan kirim informasi kesehatan yang dilindungi kecuali organisasi Anda memiliki perjanjian dan kontrol sendiri untuk setiap layanan yang digunakan instalasi ini.",
+          "Bukan sistem keterangan konsumen selain persetujuan penggunaan catatan elektronik yang diberikan setiap penandatangan. Jika suatu undang-undang mengharuskan Anda menyampaikan pemberitahuan konsumen tertentu secara elektronik, pastikan aturannya sendiri terpenuhi.",
+          "Bukan nasihat hukum. Pihak yang menjalankan instalasi ini yang menentukan dokumen apa saja yang boleh ditandatangani di sini.",
+        ],
+      },
+      whoDecides: {
+        heading: "Siapa yang menentukan",
+        paragraphs: [
+          "{productName} menjalankan situs ini dan menentukan penggunaan yang diizinkan. Sebelum setiap pengiriman, pengirim menegaskan bahwa dokumen tersebut bukan termasuk jenis yang tercantum di sini. Halaman ini adalah informasi umum, bukan nasihat hukum.",
+        ],
+      },
+    },
+  },
   legal: {
     accessibility: {
       hero: {

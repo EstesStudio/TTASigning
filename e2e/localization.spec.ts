@@ -81,3 +81,26 @@ test("the footer switcher changes the language without changing the URL", async 
     await page.evaluate(() => document.documentElement.scrollWidth),
   ).toBeLessThanOrEqual(375);
 });
+
+test("the permitted-use page follows the locale without changing its URL", async ({
+  browser,
+}) => {
+  const context = await browser.newContext({ locale: "id-ID" });
+  const page = await context.newPage();
+
+  await page.goto("/electronic-signatures");
+
+  await expect(page.locator("html")).toHaveAttribute("lang", "id");
+  await expect(page.getByRole("heading", { level: 1 })).toHaveText(
+    "Untuk apa ini",
+  );
+  await expect(
+    page.getByRole("heading", { level: 2, name: "Apa itu Sakta" }),
+  ).toBeVisible();
+  await expect(
+    page.getByRole("heading", { level: 2, name: "Di Indonesia" }),
+  ).toBeVisible();
+  expect(page.url()).toContain("/electronic-signatures");
+
+  await context.close();
+});

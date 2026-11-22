@@ -126,3 +126,24 @@ test("the contact form and its errors are available in both languages", () => {
   assert.match(en.errors.reviewFields, /highlighted fields/);
   assert.match(id.errors.reviewFields, /kolom yang ditandai/);
 });
+
+test("the permitted-use page uses the current name and covers Indonesia", () => {
+  const en = enMessages.permittedUse;
+  const id = idMessages.permittedUse;
+
+  for (const copy of [en, id]) {
+    const text = JSON.stringify(copy);
+
+    assert.doesNotMatch(text, /Signudoc/i);
+    assert.match(copy.hero.description, /\{platformName\}/);
+    assert.match(copy.sections.whatItIsNot.heading, /\{platformName\}/);
+  }
+
+  assert.match(en.sections.indonesia.paragraphs.join(" "), /UU ITE/);
+  assert.match(id.sections.indonesia.paragraphs.join(" "), /UU ITE/);
+  assert.match(
+    id.sections.indonesia.paragraphs.join(" "),
+    /Penyelenggara Sertifikat Elektronik/,
+  );
+  assert.match(id.sections.whatItIsNot.items.join(" "), /terkualifikasi/);
+});
