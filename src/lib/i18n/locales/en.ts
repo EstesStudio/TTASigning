@@ -163,6 +163,750 @@ export const enMessages = defineMessages({
     sendToMany: "Send to many",
     use: "Use template",
   },
+  settings: {
+    account: {
+      genericError: "Something went wrong. Please try again.",
+      closure: {
+        blockedReason:
+          "You are the only administrator. Make someone else an administrator first, then close your account.",
+        cancel: "Cancel",
+        confirm: "Request closure",
+        confirmationLabel: 'Type "{phrase}" to confirm:',
+        dangerZone: "Danger zone",
+        hostedCopy:
+          "Before closing your account, download any documents you want to keep. After closure, {productName} keeps a 30-day export window and then deletes your stored documents, templates and envelope records. Signers keep the copies they were emailed.",
+        request: "Request account closure",
+        requesting: "Requesting...",
+        selfHostedCopy:
+          "Before closing your account, download any documents you want to keep. After 30 days your drafts, unfinished envelopes and templates are deleted. Finished documents and their audit trails stay with {productName}: they move to an administrator, because they are the organization's records.",
+        success:
+          "We've received your request. Download any documents you want to keep within 30 days.",
+        title: "Request account closure?",
+      },
+      header: {
+        description:
+          "Manage your sender profile, password, two-step sign-in and account lifecycle.",
+        title: "Settings",
+      },
+      password: {
+        breached: "Choose a password that hasn't appeared in a breach",
+        correctFields: "Please correct the highlighted fields.",
+        currentIncorrect: "Current password is incorrect",
+        currentRequired: "Enter your current password",
+        emailResetLink: "Email me a reset link",
+        helper: "Must be at least 15 characters",
+        labelCurrent: "Current password",
+        labelNew: "New password",
+        sending: "Sending...",
+        success: {
+          resetSent: "Password reset link sent.",
+          updated: "Password updated.",
+        },
+        title: "Password",
+        tooShort: "Password must be at least 15 characters",
+        updating: "Updating...",
+        update: "Update password",
+      },
+      profile: {
+        correctFields: "Please correct the highlighted fields.",
+        emailDifferent: "Enter a different email address",
+        emailInvalid: "Enter a valid email address",
+        emailNote:
+          "Email changes are verified through your current inbox first, then the new inbox.",
+        emailRegistered: "This email is already registered",
+        fullNameRequired: "Enter your full name",
+        labelEmail: "Email",
+        labelFullName: "Full name",
+        save: "Save changes",
+        saving: "Saving...",
+        success: {
+          emailSteps:
+            "If the email change can proceed, you'll receive the next steps by email.",
+          updated: "Profile updated.",
+          updatedWithEmailSteps:
+            "Profile updated. If the email change can proceed, you'll receive the next steps by email.",
+        },
+        title: "Profile",
+      },
+    },
+    organization: {
+      addresses: {
+        sender: {
+          envHelper: "Set by the RESEND_FROM_EMAIL environment variable.",
+          helper:
+            "The address emails come from, at a domain you own. A subdomain such as notifications@sign.yourcompany.com keeps this site's mail apart from your everyday email.",
+          label: "Send email from",
+          placeholder: "sign@yourcompany.com",
+        },
+        support: {
+          envHelper: "Set by the SUPPORT_EMAIL environment variable.",
+          helper: "Where replies and questions from signers go.",
+          label: "Support address",
+          placeholder: "help@yourcompany.com",
+        },
+        title: "Email addresses",
+      },
+      disclosure: {
+        cancel: "Cancel",
+        description:
+          "Optional. Signers read this and tick a box to agree to use electronic records and signatures before they sign. Leave it empty to use the standard text, or press “Start from the standard text” to edit it. The words each signer saw are kept with their record.",
+        formatHelp:
+          "Separate paragraphs with a blank line. Start a line with ## and a space to make a heading. Write {sender} where the sender's name goes and {contact} where the address to write to goes.",
+        label: "Disclosure text",
+        placeholder: "Standard text",
+        startFromStandard: "Start from the standard text",
+        title: "What signers agree to before signing",
+        useStandard: "Use the standard text",
+      },
+      email: {
+        adding: "Adding...",
+        checkRecords: "Check DNS records",
+        checking: "Checking...",
+        checkingEmail: "Checking email…",
+        dns: {
+          caption: "DNS records to add for {domain}",
+          empty:
+            "Resend did not list any records for {domain}. Open Resend to see them.",
+          found: "Found",
+          name: "Name",
+          notFound: "Not found yet",
+          priority: "Priority {priority}",
+          status: "Status",
+          type: "Type",
+          value: "Value",
+        },
+        openResend: "Open Resend",
+        sendTest: "Send me a test email",
+        sending: "Sending...",
+        setUp: "Set up {domain}",
+        states: {
+          capture: {
+            line: "This is a development setup. Emails are saved to a folder on this machine instead of being sent.",
+            title: "Emails are being captured, not sent",
+          },
+          domainMissing: {
+            line: "{domain} has not been added to your Resend account yet. Set it up here to get the DNS records that prove you own it.",
+            title: "{domain} needs to be set up",
+          },
+          domainPending: {
+            line: "Add these records where {domain}'s DNS is managed, then check them. DNS changes can take a few minutes to be seen, and sometimes longer.",
+            mayAlreadySend:
+              "Resend has verified part of this domain, so sending may already work. Send yourself a test email to find out. If it arrives, email is working.",
+            title: "Waiting for {domain}'s DNS records",
+          },
+          error: {
+            line: "Resend could not be asked about this site's email: {message}",
+            title: "Email could not be checked",
+          },
+          missingKey: {
+            line: "This site has no Resend API key, so it cannot send anything: no sign-up confirmations and no signing invitations.",
+            steps: {
+              marketplace: {
+                label: "Resend on the Vercel Marketplace",
+                text: "Open Resend on the Vercel Marketplace. Choose Install (or Connect Project if your team already has Resend) and connect it to this project.",
+              },
+              redeploy:
+                "Open Deployments, open the ••• menu on the latest Production deployment and choose Redeploy. Environment variables only reach deployments made after they were added, so a site deployed before Resend was connected still has no key until it is redeployed.",
+              reload: "When the new deployment is ready, reload this page.",
+              resendKeys: {
+                label: "Resend API keys",
+                text: "Create an API key in Resend with full access, so this page can add your domain and check its DNS records.",
+              },
+              restart: "Restart the app, then reload this page.",
+              variable:
+                "In this project on Vercel, open Settings, then Environment Variables, and check that RESEND_API_KEY is listed for Production.",
+              variableNonVercel:
+                "Set it as the RESEND_API_KEY environment variable where this site runs.",
+            },
+            title: "Email is not connected",
+          },
+          ready: {
+            line: "Emails are sent from {senderAddress}, and {domain} is verified.",
+            title: "Email is working",
+          },
+          restrictedKey: {
+            line: "This site's Resend key is only allowed to send email, so it cannot check {domain} from here. Open Resend to add the domain and see its DNS records.",
+            secondLine:
+              "When that is done, send yourself a test email. If it arrives, email is working.",
+            title: "Finish the domain in Resend",
+          },
+          testSender: {
+            firstLine:
+              "Emails are going out from Resend's shared test address ({senderAddress}). Resend only delivers those to the owner of the Resend account, so signers and new users will not receive anything yet.",
+            secondLine:
+              'Enter an address at your own domain in "Send email from" above and save. The DNS records to add will appear here.',
+            title: "Email only reaches you so far",
+          },
+        },
+        testSent: "Test email sent to {to}. Check that inbox.",
+        title: "Email setup",
+      },
+      genericError: "Something went wrong. Please try again.",
+      header: {
+        description:
+          "These settings apply to everyone who uses this site. Only you, the administrator, can see and change them.",
+        eyebrow: "Administrator",
+        title: "Organization",
+      },
+      legalLinks: {
+        description:
+          "Optional. Links to pages on your own website, shown in the footer of this site and of its emails.",
+        notice: {
+          after: ". Check that it is right for your organization.",
+          before: "Without a privacy policy link, signers see ",
+          link: "a notice built from these settings",
+        },
+        privacy: {
+          label: "Privacy policy link",
+          placeholder: "https://yourcompany.com/privacy",
+        },
+        terms: {
+          label: "Terms link",
+          placeholder: "https://yourcompany.com/terms",
+        },
+        title: "Your terms and privacy policy",
+      },
+      name: {
+        helper: "Shown in the header and in every email this site sends.",
+        label: "Organization name",
+      },
+      retention: {
+        description:
+          "Optional. After this many days a completed, declined or voided envelope is deleted with its audit trail. Its sender is emailed 30 days before. Leave empty to keep them until someone deletes them. Many records must be kept for years, so check what applies to you before setting this.",
+        label: "Days to keep",
+        part11Helper:
+          "Off while Part 11 mode is on: those records are deleted by hand only.",
+        placeholder: "Keep until deleted",
+        title: "How long to keep finished documents",
+      },
+      save: {
+        label: "Save organization settings",
+        saving: "Saving...",
+      },
+      saved: "Organization settings saved.",
+      signup: {
+        domains: {
+          helper: "Separate several domains with commas.",
+          label: "Email domains",
+          placeholder: "yourcompany.com",
+        },
+        legend: "Who can create an account",
+        note: "This is about people who send documents. People who are sent a document to sign don't need an account.",
+        options: {
+          closed: {
+            description: "Nobody new can create an account.",
+            label: "Nobody",
+          },
+          domains: {
+            description:
+              "Only people whose email address is at one of your domains can create an account.",
+            label: "People at my organization",
+          },
+          open: {
+            description: "Anyone who finds this site can create an account.",
+            label: "Anyone",
+          },
+        },
+        part11Note:
+          "Part 11 mode is on, so this covers signers too. A Part 11 envelope goes only to someone with an account here whose identity an administrator has confirmed under People, so choose a rule that lets the people you send to create one.",
+      },
+    },
+    apiKeys: {
+      copy: "Copy",
+      copied: "Copied",
+      done: "Done",
+      form: {
+        access: "Access",
+        creating: "Creating...",
+        create: "Create key",
+        expires: "Expires",
+        expiry30: "In 30 days",
+        expiry90: "In 90 days",
+        expiryNever: "Never",
+        expiryYear: "In a year",
+        name: "Name",
+        namePlaceholder: "For example: Billing app",
+        scopeRead: "Read only",
+        scopeWrite: "Read and write",
+      },
+      genericError: "Something went wrong. Please try again.",
+      header: {
+        descriptionAfter:
+          ". A key acts as the administrator who made it: what it sends shows in their documents. Keys skip two-step sign-in, so keep them in the app's secret settings, never in a browser, and revoke one as soon as it may have leaked.",
+        descriptionBefore:
+          "Let another app create and send envelopes through the ",
+        docsLink: "Sakta API",
+        title: "API keys",
+      },
+      list: {
+        ariaLabel: "API keys",
+        empty: "No keys yet.",
+        loadError: "The keys could not be loaded. {error}",
+        meta: {
+          expires: " Expires {date}.",
+          lastUsed: "Last used {date}.",
+          madeBy: "Made by {ownerName} on {date}.",
+          notUsed: "Not used yet.",
+        },
+        ownerClosing:
+          "{ownerName} is closing their account, so apps using this key are turned away. It is deleted with the account.",
+        retry: "Try again",
+        scopeRead: "Read only",
+        scopeWrite: "Read and write",
+        staleError: "The list may be out of date. {error}",
+      },
+      newKeyNotice: "Copy the key for {name} now. It is not shown again.",
+      revoke: {
+        ariaLabel: "Revoke {name}",
+        cancel: "Cancel",
+        confirm: "Revoke this key? Apps using it stop working at once.",
+        label: "Revoke",
+        revoking: "Revoking...",
+        stoppedConfirm: "Revoke this key? It can never be used again.",
+      },
+      status: {
+        active: "Active",
+        expired: "Expired",
+        revoked: "Revoked",
+        stopped: "Stopped",
+      },
+    },
+    branding: {
+      color: {
+        default: "Use the default",
+        helper:
+          "Six letters and digits, such as #1a73e8. Leave empty for the default. Saved with the button below.",
+        label: "Brand color",
+        lightWarning:
+          "This color is too light for white text to be read on it, so a darker shade of it is used.",
+        pickerAriaLabel: "Color picker",
+      },
+      description:
+        "Optional. Your logo goes in the header of this site, on the pages signers see and at the top of emails. Your color is used for buttons and links.",
+      genericError: "Something went wrong. Please try again.",
+      logo: {
+        ariaLabel: "Logo image",
+        empty: "No logo yet. The header shows your organization’s name.",
+        fileHelper:
+          "PNG, JPEG or WebP, up to 512 KB. A wide logo on a transparent background works best. It is saved as soon as you choose it.",
+        invalidType: "The logo must be a PNG, JPEG or WebP image.",
+        remove: "Remove logo",
+        removing: "Removing...",
+        replace: "Replace logo",
+        subtitle: "Logo",
+        title: "Logo and color",
+        upload: "Upload a logo",
+        uploading: "Uploading...",
+        tooLarge: "The logo must be 512 KB or smaller.",
+      },
+      preview: { button: "Button", link: "Link", status: "Status" },
+    },
+    embedding: {
+      add: "Allow site",
+      adding: "Adding...",
+      ariaLabel: "Sites allowed to embed signing",
+      descriptionAfter:
+        ". No invitations are emailed for those: the app signs the person in and says who they are, so list only sites you trust. Every other page of Sakta stays impossible to frame.",
+      descriptionBefore:
+        "Let an app show the signing page inside its own site, for envelopes it sends through the API with ",
+      docsLink: "embedded delivery",
+      empty: "No sites yet, so embedded signing is off.",
+      genericError: "Something went wrong. Please try again.",
+      listError: "The allowed sites could not be loaded. {error}",
+      remove: "Remove",
+      removeAriaLabel: "Remove {origin}",
+      removing: "Removing...",
+      retry: "Try again",
+      site: { label: "Site", placeholder: "https://app.example.com" },
+      staleError: "The list may be out of date. {error}",
+      title: "Embedded signing",
+    },
+    part11: {
+      description:
+        "For regulated records. While it is on, envelopes are sent only to people with an account here whose identity an administrator has confirmed under People. Each signer gives their email address and password to open the document and again to sign, and confirms what the signature means, which is printed beside it with their name and the time. Five wrong passwords lock the account for signing and email the administrators. Finished envelopes are never deleted by the retention period or a data request, and a void needs a reason.",
+      disclaimer:
+        "Turning it on does not by itself make this site compliant. Your organization still validates the system, writes and follows its own procedures, trains its people and certifies its electronic signatures to the FDA.",
+      genericError: "Something went wrong. Please try again.",
+      off: "Off",
+      on: "On",
+      saving: "Saving...",
+      title: "FDA 21 CFR Part 11 mode",
+      turnOff: "Turn off Part 11 mode",
+      turnOn: "Turn on Part 11 mode",
+    },
+    people: {
+      confirmIdentity: {
+        ariaLabel: "Confirm {name}'s identity",
+        cancel: "Cancel",
+        label: "How did you check who this is?",
+        placeholder: "For example: passport seen in person, HR record 4417",
+        save: "Save",
+        saving: "Saving...",
+        title: "Confirm identity",
+      },
+      description:
+        "Everyone with an account here. Administrators can change these settings, answer signer data requests and receive the finished documents of accounts that are closed. When someone stops being an administrator, the documents they received that way move to an administrator who stays. Keep at least two, so that one person leaving does not lock everyone out.",
+      empty: "Nobody matches that.",
+      genericError: "Something went wrong. Please try again.",
+      identity: {
+        confirmed: "Identity confirmed",
+        notConfirmed: "Identity not confirmed",
+        takeBack: "Take back confirmation",
+        takeBackAriaLabel: "Take back {name}'s identity confirmation",
+      },
+      loading: "Loading people...",
+      pagination:
+        "Showing the first {shown} of {total}. Type part of a name or an email address above to find the others.",
+      resetTwoFactor: {
+        ariaLabel: "Reset two-step sign-in for {name}",
+        cancel: "Cancel",
+        confirm:
+          "Turn off their two-step sign-in and sign them out everywhere?",
+        description: "For someone who lost their phone and their backup codes.",
+        reset: "Reset",
+        resetting: "Resetting...",
+        title: "Reset two-step sign-in",
+      },
+      role: {
+        admin: "Administrator",
+        makeAdmin: "Make administrator",
+        makeAdminAriaLabel: "Make {name} an administrator",
+        member: "Member",
+        minimum: "There has to be at least one administrator.",
+        removeAdmin: "Remove as administrator",
+        removeAdminAriaLabel: "Remove {name} as administrator",
+        saving: "Saving...",
+      },
+      search: {
+        ariaLabel: "People",
+        label: "Find a person",
+        placeholder: "Name or email",
+      },
+      status: {
+        closing: "Closing",
+        emailNotConfirmed: "Email not confirmed",
+        signingLocked: "Signing locked",
+        twoStepOn: "Two-step on",
+        you: "You",
+      },
+      title: "People",
+      unlock: {
+        ariaLabel: "Unlock signing for {name}",
+        title: "Unlock signing",
+      },
+    },
+    security: {
+      audit: {
+        broken:
+          "The hash chain is broken at event {sequence}: a row was changed or removed.",
+        chainAriaLabel: "Site audit trail",
+        csv: "Download as CSV",
+        description:
+          "Sign-ins and failed sign-ins, changes to how people sign in, and changes to settings, roles, the logo, identity confirmations and signing locks. Each envelope has its own trail too, which its sender can export from the envelope's page.",
+        downloadFiles: {
+          auditTrail: "audit trail",
+          certificate: "certificate",
+          documentAsSent: "document as sent",
+          signedPdf: "signed PDF",
+        },
+        empty: "Nothing recorded yet.",
+        eventsPrefix: "events: {events}",
+        failedAttempts: "{count} wrong in a row",
+        intact: "Hash chain intact across {count} events.",
+        refresh: "Refresh",
+        sentBy: "sent by {email}",
+        failureReasons: {
+          accountTemporarilyLocked: "second step locked after wrong codes",
+          emailNotVerified: "email address not confirmed yet",
+          invalidBackupCode: "wrong backup code",
+          invalidCode: "wrong authenticator code",
+          invalidEmailOrPassword: "wrong email or password",
+          tooManyAttempts: "too many wrong codes, signed out",
+        },
+        signInMethods: {
+          authenticator: "with an authenticator code",
+          backupCode: "with a backup code",
+        },
+        deletion: {
+          cancelled: "was due on {date}",
+          scheduled: "to be deleted on {date}",
+        },
+        eventLabels: {
+          accountClosureRequested: "Account closure requested",
+          accountDeleted: "Account deleted",
+          apiKeyCreated: "API key created",
+          apiKeyRevoked: "API key revoked",
+          emailDomainChanged: "Email domain changed",
+          embedOriginAdded: "Site allowed to embed signing",
+          embedOriginRemoved: "Site no longer allowed to embed signing",
+          envelopeDeleted: "Finished envelope deleted",
+          envelopeDeletionCancelled: "Envelope deletion cancelled",
+          envelopeDeletionScheduled: "Envelope deletion scheduled",
+          envelopeFileDownloaded: "Another member's file downloaded",
+          identityVerificationRevoked: "Identity confirmation taken back",
+          identityVerified: "Identity confirmed",
+          logoChanged: "Logo changed",
+          part11ModeChanged: "Part 11 mode changed",
+          passwordChanged: "Password changed",
+          passwordReset: "Password reset by email link",
+          reauthenticationFailed: "Wrong password while signing",
+          roleChanged: "Role changed",
+          settingsChanged: "Settings changed",
+          signInFailed: "Sign-in failed",
+          signInLocked: "Sign-in stopped after wrong passwords",
+          signInSucceeded: "Signed in",
+          sessionsRevoked: "Signed out everywhere",
+          signedOut: "Signed out",
+          signingLocked: "Signing locked",
+          signingUnlocked: "Signing unlocked",
+          twoFactorBackupCodesRegenerated: "New backup codes made",
+          twoFactorDisabled: "Two-step sign-in turned off",
+          twoFactorEnabled: "Two-step sign-in turned on",
+          twoFactorRequirementChanged: "Two-step sign-in requirement changed",
+          twoFactorReset: "Two-step sign-in reset by an administrator",
+          webhookEndpointChanged: "Webhook endpoint changed",
+          webhookEndpointCreated: "Webhook endpoint added",
+          webhookEndpointDeleted: "Webhook endpoint removed",
+        },
+        details: {
+          account: "Account",
+          logoRemoved: "Removed",
+          logoReplaced: "Replaced",
+          newSecret: "new signing secret",
+          ownerNoLongerAdmin: "owner is no longer an administrator",
+          roleChange: "{target}: {from} to {to}",
+          turnedOff: "turned off",
+          turnedOn: "turned on",
+          turnedOnShort: "Turned on",
+          turnedOffShort: "Turned off",
+        },
+        title: "Site audit trail",
+      },
+      description:
+        "Two-step sign-in asks for a code from an authenticator app (such as 1Password, Google Authenticator or Microsoft Authenticator) after the password. When you require it, anyone who has not set it up is asked to do so the next time they open the app, and can do nothing else until they have. Ten wrong passwords for one email address stop sign-in for it for 15 minutes either way.",
+      durations: {
+        day: "1 day",
+        days: "{count} days",
+        hour: "1 hour",
+        hours: "{count} hours",
+        minute: "1 minute",
+        minutes: "{count} minutes",
+      },
+      genericError: "Something went wrong. Please try again.",
+      required: "Required for everyone",
+      optional: "Optional",
+      saving: "Saving...",
+      sessions: {
+        description:
+          "How long someone stays signed in. A change applies to everyone who is signed in now, from their next click. Anyone can also sign out everywhere from their own Settings.",
+        idleLabel: "Sign out after no use for",
+        maxLabel: "Sign out at the latest after",
+        never: "Never",
+        save: "Save session limits",
+        saving: "Saving...",
+        title: "Sessions",
+        weekDefault: "7 days (the default)",
+      },
+      stopRequiring: "Stop requiring two-step sign-in",
+      require: "Require two-step sign-in",
+      success: "Session limits saved.",
+      title: "Sign-in security",
+    },
+    sessions: {
+      description:
+        "If you signed in on a computer that is not yours, or lost a device, sign out everywhere. Every browser signed in to your account, including this one, has to sign in again.",
+      genericError: "Something went wrong. Please try again.",
+      signOut: "Sign out everywhere",
+      signingOut: "Signing out...",
+      title: "Signed-in devices",
+    },
+    signerData: {
+      confirmHelper:
+        "Type the email again to confirm erasure. This cannot be undone.",
+      confirmLabel: "Confirm erasure",
+      description:
+        "When a signer asks what you hold about them, download it here. When they ask for it to be erased, you can delete every finished envelope they signed, with its files and audit trail. Signed records are often ones you must keep, so erase only when no law or open dispute requires them.",
+      download: "Download their data (JSON)",
+      emailLabel: "Signer's email",
+      emailPlaceholder: "jane@company.com",
+      erase: "Erase this signer's records",
+      error: "That request could not be completed.",
+      keptPart11:
+        " {count} Part 11 record(s) were kept: they are deleted by hand only, once the rules that apply to them allow it.",
+      skippedInProgress:
+        " {count} envelope(s) still out for signature were left alone: void them first, then erase again.",
+      success:
+        "Deleted {deleted} finished envelope(s) and removed the signer from {drafts} draft(s).{skipped}{kept}",
+      title: "Signer data requests",
+    },
+    twoFactor: {
+      backupCodes: {
+        ariaLabel: "Backup codes",
+        description:
+          "Keep these backup codes somewhere safe, such as your password manager. Each one works once, in place of a code from your app, if you lose your phone. You will not see them again.",
+        download: "Download codes",
+        fileLine:
+          "Each code works once, in place of a code from your authenticator app.",
+        fileTitle: "{productName} backup codes",
+        new: "New backup codes made. The old ones no longer work.",
+      },
+      cancel: "Cancel",
+      confirm: {
+        continue: "Continue",
+        newCodes: "Make new codes",
+        off: "Turn off",
+      },
+      description:
+        "After your password, {productName} asks for a 6-digit code from an authenticator app on your phone, such as 1Password, Google Authenticator or Microsoft Authenticator. Someone who learns your password still cannot sign in.",
+      descriptionRequired: " Your organization requires it.",
+      done: "Done",
+      errors: {
+        generic: "Something went wrong. Please try again.",
+        invalidCode:
+          "That code is not right. Check the time on your phone and try the newest code.",
+        invalidPassword: "That password is not right.",
+        passwordRequired: "Enter your password.",
+        totpRequired: "Enter the 6-digit code your app shows.",
+      },
+      makeNewCodes: "Make new backup codes",
+      setUp: "Set up two-step sign-in",
+      off: "Off",
+      on: "On",
+      passwordLabel: "Your password",
+      qrAriaLabel: "QR code for your authenticator app",
+      scan: {
+        manual: "Or type in this key:",
+        step: "Scan this code with your authenticator app.",
+      },
+      status: {
+        off: "Turn off two-step sign-in",
+        on: "Turn on two-step sign-in",
+      },
+      steps: {
+        backupCodes: "Save your backup codes",
+        code: "Enter the code your app shows",
+      },
+      title: "Two-step sign-in",
+      totpLabel: "6-digit code",
+    },
+    updates: {
+      check: "Check for updates",
+      checking: "Checking...",
+      checkError: "Updates could not be checked. Please try again.",
+      docs: {
+        beforeTheLink: "The",
+        createFile: "Create the file",
+        details: "has the details.",
+        guideLink: "update guide",
+        inRepository: "in your repository once and paste in",
+        itsContents: "its contents",
+        newReleaseAfter:
+          " shows how, including a GitHub workflow that does it for you.",
+        newReleaseBefore:
+          "Bring the new release into the repository this site is built from, then deploy it. The ",
+        noWorkflow:
+          "No such workflow? Copies made before version 0.2.0 do not have it.",
+      },
+      errorSuffix: " ",
+      eyebrow: "Administrator",
+      howTo: {
+        merge:
+          "Merge the pull request. Vercel deploys it, and the build applies any database changes the new version needs.",
+        pullRequest:
+          "It opens a pull request with the new version, and Vercel builds a preview of it. Your own changes to the code are kept; if they clash with the update, the workflow says which files.",
+        runWorkflowAfter: ". It also runs by itself once a week.",
+        runWorkflowBefore: "In your repository ",
+        runWorkflowButton: "Run workflow",
+        runWorkflowMiddle: ", open the Update Sakta workflow and press ",
+        title: "How to update",
+      },
+      latest: " is out. This site runs {current}.",
+      openWorkflow: "Open the update workflow",
+      releaseLink: "Read the release on GitHub",
+      releasesLink: "See the releases",
+      upToDate: "You are up to date. {version} is the latest release.",
+      versionAfter: "). New versions are published on ",
+      versionBefore: "This site runs Sakta version ",
+      versionBetween: " (commit ",
+      whatsNew: "What's new",
+    },
+    webhooks: {
+      add: "Add endpoint",
+      adding: "Adding...",
+      cancel: "Cancel",
+      copy: "Copy",
+      copied: "Copied",
+      descriptionAfter:
+        " way. Endpoints get events for every envelope on this install. If the app does not answer, the event is tried again for about two days.",
+      descriptionBefore:
+        "Tell another app when an envelope is sent, opened, signed, completed, declined, voided or expires. Each event is POSTed to the URL as JSON and signed with the endpoint's secret, the ",
+      docsLink: "Standard Webhooks",
+      done: "Done",
+      empty: "No endpoints yet.",
+      events: { legend: "Events" },
+      fields: {
+        descriptionLabel: "Description (optional)",
+        descriptionPlaceholder: "What this endpoint is for",
+        urlLabel: "URL",
+        urlPlaceholder: "https://app.example.com/webhooks/signudoc",
+      },
+      genericError: "Something went wrong. Please try again.",
+      log: {
+        answered: ", answered {status}",
+        attempts: ", {count} tries",
+        ariaLabel: "Recent deliveries",
+        empty: "Nothing sent yet.",
+        loading: "Loading...",
+        hide: "Hide log",
+        lastError: "{error}",
+        nextTry: " Next try around {date}.",
+        noAnswer: "no answer",
+        paused:
+          "This endpoint is off, so nothing is sent to it. Deliveries that are waiting go out once it is turned on.",
+        refreshed: "The test event was delivered (answered {status}).",
+        refresh: "Refresh",
+        resend: "Send again",
+        sending: "Sending...",
+        statuses: {
+          delivered: "Delivered",
+          failed: "Failed",
+          pending: "Waiting",
+          retrying: "Retrying",
+        },
+        testFailed: "The test event was not delivered: {error}.",
+        title: "Delivery log",
+      },
+      newSecretNotice:
+        "Copy the signing secret for {url} now. It is not shown again. Press Done once it is copied, before adding another endpoint or making another secret.",
+      off: "Off",
+      on: "On",
+      remove: "Remove",
+      removeAriaLabel: "Remove {url}",
+      removeConfirm: "Remove this endpoint and its delivery log?",
+      removing: "Removing...",
+      retry: "Try again",
+      rotate: "New secret",
+      secretTransition:
+        " The old secret also signs until {date}, and another new secret can be made after that.",
+      status: {
+        allEvents: "All events.",
+        events: "{events}.",
+      },
+      test: { send: "Send test", working: "Working..." },
+      title: "Webhooks",
+      toggle: { off: "Turn off", on: "Turn on" },
+      eventLabels: {
+        completed: "Completed",
+        declined: "Declined",
+        expired: "Expired",
+        sent: "Sent",
+        signerSigned: "Signer signed",
+        signerViewed: "Signer opened it",
+        voided: "Voided",
+      },
+      listAriaLabel: "Webhook endpoints",
+    },
+  },
   footer: {
     accessibilityLong: "Accessibility Statement",
     accessibilityShort: "Accessibility",

@@ -166,6 +166,45 @@ test("the templates surface has translated copy in both languages", () => {
   }
 });
 
+test("the settings panels have translated copy in both languages", () => {
+  const en = enMessages.settings;
+  const id = idMessages.settings;
+
+  assert.equal(en.organization.header.title, "Organization");
+  assert.equal(id.organization.header.title, "Organisasi");
+  assert.equal(en.apiKeys.header.title, "API keys");
+  assert.equal(id.apiKeys.header.title, "Kunci API");
+  assert.equal(en.webhooks.title, "Webhooks");
+  assert.equal(id.webhooks.title, "Webhook");
+  assert.equal(en.twoFactor.title, "Two-step sign-in");
+  assert.equal(id.twoFactor.title, "Masuk dua langkah");
+  assert.equal(en.people.title, "People");
+  assert.equal(id.people.title, "Orang");
+  assert.equal(en.updates.howTo.title, "How to update");
+  assert.equal(id.updates.howTo.title, "Cara memperbarui");
+
+  for (const copy of [en, id]) {
+    assert.equal(Object.keys(copy.apiKeys.status).length, 4);
+    assert.match(copy.apiKeys.list.loadError, /\{error\}/);
+    assert.match(copy.apiKeys.list.meta.madeBy, /\{ownerName\}.*\{date\}/);
+    assert.match(copy.apiKeys.revoke.ariaLabel, /\{name\}/);
+    assert.match(copy.webhooks.log.attempts, /\{count\}/);
+    assert.match(copy.webhooks.newSecretNotice, /\{url\}/);
+    assert.match(copy.twoFactor.backupCodes.fileTitle, /\{productName\}/);
+    assert.match(copy.people.confirmIdentity.ariaLabel, /\{name\}/);
+    assert.match(copy.people.pagination, /\{shown\}.*\{total\}/);
+    assert.match(copy.updates.latest, /\{current\}/);
+    assert.match(copy.updates.upToDate, /\{version\}/);
+  }
+
+  for (const event of Object.keys(en.webhooks.eventLabels)) {
+    assert.ok(
+      event in id.webhooks.eventLabels,
+      `missing ${event} in Indonesian`,
+    );
+  }
+});
+
 test("the permitted-use page uses the current name and covers Indonesia", () => {
   const en = enMessages.permittedUse;
   const id = idMessages.permittedUse;

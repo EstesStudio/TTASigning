@@ -51,4 +51,4 @@ Artinya, mengganti penyedia email saja **tidak** akan menghilangkan pesan yang t
 ### Catatan
 
 - Temuan segel PDF sudah dicatat terpisah dan sengaja tidak dimasukkan ke sini.
-- Lokalisasi `src/components/dashboard/dashboard-documents-surface.tsx` sudah selesai dan terpisah dari isu ini. Teks yang masih berbahasa Inggris dan belum termasuk cakupan: label di `src/components/layout/nav-items.tsx`, menu akun publik, dan halaman detail amplop.
+- Lokalisasi `src/components/dashboard/dashboard-documents-surface.tsx` dan permukaan `/settings` sudah selesai dan terpisah dari isu ini. Teks yang masih berbahasa Inggris dan belum termasuk cakupan: label di `src/components/layout/nav-items.tsx`, menu akun publik, halaman detail amplop, pembungkus `/two-step-setup` di luar `TwoFactorPanel`, serta pesan galat Better Auth/server yang diteruskan apa adanya dari API.

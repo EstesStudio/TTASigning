@@ -166,6 +166,758 @@ export const idMessages: Messages = defineMessages({
     sendToMany: "Kirim massal",
     use: "Gunakan template",
   },
+  settings: {
+    account: {
+      genericError: "Terjadi kesalahan. Silakan coba lagi.",
+      closure: {
+        blockedReason:
+          "Anda adalah satu-satunya administrator. Jadikan orang lain administrator terlebih dahulu, lalu tutup akun Anda.",
+        cancel: "Batal",
+        confirm: "Ajukan penutupan",
+        confirmationLabel: 'Ketik "{phrase}" untuk mengonfirmasi:',
+        dangerZone: "Zona berbahaya",
+        hostedCopy:
+          "Sebelum menutup akun, unduh dokumen yang ingin Anda simpan. Setelah penutupan, {productName} menyimpan jendela ekspor 30 hari lalu menghapus dokumen, template, dan catatan amplop yang tersimpan. Penandatangan tetap menyimpan salinan yang dikirimkan kepada mereka.",
+        request: "Ajukan penutupan akun",
+        requesting: "Mengajukan...",
+        selfHostedCopy:
+          "Sebelum menutup akun, unduh dokumen yang ingin Anda simpan. Setelah 30 hari, draf, amplop yang belum selesai, dan template dihapus. Dokumen selesai beserta jejak auditnya tetap ada di {productName}: kepemilikannya berpindah ke administrator karena merupakan catatan organisasi.",
+        success:
+          "Permintaan Anda telah kami terima. Unduh dokumen yang ingin Anda simpan dalam 30 hari.",
+        title: "Ajukan penutupan akun?",
+      },
+      header: {
+        description:
+          "Kelola profil pengirim, kata sandi, masuk dua langkah, dan siklus hidup akun.",
+        title: "Pengaturan",
+      },
+      password: {
+        breached: "Pilih kata sandi yang pernah muncul dalam kebocoran data",
+        correctFields: "Perbaiki kolom yang ditandai.",
+        currentIncorrect: "Kata sandi saat ini salah",
+        currentRequired: "Masukkan kata sandi saat ini",
+        emailResetLink: "Kirimi saya tautan pengaturan ulang",
+        helper: "Minimal 15 karakter",
+        labelCurrent: "Kata sandi saat ini",
+        labelNew: "Kata sandi baru",
+        sending: "Mengirim...",
+        success: {
+          resetSent: "Tautan pengaturan ulang kata sandi telah dikirim.",
+          updated: "Kata sandi diperbarui.",
+        },
+        title: "Kata sandi",
+        tooShort: "Kata sandi harus terdiri dari minimal 15 karakter",
+        updating: "Memperbarui...",
+        update: "Perbarui kata sandi",
+      },
+      profile: {
+        correctFields: "Perbaiki kolom yang ditandai.",
+        emailDifferent: "Masukkan alamat email yang berbeda",
+        emailInvalid: "Masukkan alamat email yang valid",
+        emailNote:
+          "Perubahan email diverifikasi terlebih dahulu melalui kotak masuk lama, lalu kotak masuk baru.",
+        emailRegistered: "Email ini sudah terdaftar",
+        fullNameRequired: "Masukkan nama lengkap Anda",
+        labelEmail: "Email",
+        labelFullName: "Nama lengkap",
+        save: "Simpan perubahan",
+        saving: "Menyimpan...",
+        success: {
+          emailSteps:
+            "Jika perubahan email dapat dilanjutkan, Anda akan menerima langkah selanjutnya lewat email.",
+          updated: "Profil diperbarui.",
+          updatedWithEmailSteps:
+            "Profil diperbarui. Jika perubahan email dapat dilanjutkan, Anda akan menerima langkah selanjutnya lewat email.",
+        },
+        title: "Profil",
+      },
+    },
+    organization: {
+      addresses: {
+        sender: {
+          envHelper: "Ditetapkan oleh variabel lingkungan RESEND_FROM_EMAIL.",
+          helper:
+            "Alamat asal email, pada domain yang Anda miliki. Subdomain seperti notifications@sign.yourcompany.com memisahkan email situs ini dari email sehari-hari Anda.",
+          label: "Kirim email dari",
+          placeholder: "sign@yourcompany.com",
+        },
+        support: {
+          envHelper: "Ditetapkan oleh variabel lingkungan SUPPORT_EMAIL.",
+          helper: "Tempat balasan dan pertanyaan penandatangan ditujukan.",
+          label: "Alamat dukungan",
+          placeholder: "help@yourcompany.com",
+        },
+        title: "Alamat email",
+      },
+      disclosure: {
+        cancel: "Batal",
+        description:
+          "Opsional. Penandatangan membaca teks ini dan mencentang kotak persetujuan penggunaan catatan dan tanda tangan elektronik sebelum menandatangani. Kosongkan untuk memakai teks standar, atau tekan “Mulai dari teks standar” untuk menyuntingnya. Kata-kata yang dibaca setiap penandatangan disimpan bersama catatannya.",
+        formatHelp:
+          "Pisahkan paragraf dengan baris kosong. Awali baris dengan ## dan spasi untuk membuat judul. Tulis {sender} di tempat nama pengirim dan {contact} di tempat alamat yang dapat dihubungi.",
+        label: "Teks pengungkapan",
+        placeholder: "Teks standar",
+        startFromStandard: "Mulai dari teks standar",
+        title: "Yang disetujui penandatangan sebelum menandatangani",
+        useStandard: "Gunakan teks standar",
+      },
+      email: {
+        adding: "Menambahkan...",
+        checkRecords: "Periksa catatan DNS",
+        checking: "Memeriksa...",
+        checkingEmail: "Memeriksa email…",
+        dns: {
+          caption: "Catatan DNS yang harus ditambahkan untuk {domain}",
+          empty:
+            "Resend tidak mencantumkan catatan apa pun untuk {domain}. Buka Resend untuk melihatnya.",
+          found: "Ditemukan",
+          name: "Nama",
+          notFound: "Belum ditemukan",
+          priority: "Prioritas {priority}",
+          status: "Status",
+          type: "Jenis",
+          value: "Nilai",
+        },
+        openResend: "Buka Resend",
+        sendTest: "Kirimi saya email uji",
+        sending: "Mengirim...",
+        setUp: "Siapkan {domain}",
+        states: {
+          capture: {
+            line: "Ini adalah pengaturan pengembangan. Email disimpan ke folder di komputer ini, bukan dikirim.",
+            title: "Email ditangkap, bukan dikirim",
+          },
+          domainMissing: {
+            line: "{domain} belum ditambahkan ke akun Resend Anda. Siapkan di sini untuk mendapatkan catatan DNS yang membuktikan kepemilikan domain.",
+            title: "{domain} perlu disiapkan",
+          },
+          domainPending: {
+            line: "Tambahkan catatan ini di tempat DNS {domain} dikelola, lalu periksa. Perubahan DNS baru terlihat beberapa menit, kadang lebih lama.",
+            mayAlreadySend:
+              "Resend telah memverifikasi sebagian domain ini, sehingga pengiriman mungkin sudah berfungsi. Kirim email uji ke diri sendiri untuk memastikannya. Jika sampai, email berfungsi.",
+            title: "Menunggu catatan DNS {domain}",
+          },
+          error: {
+            line: "Resend tidak dapat dimintai keterangan tentang email situs ini: {message}",
+            title: "Email tidak dapat diperiksa",
+          },
+          missingKey: {
+            line: "Situs ini tidak memiliki kunci API Resend, sehingga tidak dapat mengirim apa pun: tidak ada konfirmasi pendaftaran maupun undangan menandatangani.",
+            steps: {
+              marketplace: {
+                label: "Resend di Marketplace Vercel",
+                text: "Buka Resend di Marketplace Vercel. Pilih Install (atau Connect Project jika tim Anda sudah memakai Resend) lalu hubungkan ke proyek ini.",
+              },
+              redeploy:
+                "Buka Deployments, buka menu ••• pada deployment Production terbaru, lalu pilih Redeploy. Variabel lingkungan hanya sampai ke deployment yang dibuat setelah variabel ditambahkan, sehingga situs yang di-deploy sebelum Resend dihubungkan tetap tidak memiliki kunci sampai di-deploy ulang.",
+              reload: "Setelah deployment baru siap, muat ulang halaman ini.",
+              resendKeys: {
+                label: "Kunci API Resend",
+                text: "Buat kunci API di Resend dengan akses penuh agar halaman ini dapat menambahkan domain Anda dan memeriksa catatan DNS-nya.",
+              },
+              restart: "Mulai ulang aplikasi, lalu muat ulang halaman ini.",
+              variable:
+                "Di proyek ini pada Vercel, buka Settings, lalu Environment Variables, dan pastikan RESEND_API_KEY tercantum untuk Production.",
+              variableNonVercel:
+                "Tetapkan sebagai variabel lingkungan RESEND_API_KEY di tempat situs ini dijalankan.",
+            },
+            title: "Email belum terhubung",
+          },
+          ready: {
+            line: "Email dikirim dari {senderAddress} dan {domain} telah terverifikasi.",
+            title: "Email berfungsi",
+          },
+          restrictedKey: {
+            line: "Kunci Resend situs ini hanya diizinkan mengirim email, sehingga tidak dapat memeriksa {domain} dari sini. Buka Resend untuk menambahkan domain dan melihat catatan DNS-nya.",
+            secondLine:
+              "Setelah itu, kirim email uji ke diri sendiri. Jika sampai, email berfungsi.",
+            title: "Selesaikan domain di Resend",
+          },
+          testSender: {
+            firstLine:
+              "Email dikirim dari alamat uji bersama Resend ({senderAddress}). Resend hanya mengirimkannya kepada pemilik akun Resend, sehingga penandatangan dan pengguna baru belum menerima apa pun.",
+            secondLine:
+              'Masukkan alamat pada domain Anda sendiri di kolom "Kirim email dari" di atas lalu simpan. Catatan DNS yang harus ditambahkan akan muncul di sini.',
+            title: "Email baru sampai kepada Anda saja",
+          },
+        },
+        testSent: "Email uji dikirim ke {to}. Periksa kotak masuk tersebut.",
+        title: "Pengaturan email",
+      },
+      genericError: "Terjadi kesalahan. Silakan coba lagi.",
+      header: {
+        description:
+          "Pengaturan ini berlaku untuk semua orang yang memakai situs ini. Hanya Anda, sebagai administrator, yang dapat melihat dan mengubahnya.",
+        eyebrow: "Administrator",
+        title: "Organisasi",
+      },
+      legalLinks: {
+        description:
+          "Opsional. Tautan ke halaman di situs web Anda sendiri, ditampilkan di footer situs ini dan emailnya.",
+        notice: {
+          after:
+            ". Periksa bahwa pemberitahuan ini sesuai untuk organisasi Anda.",
+          before: "Tanpa tautan kebijakan privasi, penandatangan melihat ",
+          link: "pemberitahuan yang disusun dari pengaturan ini",
+        },
+        privacy: {
+          label: "Tautan kebijakan privasi",
+          placeholder: "https://yourcompany.com/privacy",
+        },
+        terms: {
+          label: "Tautan syarat",
+          placeholder: "https://yourcompany.com/terms",
+        },
+        title: "Syarat dan kebijakan privasi Anda",
+      },
+      name: {
+        helper:
+          "Ditampilkan di header dan di setiap email yang dikirim situs ini.",
+        label: "Nama organisasi",
+      },
+      retention: {
+        description:
+          "Opsional. Setelah sejumlah hari ini, amplop yang selesai, ditolak, atau dibatalkan dihapus beserta jejak auditnya. Pengirimnya dikirimi email 30 hari sebelumnya. Kosongkan untuk menyimpannya sampai seseorang menghapusnya. Banyak catatan wajib disimpan bertahun-tahun, jadi periksa ketentuan yang berlaku bagi Anda sebelum menetapkan ini.",
+        label: "Lama penyimpanan (hari)",
+        part11Helper:
+          "Nonaktif saat mode Part 11 aktif: catatan tersebut hanya dihapus secara manual.",
+        placeholder: "Simpan sampai dihapus",
+        title: "Lama menyimpan dokumen selesai",
+      },
+      save: {
+        label: "Simpan pengaturan organisasi",
+        saving: "Menyimpan...",
+      },
+      saved: "Pengaturan organisasi disimpan.",
+      signup: {
+        domains: {
+          helper: "Pisahkan beberapa domain dengan koma.",
+          label: "Domain email",
+          placeholder: "yourcompany.com",
+        },
+        legend: "Siapa yang dapat membuat akun",
+        note: "Ini tentang orang yang mengirim dokumen. Orang yang dikirimi dokumen untuk ditandatangani tidak memerlukan akun.",
+        options: {
+          closed: {
+            description: "Tidak ada orang baru yang dapat membuat akun.",
+            label: "Tidak ada",
+          },
+          domains: {
+            description:
+              "Hanya orang yang alamat emailnya berada di salah satu domain Anda yang dapat membuat akun.",
+            label: "Orang di organisasi saya",
+          },
+          open: {
+            description:
+              "Siapa pun yang menemukan situs ini dapat membuat akun.",
+            label: "Siapa pun",
+          },
+        },
+        part11Note:
+          "Mode Part 11 aktif, sehingga aturan ini berlaku juga bagi penandatangan. Amplop Part 11 hanya dikirim kepada orang yang memiliki akun di sini dan identitasnya telah dikonfirmasi administrator di halaman Orang, jadi pilih aturan yang memungkinkan orang yang Anda kirimi dokumen membuat akun.",
+      },
+    },
+    apiKeys: {
+      copy: "Salin",
+      copied: "Tersalin",
+      done: "Selesai",
+      form: {
+        access: "Akses",
+        creating: "Membuat...",
+        create: "Buat kunci",
+        expires: "Kedaluwarsa",
+        expiry30: "Dalam 30 hari",
+        expiry90: "Dalam 90 hari",
+        expiryNever: "Tidak pernah",
+        expiryYear: "Dalam satu tahun",
+        name: "Nama",
+        namePlaceholder: "Misalnya: Aplikasi Penagihan",
+        scopeRead: "Hanya baca",
+        scopeWrite: "Baca dan tulis",
+      },
+      genericError: "Terjadi kesalahan. Silakan coba lagi.",
+      header: {
+        descriptionAfter:
+          ". Sebuah kunci bertindak sebagai administrator yang membuatnya: apa yang dikirimkannya tampil di dokumen mereka. Kunci melewati masuk dua langkah, jadi simpan di pengaturan rahasia aplikasi, jangan pernah di browser, dan cabut segera setelah kunci diduga bocor.",
+        descriptionBefore:
+          "Izinkan aplikasi lain membuat dan mengirim amplop melalui ",
+        docsLink: "API Sakta",
+        title: "Kunci API",
+      },
+      list: {
+        ariaLabel: "Kunci API",
+        empty: "Belum ada kunci.",
+        loadError: "Kunci tidak dapat dimuat. {error}",
+        meta: {
+          expires: " Kedaluwarsa {date}.",
+          lastUsed: "Terakhir dipakai {date}.",
+          madeBy: "Dibuat oleh {ownerName} pada {date}.",
+          notUsed: "Belum pernah dipakai.",
+        },
+        ownerClosing:
+          "{ownerName} sedang menutup akunnya, sehingga aplikasi yang memakai kunci ini ditolak. Kunci tersebut dihapus bersama akunnya.",
+        retry: "Coba lagi",
+        scopeRead: "Hanya baca",
+        scopeWrite: "Baca dan tulis",
+        staleError: "Daftar mungkin sudah usang. {error}",
+      },
+      newKeyNotice:
+        "Salin kunci untuk {name} sekarang. Kunci ini tidak ditampilkan lagi.",
+      revoke: {
+        ariaLabel: "Cabut {name}",
+        cancel: "Batal",
+        confirm:
+          "Cabut kunci ini? Aplikasi yang memakainya berhenti berfungsi segera.",
+        label: "Cabut",
+        revoking: "Mencabut...",
+        stoppedConfirm:
+          "Cabut kunci ini? Kunci ini tidak dapat dipakai lagi selamanya.",
+      },
+      status: {
+        active: "Aktif",
+        expired: "Kedaluwarsa",
+        revoked: "Dicabut",
+        stopped: "Dihentikan",
+      },
+    },
+    branding: {
+      color: {
+        default: "Gunakan yang bawaan",
+        label: "Warna merek",
+        helper:
+          "Enam huruf dan angka, misalnya #1a73e8. Kosongkan untuk memakai warna bawaan. Disimpan dengan tombol di bawah.",
+        lightWarning:
+          "Warna ini terlalu terang untuk teks putih, sehingga warna yang lebih gelap dipakai.",
+        pickerAriaLabel: "Pemilih warna",
+      },
+      description:
+        "Opsional. Logo Anda tampil di header situs ini, pada halaman yang dilihat penandatangan, dan di bagian atas email. Warna Anda dipakai untuk tombol dan tautan.",
+      genericError: "Terjadi kesalahan. Silakan coba lagi.",
+      logo: {
+        ariaLabel: "Gambar logo",
+        empty: "Belum ada logo. Header menampilkan nama organisasi Anda.",
+        fileHelper:
+          "PNG, JPEG, atau WebP, maksimal 512 KB. Logo lebar dengan latar transparan paling baik. Logo langsung disimpan setelah Anda memilihnya.",
+        invalidType: "Logo harus berupa gambar PNG, JPEG, atau WebP.",
+        remove: "Hapus logo",
+        removing: "Menghapus...",
+        replace: "Ganti logo",
+        subtitle: "Logo",
+        title: "Logo dan warna",
+        upload: "Unggah logo",
+        uploading: "Mengunggah...",
+        tooLarge: "Ukuran logo harus 512 KB atau kurang.",
+      },
+      preview: { button: "Tombol", link: "Tautan", status: "Status" },
+    },
+    embedding: {
+      add: "Izinkan situs",
+      adding: "Menambahkan...",
+      ariaLabel: "Situs yang diizinkan menanamkan tanda tangan",
+      descriptionAfter:
+        ". Untuk amplop tersebut, tidak ada undangan yang dikirim lewat email: aplikasi yang masuk dan menyatakan identitas penandatangan, jadi daftarkan hanya situs yang Anda percaya. Halaman lain di Sakta tetap tidak dapat dibingkai.",
+      descriptionBefore:
+        "Izinkan aplikasi menampilkan halaman tanda tangan di dalam situsnya sendiri, untuk amplop yang dikirimnya melalui API dengan ",
+      docsLink: "pengiriman tertanam",
+      empty: "Belum ada situs, sehingga tanda tangan tertanam nonaktif.",
+      genericError: "Terjadi kesalahan. Silakan coba lagi.",
+      listError: "Daftar situs tidak dapat dimuat. {error}",
+      remove: "Hapus",
+      removeAriaLabel: "Hapus {origin}",
+      removing: "Menghapus...",
+      retry: "Coba lagi",
+      site: { label: "Situs", placeholder: "https://app.example.com" },
+      staleError: "Daftar mungkin sudah usang. {error}",
+      title: "Tanda tangan tertanam",
+    },
+    part11: {
+      description:
+        "Untuk catatan yang diatur. Selama aktif, amplop hanya dikirim kepada orang yang memiliki akun di sini dan identitasnya telah dikonfirmasi administrator di halaman Orang. Setiap penandatangan memasukkan alamat email dan kata sandinya untuk membuka dokumen dan sekali lagi untuk menandatanganinya, lalu mengonfirmasi arti tanda tangannya, yang dicetak di samping namanya dan waktunya. Lima kali kata sandi salah mengunci akun untuk menandatangani dan mengirim email ke administrator. Amplop selesai tidak pernah dihapus oleh masa retensi atau permintaan data, dan pembatalan memerlukan alasan.",
+      disclaimer:
+        "Mengaktifkannya saja tidak membuat situs ini patuh. Organisasi Anda tetap harus memvalidasi sistem, menulis dan mengikuti prosedurnya sendiri, melatih staf, dan menyertifikasi tanda tangan elektroniknya kepada FDA.",
+      genericError: "Terjadi kesalahan. Silakan coba lagi.",
+      off: "Nonaktif",
+      on: "Aktif",
+      saving: "Menyimpan...",
+      title: "Mode FDA 21 CFR Part 11",
+      turnOff: "Nonaktifkan mode Part 11",
+      turnOn: "Aktifkan mode Part 11",
+    },
+    people: {
+      confirmIdentity: {
+        ariaLabel: "Konfirmasi identitas {name}",
+        cancel: "Batal",
+        label: "Bagaimana Anda memeriksa identitas orang ini?",
+        placeholder: "Misalnya: paspor dilihat langsung, catatan HR 4417",
+        save: "Simpan",
+        saving: "Menyimpan...",
+        title: "Konfirmasi identitas",
+      },
+      description:
+        "Semua orang yang memiliki akun di sini. Administrator dapat mengubah pengaturan ini, menjawab permintaan data penandatangan, dan menerima dokumen selesai dari akun yang ditutup. Ketika seseorang bukan lagi administrator, dokumen yang diterimanya dengan cara itu berpindah ke administrator yang tetap ada. Pertahankan setidaknya dua administrator agar satu orang yang keluar tidak mengunci semua orang.",
+      empty: "Tidak ada yang cocok.",
+      genericError: "Terjadi kesalahan. Silakan coba lagi.",
+      identity: {
+        confirmed: "Identitas dikonfirmasi",
+        notConfirmed: "Identitas belum dikonfirmasi",
+        takeBack: "Tarik kembali konfirmasi",
+        takeBackAriaLabel: "Tarik kembali konfirmasi identitas {name}",
+      },
+      loading: "Memuat daftar orang...",
+      pagination:
+        "Menampilkan {shown} dari {total} orang pertama. Ketik bagian dari nama atau alamat email di atas untuk mencari yang lainnya.",
+      resetTwoFactor: {
+        ariaLabel: "Atur ulang masuk dua langkah untuk {name}",
+        cancel: "Batal",
+        confirm:
+          "Nonaktifkan masuk dua langkah mereka dan keluar dari semua perangkat?",
+        description: "Untuk orang yang kehilangan ponsel dan kode cadangannya.",
+        reset: "Atur ulang",
+        resetting: "Mengatur ulang...",
+        title: "Atur ulang masuk dua langkah",
+      },
+      role: {
+        admin: "Administrator",
+        makeAdmin: "Jadikan administrator",
+        makeAdminAriaLabel: "Jadikan {name} administrator",
+        member: "Anggota",
+        minimum: "Harus ada setidaknya satu administrator.",
+        removeAdmin: "Hapus sebagai administrator",
+        removeAdminAriaLabel: "Hapus {name} sebagai administrator",
+        saving: "Menyimpan...",
+      },
+      search: {
+        ariaLabel: "Orang",
+        label: "Cari orang",
+        placeholder: "Nama atau email",
+      },
+      status: {
+        closing: "Menutup akun",
+        emailNotConfirmed: "Email belum dikonfirmasi",
+        signingLocked: "Penandatanganan dikunci",
+        twoStepOn: "Dua langkah aktif",
+        you: "Anda",
+      },
+      title: "Orang",
+      unlock: {
+        ariaLabel: "Buka kunci penandatanganan untuk {name}",
+        title: "Buka kunci penandatanganan",
+      },
+    },
+    security: {
+      audit: {
+        broken:
+          "Rantai hash rusak pada peristiwa {sequence}: sebuah baris diubah atau dihapus.",
+        chainAriaLabel: "Jejak audit situs",
+        csv: "Unduh sebagai CSV",
+        description:
+          "Peristiwa masuk dan gagal masuk, perubahan cara orang masuk, serta perubahan pengaturan, peran, logo, konfirmasi identitas, dan kunci penandatanganan. Setiap amplop juga memiliki jejaknya sendiri, yang dapat diekspor pengirimnya dari halaman amplop.",
+        downloadFiles: {
+          auditTrail: "jejak audit",
+          certificate: "sertifikat",
+          documentAsSent: "dokumen yang dikirim",
+          signedPdf: "PDF yang ditandatangani",
+        },
+        empty: "Belum ada catatan.",
+        eventsPrefix: "peristiwa: {events}",
+        failedAttempts: "{count} kali salah berturut-turut",
+        intact: "Rantai hash utuh di {count} peristiwa.",
+        refresh: "Muat ulang",
+        sentBy: "dikirim oleh {email}",
+        failureReasons: {
+          accountTemporarilyLocked: "langkah kedua dikunci setelah kode salah",
+          emailNotVerified: "alamat email belum dikonfirmasi",
+          invalidBackupCode: "kode cadangan salah",
+          invalidCode: "kode aplikasi autentikator salah",
+          invalidEmailOrPassword: "email atau kata sandi salah",
+          tooManyAttempts: "terlalu banyak kode salah, sudah keluar",
+        },
+        signInMethods: {
+          authenticator: "dengan kode aplikasi autentikator",
+          backupCode: "dengan kode cadangan",
+        },
+        deletion: {
+          cancelled: "seharusnya dihapus pada {date}",
+          scheduled: "akan dihapus pada {date}",
+        },
+        eventLabels: {
+          accountClosureRequested: "Penutupan akun diajukan",
+          accountDeleted: "Akun dihapus",
+          apiKeyCreated: "Kunci API dibuat",
+          apiKeyRevoked: "Kunci API dicabut",
+          emailDomainChanged: "Domain email diubah",
+          embedOriginAdded: "Situs diizinkan menanamkan tanda tangan",
+          embedOriginRemoved:
+            "Situs tidak lagi diizinkan menanamkan tanda tangan",
+          envelopeDeleted: "Amplop selesai dihapus",
+          envelopeDeletionCancelled: "Penghapusan amplop dibatalkan",
+          envelopeDeletionScheduled: "Penghapusan amplop dijadwalkan",
+          envelopeFileDownloaded: "Berkas anggota lain diunduh",
+          identityVerificationRevoked: "Konfirmasi identitas ditarik kembali",
+          identityVerified: "Identitas dikonfirmasi",
+          logoChanged: "Logo diubah",
+          part11ModeChanged: "Mode Part 11 diubah",
+          passwordChanged: "Kata sandi diubah",
+          passwordReset: "Kata sandi diatur ulang lewat tautan email",
+          reauthenticationFailed: "Kata sandi salah saat menandatangani",
+          roleChanged: "Peran diubah",
+          settingsChanged: "Pengaturan diubah",
+          signInFailed: "Gagal masuk",
+          signInLocked: "Masuk dihentikan setelah kata sandi salah",
+          signInSucceeded: "Berhasil masuk",
+          sessionsRevoked: "Keluar dari semua perangkat",
+          signedOut: "Sudah keluar",
+          signingLocked: "Penandatanganan dikunci",
+          signingUnlocked: "Penandatanganan dibuka",
+          twoFactorBackupCodesRegenerated: "Kode cadangan baru dibuat",
+          twoFactorDisabled: "Masuk dua langkah dinonaktifkan",
+          twoFactorEnabled: "Masuk dua langkah diaktifkan",
+          twoFactorRequirementChanged: "Kewajiban masuk dua langkah diubah",
+          twoFactorReset: "Masuk dua langkah diatur ulang oleh administrator",
+          webhookEndpointChanged: "Endpoint webhook diubah",
+          webhookEndpointCreated: "Endpoint webhook ditambahkan",
+          webhookEndpointDeleted: "Endpoint webhook dihapus",
+        },
+        details: {
+          account: "Akun",
+          logoRemoved: "Dihapus",
+          logoReplaced: "Diganti",
+          newSecret: "rahasia penandatangan baru",
+          ownerNoLongerAdmin: "pemiliknya bukan lagi administrator",
+          roleChange: "{target}: {from} menjadi {to}",
+          turnedOff: "dinonaktifkan",
+          turnedOn: "diaktifkan",
+          turnedOnShort: "Diaktifkan",
+          turnedOffShort: "Dinonaktifkan",
+        },
+        title: "Jejak audit situs",
+      },
+      description:
+        "Masuk dua langkah meminta kode dari aplikasi autentikator (seperti 1Password, Google Authenticator, atau Microsoft Authenticator) setelah kata sandi. Saat diwajibkan, siapa pun yang belum menyiapkannya akan diminta melakukannya saat berikutnya membuka aplikasi, dan tidak dapat melakukan hal lain sebelum selesai. Sepuluh kali kata sandi salah untuk satu alamat email menghentikan masuk selama 15 menit.",
+      durations: {
+        day: "1 hari",
+        days: "{count} hari",
+        hour: "1 jam",
+        hours: "{count} jam",
+        minute: "1 menit",
+        minutes: "{count} menit",
+      },
+      genericError: "Terjadi kesalahan. Silakan coba lagi.",
+      required: "Wajib untuk semua orang",
+      optional: "Opsional",
+      saving: "Menyimpan...",
+      sessions: {
+        description:
+          "Berapa lama seseorang tetap masuk. Perubahan berlaku untuk semua orang yang sedang masuk, mulai dari klik berikutnya. Siapa pun juga dapat keluar dari semua perangkat melalui Pengaturan mereka sendiri.",
+        idleLabel: "Keluar setelah tidak aktif selama",
+        maxLabel: "Paling lambat keluar setelah",
+        never: "Tidak pernah",
+        save: "Simpan batas sesi",
+        saving: "Menyimpan...",
+        title: "Sesi",
+        weekDefault: "7 hari (bawaan)",
+      },
+      stopRequiring: "Hentikan kewajiban masuk dua langkah",
+      require: "Wajibkan masuk dua langkah",
+      success: "Batas sesi disimpan.",
+      title: "Keamanan masuk",
+    },
+    sessions: {
+      description:
+        "Jika Anda masuk di komputer yang bukan milik Anda, atau kehilangan perangkat, keluar dari semua perangkat. Setiap browser yang masuk ke akun Anda, termasuk yang ini, harus masuk lagi.",
+      genericError: "Terjadi kesalahan. Silakan coba lagi.",
+      signOut: "Keluar dari semua perangkat",
+      signingOut: "Keluar...",
+      title: "Perangkat yang masuk",
+    },
+    signerData: {
+      confirmHelper:
+        "Ketik ulang email untuk mengonfirmasi penghapusan. Tindakan ini tidak dapat dibatalkan.",
+      confirmLabel: "Konfirmasi penghapusan",
+      description:
+        "Saat penandatangan meminta data yang Anda simpan tentang mereka, unduh di sini. Saat mereka meminta data dihapus, Anda dapat menghapus setiap amplop selesai yang mereka tandatangani, beserta berkas dan jejak auditnya. Catatan yang ditandatangani sering kali wajib disimpan, jadi hapus hanya jika tidak ada undang-undang atau sengketa terbuka yang melarangnya.",
+      download: "Unduh data mereka (JSON)",
+      emailLabel: "Email penandatangan",
+      emailPlaceholder: "jane@company.com",
+      erase: "Hapus catatan penandatangan ini",
+      error: "Permintaan itu tidak dapat diselesaikan.",
+      keptPart11:
+        " {count} catatan Part 11 dipertahankan: catatan itu hanya dihapus secara manual, setelah ketentuan yang berlaku mengizinkannya.",
+      skippedInProgress:
+        " {count} amplop yang masih menunggu tanda tangan dibiarkan: batalkan terlebih dahulu, lalu hapus lagi.",
+      success:
+        "Menghapus {deleted} amplop selesai dan menghapus penandatangan dari {drafts} draf.{skipped}{kept}",
+      title: "Permintaan data penandatangan",
+    },
+    twoFactor: {
+      backupCodes: {
+        ariaLabel: "Kode cadangan",
+        description:
+          "Simpan kode cadangan ini di tempat yang aman, misalnya pengelola kata sandi. Setiap kunci hanya sekali pakai, sebagai pengganti kode dari aplikasi, jika Anda kehilangan ponsel. Anda tidak akan melihatnya lagi.",
+        download: "Unduh kode",
+        fileLine:
+          "Setiap kode hanya sekali pakai, sebagai pengganti kode dari aplikasi autentikator Anda.",
+        fileTitle: "Kode cadangan {productName}",
+        new: "Kode cadangan baru dibuat. Kode lama sudah tidak berfungsi.",
+      },
+      cancel: "Batal",
+      confirm: {
+        continue: "Lanjut",
+        newCodes: "Buat kode baru",
+        off: "Nonaktifkan",
+      },
+      description:
+        "Setelah kata sandi, {productName} meminta kode 6 digit dari aplikasi autentikator di ponsel Anda, seperti 1Password, Google Authenticator, atau Microsoft Authenticator. Seseorang yang mengetahui kata sandi Anda tetap tidak dapat masuk.",
+      descriptionRequired: " Organisasi Anda mewajibkannya.",
+      done: "Selesai",
+      errors: {
+        generic: "Terjadi kesalahan. Silakan coba lagi.",
+        invalidCode:
+          "Kode itu salah. Periksa waktu di ponsel Anda lalu coba kode terbaru.",
+        invalidPassword: "Kata sandi itu salah.",
+        passwordRequired: "Masukkan kata sandi Anda.",
+        totpRequired: "Masukkan kode 6 digit yang ditampilkan aplikasi Anda.",
+      },
+      makeNewCodes: "Buat kode cadangan baru",
+      setUp: "Siapkan masuk dua langkah",
+      off: "Nonaktif",
+      on: "Aktif",
+      passwordLabel: "Kata sandi Anda",
+      qrAriaLabel: "Kode QR untuk aplikasi autentikator Anda",
+      scan: {
+        manual: "Atau ketik kunci ini:",
+        step: "Pindai kode ini dengan aplikasi autentikator Anda.",
+      },
+      status: {
+        off: "Nonaktifkan masuk dua langkah",
+        on: "Aktifkan masuk dua langkah",
+      },
+      steps: {
+        backupCodes: "Simpan kode cadangan Anda",
+        code: "Masukkan kode yang ditampilkan aplikasi Anda",
+      },
+      title: "Masuk dua langkah",
+      totpLabel: "Kode 6 digit",
+    },
+    updates: {
+      check: "Periksa pembaruan",
+      checking: "Memeriksa...",
+      checkError: "Pembaruan tidak dapat diperiksa. Silakan coba lagi.",
+      docs: {
+        beforeTheLink: "Silakan lihat",
+        createFile: "Buat berkas",
+        details: "untuk rinciannya.",
+        guideLink: "panduan pembaruan",
+        inRepository: "di repositori Anda sekali lalu tempelkan",
+        itsContents: "isinya",
+        newReleaseAfter:
+          " untuk rinciannya, termasuk alur kerja GitHub yang melakukan ini untuk Anda.",
+        newReleaseBefore:
+          "Masukkan rilis baru ke repositori tempat situs ini dibangun, lalu deploy. Silakan lihat ",
+        noWorkflow:
+          "Tidak ada alur kerja itu? Salinan yang dibuat sebelum versi 0.2.0 tidak memilikinya.",
+      },
+      errorSuffix: " ",
+      eyebrow: "Administrator",
+      howTo: {
+        merge:
+          "Gabungkan pull request tersebut. Vercel melakukan deploy, dan proses build menerapkan perubahan basis data yang diperlukan versi baru.",
+        pullRequest:
+          "Alur ini membuka pull request berisi versi baru, dan Vercel membuat pratinjau. Perubahan kode Anda sendiri tetap disimpan; jika bertolak belakang dengan pembaruan, alur kerja akan menyebut berkas mana.",
+        runWorkflowAfter: ". Alur itu juga berjalan sendiri seminggu sekali.",
+        runWorkflowBefore: "Di repositori ",
+        runWorkflowButton: "Jalankan alur kerja",
+        runWorkflowMiddle: ", buka alur kerja Update Sakta lalu tekan ",
+        title: "Cara memperbarui",
+      },
+      latest: " telah tersedia. Situs ini menjalankan {current}.",
+      openWorkflow: "Buka alur kerja pembaruan",
+      releaseLink: "Baca rilis di GitHub",
+      releasesLink: "Lihat daftar rilis",
+      upToDate:
+        "Anda sudah menggunakan versi terbaru. {version} adalah rilis terbaru.",
+      versionAfter: "). Versi baru diterbitkan di ",
+      versionBefore: "Situs ini menjalankan Sakta versi ",
+      versionBetween: " (commit ",
+      whatsNew: "Yang baru",
+    },
+    webhooks: {
+      add: "Tambahkan endpoint",
+      adding: "Menambahkan...",
+      cancel: "Batal",
+      copy: "Salin",
+      copied: "Tersalin",
+      descriptionAfter:
+        ". Setiap endpoint menerima peristiwa untuk semua amplop di instalasi ini. Jika aplikasi tidak menjawab, peristiwa dicoba lagi selama kurang lebih dua hari.",
+      descriptionBefore:
+        "Beritahu aplikasi lain saat amplop dikirim, dibuka, ditandatangani, selesai, ditolak, dibatalkan, atau kedaluwarsa. Setiap peristiwa dikirim ke URL sebagai JSON dan ditandatangani dengan rahasia endpoint, menurut cara ",
+      docsLink: "Standard Webhooks",
+      done: "Selesai",
+      empty: "Belum ada endpoint.",
+      events: { legend: "Peristiwa" },
+      fields: {
+        descriptionLabel: "Deskripsi (opsional)",
+        descriptionPlaceholder: "Fungsi endpoint ini",
+        urlLabel: "URL",
+        urlPlaceholder: "https://app.example.com/webhooks/signudoc",
+      },
+      genericError: "Terjadi kesalahan. Silakan coba lagi.",
+      log: {
+        answered: ", dijawab {status}",
+        attempts: ", {count} kali percobaan",
+        ariaLabel: "Pengiriman terbaru",
+        empty: "Belum ada yang dikirim.",
+        loading: "Memuat...",
+        hide: "Sembunyikan log",
+        lastError: "{error}",
+        nextTry: " Percobaannya berikutnya sekitar {date}.",
+        noAnswer: "tidak ada jawaban",
+        paused:
+          "Endpoint ini nonaktif, sehingga tidak ada yang dikirim ke sana. Pengiriman yang menunggu akan keluar setelah endpoint diaktifkan.",
+        refreshed: "Peristiwa uji berhasil dikirim (jawaban {status}).",
+        refresh: "Muat ulang",
+        resend: "Kirim lagi",
+        sending: "Mengirim...",
+        statuses: {
+          delivered: "Terkirim",
+          failed: "Gagal",
+          pending: "Menunggu",
+          retrying: "Mencoba lagi",
+        },
+        testFailed: "Peristiwa uji gagal dikirim: {error}.",
+        title: "Log pengiriman",
+      },
+      newSecretNotice:
+        "Salin rahasia penandatangan untuk {url} sekarang. Rahasia ini tidak ditampilkan lagi. Tekan Selesai setelah disalin, sebelum menambahkan endpoint lain atau membuat rahasia baru.",
+      off: "Nonaktif",
+      on: "Aktif",
+      remove: "Hapus",
+      removeAriaLabel: "Hapus {url}",
+      removeConfirm: "Hapus endpoint ini dan log pengirimannya?",
+      removing: "Menghapus...",
+      retry: "Coba lagi",
+      rotate: "Rahasia baru",
+      secretTransition:
+        " Rahasia lama juga masih menandatangani sampai {date}, dan rahasia baru lain dapat dibuat setelah itu.",
+      status: {
+        allEvents: "Semua peristiwa.",
+        events: "{events}.",
+      },
+      test: { send: "Kirim uji", working: "Memproses..." },
+      title: "Webhook",
+      toggle: { off: "Nonaktifkan", on: "Aktifkan" },
+      eventLabels: {
+        completed: "Selesai",
+        declined: "Ditolak",
+        expired: "Kedaluwarsa",
+        sent: "Dikirim",
+        signerSigned: "Penandatangan menandatangani",
+        signerViewed: "Penandatangan membukanya",
+        voided: "Dibatalkan",
+      },
+      listAriaLabel: "Endpoint webhook",
+    },
+  },
   footer: {
     accessibilityLong: "Pernyataan Aksesibilitas",
     accessibilityShort: "Aksesibilitas",

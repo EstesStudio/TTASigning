@@ -104,3 +104,23 @@ test("the permitted-use page follows the locale without changing its URL", async
 
   await context.close();
 });
+
+test("the settings route keeps its URL under Indonesian", async ({
+  browser,
+}) => {
+  const context = await browser.newContext({ locale: "id-ID" });
+  const page = await context.newPage();
+
+  await page.goto("/settings");
+
+  // Anonymous visitors go to sign-in or setup, never to an /id/... variant.
+  await expect(page).toHaveURL(/\/login$|\/setup$/);
+  await expect(page.locator("html")).toHaveAttribute("lang", "id");
+  expect(page.url()).not.toContain("/id/");
+  expect(
+    (await context.cookies()).find((cookie) => cookie.name === "NEXT_LOCALE")
+      ?.value,
+  ).toBe("id");
+
+  await context.close();
+});
