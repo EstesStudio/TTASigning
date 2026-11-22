@@ -2,6 +2,7 @@ import { defineMessages } from "../define-messages.ts";
 
 export const enMessages = defineMessages({
   common: {
+    and: "and",
     lastUpdated: "Last updated {date}",
   },
   contact: {
@@ -940,6 +941,104 @@ export const enMessages = defineMessages({
   },
   envelope: {
     steps: ["Upload", "Signers", "Place fields", "Review"],
+    reminderIntervals: {
+      everyDays: "Every {days} days",
+      everyDay: "Every day",
+      everyWeek: "Every week",
+      off: "Off",
+    },
+    review: {
+      actions: {
+        back: "← Back",
+        cancel: "Cancel",
+        send: "Send envelope",
+        sending: "Sending...",
+        sendNow: "Send now",
+      },
+      dialog: {
+        notifiedFirst:
+          "The first signer ({name}) will be notified immediately.",
+        notifiedImmediate: "{name} will be notified immediately.",
+        notifiedParallel:
+          "{name} will be notified immediately, to sign at the same time.",
+        permittedUseAfter: ".",
+        permittedUseBefore:
+          "By sending, you confirm this document is an ordinary business agreement and not a will, court order, legally required consumer disclosure, or other ",
+        permittedUseLink: "document that cannot be signed electronically",
+        signatureType:
+          "Signature type: {type}. It cannot be changed once the envelope is sent.",
+        signerOne: "signer",
+        signers: "signers",
+        summary:
+          "“{title}” will be sent to {signerCount} {signerLabel}. {firstSignerNotice} The request expires in {deadlineDays} days.",
+        title: "Send this envelope?",
+      },
+      document: {
+        eyebrow: "Document",
+        meta: "{filename} - {pageCount} - {sizeLabel}",
+        page: "{count} pages",
+        pageOne: "1 page",
+      },
+      empty: {
+        action: "Back to prepare",
+        description:
+          "Add signers and place fields before you review the final summary for this envelope.",
+        eyebrow: "Incomplete draft",
+        title: "Nothing to review yet",
+      },
+      error: {
+        description:
+          "We couldn't load this draft summary. Try again after checking the earlier steps.",
+        retry: "Retry",
+        sendFailed: "Failed to send. Please try again.",
+        title: "Couldn't load the review summary",
+      },
+      fields: {
+        countMany: "({count} fields)",
+        countOne: "({count} field)",
+        none: "No fields placed yet (0 fields)",
+      },
+      header: {
+        description: "Step 4 of 4 - Review and send",
+        title: "New envelope",
+      },
+      notice: {
+        opening: "Opening the envelope detail view...",
+        sent: "Envelope sent. {name} has been notified.",
+      },
+      settings: {
+        deadline: "Signing deadline",
+        deadlineOption: "{days} days",
+        explanation:
+          "Signing links stop working at the deadline. Reminders go to the signer whose turn it is until they sign. You can change both later from the envelope.",
+        reminders: "Automatic reminders",
+        signatureType: "Signature type",
+      },
+      signature: {
+        advanced: "Advanced electronic signatures through {providerName}",
+        parallelBlocked:
+          "These signatures are added one after another, so signers cannot sign at the same time. Give each signer their own step, or choose Sakta signatures.",
+        providerDescription:
+          "Each signer proves who they are at {providerName} and signs with a certificate in their own name. {qualifiedNote}Which type a document needs is a legal question; this is not legal advice.",
+        qualified: "Qualified electronic signatures through {providerName}",
+        qualifiedNote:
+          "A qualified signature needs a qualified certificate, which not every signer has. ",
+        simple: "Sakta signatures",
+        simpleDescription:
+          "Signers sign here, and the finished PDF is sealed by this install.",
+      },
+      signingOrder: {
+        copies: "Copies when everyone has signed",
+        parallel:
+          "After you send, everyone numbered 1 receives an email with a link to sign. Signers with the same number sign at the same time, and the next number is invited once they have all signed.",
+        sequential:
+          "After you send, Signer 1 will receive an email with a link to sign. Each signer is notified in order after the previous signer completes.",
+        signer: "Signer {order}",
+        signers: "{count} signers",
+        signerOne: "{count} signer",
+        title: "Signing order",
+      },
+    },
     upload: {
       action: {
         fromTemplate: "Start from a template",

@@ -6,6 +6,7 @@ import { formatMessage } from "./format.ts";
 import { enMessages } from "./locales/en.ts";
 import { idMessages } from "./locales/id.ts";
 import { getMessages } from "./messages.ts";
+import { formatReminderIntervalMessage } from "./reminder-labels.ts";
 import { isLocale, localeFromAcceptLanguage } from "./types.ts";
 
 function messageKeys(value: unknown, prefix = ""): string[] {
@@ -233,6 +234,10 @@ test("the envelope editor has translated copy in both languages", () => {
   assert.equal(id.upload.header.title, "Amplop baru");
   assert.equal(en.pdfPage.error.title, "We couldn't render this PDF page.");
   assert.match(id.pdfPage.error.title, /tidak dapat dirender/);
+  assert.equal(en.review.actions.send, "Send envelope");
+  assert.equal(id.review.actions.send, "Kirim amplop");
+  assert.equal(en.reminderIntervals.everyDay, "Every day");
+  assert.equal(id.reminderIntervals.everyDay, "Setiap hari");
 
   for (const copy of [en, id]) {
     assert.match(copy.placedField.ariaLabel, /\{name\}.*\{label\}/);
@@ -240,7 +245,26 @@ test("the envelope editor has translated copy in both languages", () => {
     assert.equal(Object.keys(copy.placedField.corners).length, 4);
     assert.equal(Object.keys(copy.upload.error).length, 5);
     assert.match(copy.pdfPage.ariaLabel, /\{page\}/);
+    assert.match(
+      copy.review.dialog.summary,
+      /\{title\}.*\{signerCount\}.*\{deadlineDays\}/,
+    );
+    assert.match(
+      copy.review.signature.providerDescription,
+      /\{providerName\}.*\{qualifiedNote\}/,
+    );
+    assert.match(copy.reminderIntervals.everyDays, /\{days\}/);
   }
+});
+
+test("reminder options follow the active dictionary", () => {
+  const en = enMessages.envelope.reminderIntervals;
+  const id = idMessages.envelope.reminderIntervals;
+
+  assert.equal(formatReminderIntervalMessage(null, en), "Off");
+  assert.equal(formatReminderIntervalMessage(1, id), "Setiap hari");
+  assert.equal(formatReminderIntervalMessage(3, id), "Setiap 3 hari");
+  assert.equal(formatReminderIntervalMessage(7, en), "Every week");
 });
 
 test("the permitted-use page uses the current name and covers Indonesia", () => {

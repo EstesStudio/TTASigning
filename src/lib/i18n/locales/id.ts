@@ -3,6 +3,7 @@ import type { Messages } from "./en.ts";
 
 export const idMessages: Messages = defineMessages({
   common: {
+    and: "dan",
     lastUpdated: "Terakhir diperbarui {date}",
   },
   contact: {
@@ -951,6 +952,106 @@ export const idMessages: Messages = defineMessages({
   },
   envelope: {
     steps: ["Unggah", "Penandatangan", "Tempatkan kolom", "Tinjau"],
+    reminderIntervals: {
+      everyDays: "Setiap {days} hari",
+      everyDay: "Setiap hari",
+      everyWeek: "Setiap minggu",
+      off: "Nonaktif",
+    },
+    review: {
+      actions: {
+        back: "← Kembali",
+        cancel: "Batal",
+        send: "Kirim amplop",
+        sending: "Sedang mengirim...",
+        sendNow: "Kirim sekarang",
+      },
+      dialog: {
+        notifiedFirst:
+          "Penandatangan pertama ({name}) akan diberi tahu segera.",
+        notifiedImmediate: "{name} akan diberi tahu segera.",
+        notifiedParallel:
+          "{name} akan diberi tahu segera, untuk menandatangani bersamaan.",
+        permittedUseAfter: ".",
+        permittedUseBefore:
+          "Dengan mengirim, Anda menegaskan bahwa dokumen ini adalah perjanjian bisnis biasa dan bukan wasiat, perintah pengadilan, pemberitahuan konsumen yang diwajibkan hukum, atau ",
+        permittedUseLink:
+          "dokumen yang tidak dapat ditandatangani secara elektronik",
+        signatureType:
+          "Jenis tanda tangan: {type}. Jenis ini tidak dapat diubah setelah amplop dikirim.",
+        signerOne: "penandatangan",
+        signers: "penandatangan",
+        summary:
+          "“{title}” akan dikirim ke {signerCount} {signerLabel}. {firstSignerNotice} Permintaan kedaluwarsa dalam {deadlineDays} hari.",
+        title: "Kirim amplop ini?",
+      },
+      document: {
+        eyebrow: "Dokumen",
+        meta: "{filename} - {pageCount} - {sizeLabel}",
+        page: "{count} halaman",
+        pageOne: "1 halaman",
+      },
+      empty: {
+        action: "Kembali ke penempatan",
+        description:
+          "Tambahkan penandatangan dan tempatkan kolom sebelum meninjau ringkasan akhir amplop ini.",
+        eyebrow: "Draf belum lengkap",
+        title: "Belum ada yang ditinjau",
+      },
+      error: {
+        description:
+          "Ringkasan draf ini tidak dapat dimuat. Coba lagi setelah memeriksa langkah sebelumnya.",
+        retry: "Coba lagi",
+        sendFailed: "Gagal mengirim. Silakan coba lagi.",
+        title: "Ringkasan tinjauan tidak dapat dimuat",
+      },
+      fields: {
+        countMany: "({count} kolom)",
+        countOne: "({count} kolom)",
+        none: "Belum ada kolom ditempatkan (0 kolom)",
+      },
+      header: {
+        description: "Langkah 4 dari 4 - Tinjau dan kirim",
+        title: "Amplop baru",
+      },
+      notice: {
+        opening: "Membuka tampilan detail amplop...",
+        sent: "Amplop terkirim. {name} telah diberi tahu.",
+      },
+      settings: {
+        deadline: "Batas waktu penandatanganan",
+        deadlineOption: "{days} hari",
+        explanation:
+          "Tautan penandatanganan berhenti berfungsi saat batas waktu. Pengingat dikirim kepada penandatangan yang sedang giliran sampai mereka menandatangani. Keduanya dapat diubah kemudian dari halaman amplop.",
+        reminders: "Pengingat otomatis",
+        signatureType: "Jenis tanda tangan",
+      },
+      signature: {
+        advanced: "Tanda tangan elektronik lanjutan melalui {providerName}",
+        parallelBlocked:
+          "Tanda tangan ini ditambahkan satu per satu, sehingga penandatangan tidak dapat menandatangani bersamaan. Beri setiap penandatangan langkahnya sendiri, atau pilih tanda tangan Sakta.",
+        providerDescription:
+          "Setiap penandatangan membuktikan identitasnya di {providerName} dan menandatangani dengan sertifikat atas nama mereka sendiri. {qualifiedNote}Jenis tanda tangan yang diperlukan suatu dokumen adalah pertanyaan hukum; ini bukan nasihat hukum.",
+        qualified:
+          "Tanda tangan elektronik tersertifikasi melalui {providerName}",
+        qualifiedNote:
+          "Tanda tangan tersertifikasi memerlukan sertifikat tersertifikasi, yang tidak dimiliki semua penandatangan. ",
+        simple: "Tanda tangan Sakta",
+        simpleDescription:
+          "Penandatangan menandatangani di sini, dan PDF selesai disegel oleh instalasi ini.",
+      },
+      signingOrder: {
+        copies: "Tembusan setelah semua selesai menandatangani",
+        parallel:
+          "Setelah dikirim, semua penerima bernomor 1 mendapat surel berisi tautan untuk menandatangani. Penandatangan dengan nomor yang sama menandatangani bersamaan, dan nomor berikutnya diundang setelah semuanya selesai.",
+        sequential:
+          "Setelah dikirim, Penandatangan 1 akan menerima surel berisi tautan untuk menandatangani. Setiap penandatangan diberi tahu bergiliran setelah penandatangan sebelumnya selesai.",
+        signer: "Penandatangan {order}",
+        signers: "{count} penandatangan",
+        signerOne: "{count} penandatangan",
+        title: "Urutan penandatanganan",
+      },
+    },
     upload: {
       action: {
         fromTemplate: "Mulai dari templat",
