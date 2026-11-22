@@ -3,6 +3,11 @@ import { randomUUID } from "node:crypto";
 import type { Branding } from "./branding.ts";
 import { removeUnclaimedEnvelopeCertificates } from "./certificate-cleanup.ts";
 import {
+  buildDashboardContextLine,
+  buildDashboardStatusLabel,
+  formatDashboardDate,
+} from "./dashboard-labels.ts";
+import {
   type DbExecutor,
   type DbPool,
   getDb,
@@ -1481,78 +1486,6 @@ async function listFieldsForEnvelopeIds(
   return fieldsByEnvelope;
 }
 
-function buildDashboardContextLine(
-  envelope: EnvelopeRecord,
-  signers: readonly PersistedSignerRecord[],
-  fields: readonly PersistedFieldRecord[],
-): string {
-  if (envelope.status === "completed") {
-    const sentTo = signers.map((signer) => signer.email).join(", ");
-    return sentTo.length > 0 ? `Sent to: ${sentTo}` : "Sent to: —";
-  }
-
-  if (envelope.status === "sent") {
-    // Everyone whose turn it is: one signer, or all of a step that signs
-    // at the same time.
-    const waiting = signers.filter((signer) => signer.status === "notified");
-    const currentSigners =
-      waiting.length > 0
-        ? waiting
-        : signers.filter((signer) => signer.status === "pending").slice(0, 1);
-    const waitingOn =
-      currentSigners.length > 0
-        ? currentSigners.map((signer) => signer.email).join(", ")
-        : "—";
-
-    if (isEnvelopeExpired(envelope, Math.floor(Date.now() / 1000))) {
-      return `Expired ${formatShortDate(envelope.expiresAt!)} · was waiting on: ${waitingOn}`;
-    }
-
-    return `Waiting on: ${waitingOn}`;
-  }
-
-  if (envelope.status === "declined") {
-    const declinedSigner = signers.find(
-      (signer) => signer.status === "declined",
-    );
-    return `Declined by: ${declinedSigner?.email ?? "—"}`;
-  }
-
-  if (envelope.status === "voided") {
-    return `Voided on ${formatShortDate(envelope.voidedAt ?? envelope.updatedAt)}`;
-  }
-
-  return `${pluralize(signers.length, "signer")} · ${pluralize(fields.length, "field")} placed`;
-}
-
-const dashboardStatusLabels: Record<EnvelopeRecord["status"], string> = {
-  completed: "Completed",
-  declined: "Declined",
-  draft: "Draft",
-  sent: "Sent",
-  voided: "Voided",
-};
-
-function buildDashboardStatusLabel(
-  envelope: EnvelopeRecord,
-  signers: readonly PersistedSignerRecord[],
-): string {
-  if (isEnvelopeExpired(envelope, Math.floor(Date.now() / 1000))) {
-    return "Expired";
-  }
-
-  // With one signer "Sent" says it all. With several, say how many are done.
-  if (envelope.status === "sent" && signers.length > 1) {
-    const signedCount = signers.filter(
-      (signer) => signer.status === "signed",
-    ).length;
-
-    return `${String(signedCount)} of ${String(signers.length)} signed`;
-  }
-
-  return dashboardStatusLabels[envelope.status];
-}
-
 function buildFieldsBySigner(
   fields: readonly FieldRecord[],
 ): Map<string, FieldRecord[]> {
@@ -1925,8 +1858,9 @@ export async function listEnvelopesForUser(
   userId: string,
   filters: Partial<EnvelopeListFilters> = {},
   database: DbExecutor = getDb(),
+  locale: Locale = DEFAULT_LOCALE,
 ): Promise<DashboardEnvelopePage> {
-  return listEnvelopes(userId, filters, database);
+  return listEnvelopes(userId, filters, database, undefined, locale);
 }
 
 /**
@@ -1938,8 +1872,9 @@ export async function listAllEnvelopesForAdmin(
   adminUserId: string,
   filters: Partial<EnvelopeListFilters> = {},
   database: DbExecutor = getDb(),
+  locale: Locale = DEFAULT_LOCALE,
 ): Promise<DashboardEnvelopePage> {
-  return listEnvelopes(null, filters, database, adminUserId);
+  return listEnvelopes(null, filters, database, adminUserId, locale);
 }
 
 async function listEnvelopes(
@@ -1947,6 +1882,7 @@ async function listEnvelopes(
   filters: Partial<EnvelopeListFilters>,
   database: DbExecutor,
   adminUserId?: string,
+  locale: Locale = DEFAULT_LOCALE,
 ): Promise<DashboardEnvelopePage> {
   const parsedFilters = envelopeListFiltersSchema.parse(filters);
   const values: unknown[] =
@@ -2068,8 +2004,13 @@ async function listEnvelopes(
               : "Unknown sender",
           }
         : {}),
-      contextLine: buildDashboardContextLine(envelope, signers, fields),
-      createdAtLabel: formatShortDate(envelope.createdAt),
+      contextLine: buildDashboardContextLine(
+        envelope,
+        signers,
+        fields.length,
+        locale,
+      ),
+      createdAtLabel: formatDashboardDate(envelope.createdAt, locale),
       expired: isEnvelopeExpired(envelope, Math.floor(Date.now() / 1000)),
       id: envelope.id,
       // The search on the server matches copy recipients too.
@@ -2080,7 +2021,7 @@ async function listEnvelopes(
         ...(sender ? [sender] : []),
       ].map((recipient) => recipient.email),
       status: envelope.status,
-      statusLabel: buildDashboardStatusLabel(envelope, signers),
+      statusLabel: buildDashboardStatusLabel(envelope, signers, locale),
       title: envelope.title,
     };
   });

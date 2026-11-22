@@ -51,4 +51,4 @@ Artinya, mengganti penyedia email saja **tidak** akan menghilangkan pesan yang t
 ### Catatan
 
 - Temuan segel PDF sudah dicatat terpisah dan sengaja tidak dimasukkan ke sini.
-- Pekerjaan lokalisasi `src/components/dashboard/dashboard-documents-surface.tsx` masih tertunda dan terpisah dari isu ini.
+- Lokalisasi `src/components/dashboard/dashboard-documents-surface.tsx` sudah selesai dan terpisah dari isu ini. Teks yang masih berbahasa Inggris dan belum termasuk cakupan: label di `src/components/layout/nav-items.tsx`, menu akun publik, dan halaman detail amplop.

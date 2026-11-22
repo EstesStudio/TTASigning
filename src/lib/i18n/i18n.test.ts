@@ -127,6 +127,26 @@ test("the contact form and its errors are available in both languages", () => {
   assert.match(id.errors.reviewFields, /kolom yang ditandai/);
 });
 
+test("the dashboard has translated copy in both languages", () => {
+  const en = enMessages.dashboard;
+  const id = idMessages.dashboard;
+
+  assert.equal(en.header.title, "Documents");
+  assert.equal(id.header.title, "Dokumen");
+  assert.equal(en.filters.All, "All");
+  assert.equal(id.filters.All, "Semua");
+  assert.equal(en.upload, "Upload a PDF");
+  assert.equal(id.upload, "Unggah PDF");
+  assert.match(en.showing, /\{shown\}.*\{total\}/);
+  assert.match(id.showing, /\{shown\}.*\{total\}/);
+
+  for (const copy of [en, id]) {
+    assert.match(copy.search, /\.\.\.$/);
+    assert.equal(Object.keys(copy.card.statuses).length, 7);
+    assert.match(copy.card.status, /\{status\}/);
+  }
+});
+
 test("the permitted-use page uses the current name and covers Indonesia", () => {
   const en = enMessages.permittedUse;
   const id = idMessages.permittedUse;

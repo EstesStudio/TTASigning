@@ -43,6 +43,84 @@ export const idMessages: Messages = defineMessages({
       title: "Kontak | Sakta",
     },
   },
+  dashboard: {
+    card: {
+      context: {
+        completed: "Dikirim ke: {emails}",
+        completedEmpty: "Dikirim ke: —",
+        declined: "Ditolak oleh: {email}",
+        draftFields: "{count} kolom dipasang",
+        draftFieldsPlural: "{count} kolom dipasang",
+        draftSigners: "{count} penandatangan",
+        draftSignersPlural: "{count} penandatangan",
+        expiredWaiting: "Kedaluwarsa {date} · sebelumnya menunggu: {emails}",
+        sentWaiting: "Menunggu: {emails}",
+        voided: "Dibatalkan pada {date}",
+      },
+      created: "Dibuat",
+      sentBy: "Dikirim oleh",
+      status: "Status: {status}",
+      statuses: {
+        completed: "Selesai",
+        declined: "Ditolak",
+        draft: "Draf",
+        expired: "Kedaluwarsa",
+        sent: "Dikirim",
+        signedProgress: "{signed} dari {total} sudah menandatangani",
+        voided: "Dibatalkan",
+      },
+    },
+    empty: {
+      install: {
+        description: "Belum ada anggota organisasi Anda yang memulai amplop.",
+        title: "Belum ada amplop",
+      },
+      mine: {
+        description:
+          "Unggah PDF dan kirimkan untuk ditandatangani dalam hitungan menit.",
+        title: "Belum ada dokumen",
+      },
+      results: {
+        description:
+          "Coba judul, surel penandatangan, atau filter status lain.",
+        reset: "Atur ulang filter",
+        title: "Tidak ada dokumen yang cocok",
+      },
+    },
+    error: {
+      message: "Dokumen Anda tidak dapat dimuat. Silakan coba lagi.",
+      retry: "Coba lagi",
+    },
+    filters: {
+      All: "Semua",
+      Completed: "Selesai",
+      Declined: "Ditolak",
+      Draft: "Draf",
+      Sent: "Dikirim",
+      Voided: "Dibatalkan",
+      label: "Filter dokumen",
+    },
+    header: {
+      action: "Amplop baru",
+      allDescription: "Semua amplop di organisasi Anda, siapa pun pengirimnya.",
+      allTitle: "Semua amplop",
+      description:
+        "Lacak draf, amplop yang dikirim, dan perjanjian yang selesai di satu tempat.",
+      title: "Dokumen",
+      viewEveryone: "Semua orang",
+      viewLabel: "Amplop siapa",
+      viewMine: "Saya",
+    },
+    pagination: {
+      label: "Halaman",
+      newer: "Lebih baru",
+      older: "Lebih lama",
+    },
+    search: "Cari berdasarkan judul atau surel...",
+    showing: "Menampilkan {shown} dari {total} amplop",
+    showingOnPage: "Menampilkan {shown} dari {total} amplop di halaman ini",
+    upload: "Unggah PDF",
+  },
   footer: {
     accessibilityLong: "Pernyataan Aksesibilitas",
     accessibilityShort: "Aksesibilitas",
