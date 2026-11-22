@@ -20,7 +20,6 @@ import {
   ChevronRightIcon,
 } from "@/components/layout/nav-items";
 import { PublicLegalFooter } from "@/components/layout/public-legal-links";
-import { fitFieldTextSize } from "@/lib/field-text-fit";
 import {
   type DateFormat,
   dateFormats,
@@ -45,6 +44,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Checkbox } from "@/components/ui/checkbox";
+import { FittedFieldText } from "@/components/ui/fitted-field-text";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
 import { SigningStateScreen } from "@/components/signing/signing-state-screen";
@@ -1752,30 +1752,23 @@ function CurrentSignerField({
               />
             </span>
           ) : signatureEntry?.value ? (
-            <span
-              className="field-fit-text block max-w-full truncate px-1"
+            <FittedFieldText
+              className="block max-w-full truncate px-1"
+              maxPixels={signatureEntry.inputMethod === "typed" ? 17 : 14}
               style={{
                 fontFamily:
                   signatureEntry.inputMethod === "typed"
                     ? typedSignatureFont
                     : undefined,
-                fontSize: fitFieldTextSize(
-                  signatureEntry.value,
-                  signatureEntry.inputMethod === "typed" ? 17 : 14,
-                ),
               }}
-            >
-              {signatureEntry.value}
-            </span>
+              text={signatureEntry.value}
+            />
           ) : (
-            <span
-              className="field-fit-text block max-w-full truncate px-1 font-bold"
-              style={{
-                fontSize: fitFieldTextSize(getCanvasFieldLabel(field), 12),
-              }}
-            >
-              {getCanvasFieldLabel(field)}
-            </span>
+            <FittedFieldText
+              className="block max-w-full truncate px-1 font-bold"
+              maxPixels={12}
+              text={getCanvasFieldLabel(field)}
+            />
           )}
         </span>
       </button>
@@ -1796,12 +1789,12 @@ function CurrentSignerField({
         data-signing-field="true"
         style={frame}
       >
-        <p
-          className="field-fit-text flex h-full items-center justify-center px-1.5 font-semibold whitespace-nowrap"
-          style={{ fontSize: fitFieldTextSize(value, 12) }}
-        >
-          {value}
-        </p>
+        <FittedFieldText
+          as="p"
+          className="flex h-full items-center justify-center px-1.5 font-semibold whitespace-nowrap"
+          maxPixels={12}
+          text={value}
+        />
       </div>
     );
   }
@@ -2032,22 +2025,20 @@ function VisibleFieldStamp({ field }: { field: SigningVisibleField }) {
       style={frame}
     >
       <div className="flex h-full w-full items-center overflow-hidden px-1">
-        <p
-          className={`field-fit-text truncate font-medium ${
-            field.type === "date" || field.type === "name"
+        {/* Centred like the signed PDF stamps them. */}
+        <FittedFieldText
+          as="p"
+          className={`truncate font-medium ${
+            field.type === "date" || field.type === "name" || isTypedSignature
               ? "w-full text-center"
               : ""
           }`}
+          maxPixels={isTypedSignature ? 16 : 12}
           style={{
             fontFamily: isTypedSignature ? typedSignatureFont : undefined,
-            fontSize: fitFieldTextSize(
-              visibleValue,
-              isTypedSignature ? 16 : 12,
-            ),
           }}
-        >
-          {visibleValue}
-        </p>
+          text={visibleValue}
+        />
       </div>
     </div>
   );

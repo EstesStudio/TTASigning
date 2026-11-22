@@ -6,7 +6,7 @@ import {
   type PointerEvent as ReactPointerEvent,
 } from "react";
 
-import { fitFieldTextSize } from "@/lib/field-text-fit";
+import { FittedFieldText } from "@/components/ui/fitted-field-text";
 import { type FieldResizeHandle } from "@/lib/utils/pdf-coords";
 
 const dragThresholdPx = 4;
@@ -231,12 +231,11 @@ export function InteractivePlacedField({
       tabIndex={0}
     >
       {showInlineLabel ? (
-        <span
-          className="field-fit-text pointer-events-none max-w-full overflow-hidden text-ellipsis whitespace-nowrap px-1"
-          style={{ fontSize: fitFieldTextSize(label, 11) }}
-        >
-          {label}
-        </span>
+        <FittedFieldText
+          className="pointer-events-none max-w-full overflow-hidden text-ellipsis whitespace-nowrap px-1"
+          maxPixels={11}
+          text={label}
+        />
       ) : null}
 
       {isSelected

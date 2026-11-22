@@ -291,7 +291,7 @@
   }
 
   /* A row of choices where one is selected: filters, draw or type. */
-  /* A field box on the page: its text is sized to it with fitFieldTextSize. */
+  /* A field box on the page: its text is sized to it by FittedFieldText. */
   .field-box {
     container-type: size;
   }
