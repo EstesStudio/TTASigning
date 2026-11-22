@@ -118,6 +118,51 @@ export const enMessages = defineMessages({
     showingOnPage: "Showing {shown} of {total} envelopes on this page",
     upload: "Upload a PDF",
   },
+  templates: {
+    card: {
+      meta: "{pageCount} · {fieldCount} · {saved}",
+      roleAriaLabel: "Signers in {templateName}",
+      roleItem: "{index}. {name}",
+      saved: "Saved {date}",
+    },
+    counts: {
+      field: "{count} field",
+      fields: "{count} fields",
+      page: "{count} page",
+      pages: "{count} pages",
+    },
+    delete: {
+      cancel: "Cancel",
+      confirm: "Delete template",
+      deleting: "Deleting...",
+      description: {
+        removed: "“{templateName}” will be removed for good.",
+        retained: "Documents you already made from it are not affected.",
+      },
+      error: "Unable to delete this template.",
+      title: "Delete this template?",
+      triggerAriaLabel: "Delete the template {templateName}",
+      triggerLabel: "Delete",
+    },
+    empty: {
+      action: "Go to documents",
+      description:
+        "Open any document you have prepared or sent and choose Save as template. Next time, you only name the people who sign.",
+      title: "No templates yet",
+    },
+    error: {
+      description: "We couldn't load your templates. Try again in a moment.",
+      retry: "Retry",
+      title: "Couldn't load templates",
+    },
+    header: {
+      description:
+        "Documents you send often, with their fields and signing order already in place.",
+      title: "Templates",
+    },
+    sendToMany: "Send to many",
+    use: "Use template",
+  },
   footer: {
     accessibilityLong: "Accessibility Statement",
     accessibilityShort: "Accessibility",

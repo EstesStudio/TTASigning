@@ -121,6 +121,51 @@ export const idMessages: Messages = defineMessages({
     showingOnPage: "Menampilkan {shown} dari {total} amplop di halaman ini",
     upload: "Unggah PDF",
   },
+  templates: {
+    card: {
+      meta: "{pageCount} · {fieldCount} · {saved}",
+      roleAriaLabel: "Penandatangan template {templateName}",
+      roleItem: "{index}. {name}",
+      saved: "Disimpan {date}",
+    },
+    counts: {
+      field: "{count} kolom",
+      fields: "{count} kolom",
+      page: "{count} halaman",
+      pages: "{count} halaman",
+    },
+    delete: {
+      cancel: "Batal",
+      confirm: "Hapus template",
+      deleting: "Menghapus...",
+      description: {
+        removed: "“{templateName}” akan dihapus secara permanen.",
+        retained: "Dokumen yang sudah Anda buat darinya tidak terpengaruh.",
+      },
+      error: "Template ini tidak dapat dihapus.",
+      title: "Hapus template ini?",
+      triggerAriaLabel: "Hapus template {templateName}",
+      triggerLabel: "Hapus",
+    },
+    empty: {
+      action: "Buka dokumen",
+      description:
+        "Buka dokumen yang sudah Anda siapkan atau kirim, lalu pilih Simpan sebagai template. Lain kali, Anda hanya perlu menyebut siapa yang menandatangani.",
+      title: "Belum ada template",
+    },
+    error: {
+      description: "Template Anda tidak dapat dimuat. Silakan coba lagi.",
+      retry: "Coba lagi",
+      title: "Template tidak dapat dimuat",
+    },
+    header: {
+      description:
+        "Dokumen yang sering Anda kirim, dengan kolom dan urutan tanda tangan yang sudah siap.",
+      title: "Template",
+    },
+    sendToMany: "Kirim massal",
+    use: "Gunakan template",
+  },
   footer: {
     accessibilityLong: "Pernyataan Aksesibilitas",
     accessibilityShort: "Aksesibilitas",

@@ -147,6 +147,25 @@ test("the dashboard has translated copy in both languages", () => {
   }
 });
 
+test("the templates surface has translated copy in both languages", () => {
+  const en = enMessages.templates;
+  const id = idMessages.templates;
+
+  assert.equal(en.header.title, "Templates");
+  assert.equal(id.header.title, "Template");
+  assert.equal(en.delete.confirm, "Delete template");
+  assert.equal(id.delete.confirm, "Hapus template");
+  assert.equal(en.sendToMany, "Send to many");
+  assert.equal(id.sendToMany, "Kirim massal");
+
+  for (const copy of [en, id]) {
+    assert.match(copy.card.meta, /\{pageCount\}.*\{fieldCount\}.*\{saved\}/);
+    assert.match(copy.card.roleAriaLabel, /\{templateName\}/);
+    assert.match(copy.delete.description.removed, /\{templateName\}/);
+    assert.match(copy.delete.triggerAriaLabel, /\{templateName\}/);
+  }
+});
+
 test("the permitted-use page uses the current name and covers Indonesia", () => {
   const en = enMessages.permittedUse;
   const id = idMessages.permittedUse;
