@@ -20,6 +20,7 @@ import {
   ChevronRightIcon,
 } from "@/components/layout/nav-items";
 import { PublicLegalFooter } from "@/components/layout/public-legal-links";
+import { fitFieldTextSize } from "@/lib/field-text-fit";
 import {
   type DateFormat,
   dateFormats,
@@ -122,12 +123,6 @@ function shouldShowInlineFieldLabel(
     field.width >= compactFieldWidthThreshold &&
     field.height >= compactFieldHeightThreshold
   );
-}
-
-function shouldShowInlineFieldValue(
-  field: Pick<SigningCurrentField | SigningVisibleField, "height" | "width">,
-) {
-  return field.width >= 0.08 && field.height >= 0.03;
 }
 
 function getCanvasFieldLabel(
@@ -1729,13 +1724,12 @@ function CurrentSignerField({
 }) {
   const frame = getFieldFrame(field);
   const showInlineLabel = shouldShowInlineFieldLabel(field);
-  const showInlineValue = shouldShowInlineFieldValue(field);
 
   if (field.type === "signature" || field.type === "initials") {
     return (
       <button
         aria-label={getSummaryLabel(field)}
-        className={`absolute z-2 overflow-hidden rounded-[0.375rem] border-2 border-(--accent) text-(--accent-ink) transition ${
+        className={`field-box absolute z-2 overflow-hidden rounded-[0.375rem] border-2 border-(--accent) text-(--accent-ink) transition ${
           signatureEntry?.value
             ? "bg-[rgb(var(--accent-rgb)/0.10)]"
             : "bg-[rgb(var(--accent-rgb)/0.07)] hover:bg-[rgb(var(--accent-rgb)/0.16)]"
@@ -1757,27 +1751,32 @@ function CurrentSignerField({
                 unoptimized
               />
             </span>
-          ) : signatureEntry?.value && showInlineValue ? (
+          ) : signatureEntry?.value ? (
             <span
-              className="block max-w-full truncate px-1 text-sm"
+              className="field-fit-text block max-w-full truncate px-1"
               style={{
                 fontFamily:
                   signatureEntry.inputMethod === "typed"
                     ? typedSignatureFont
                     : undefined,
-                fontSize:
-                  signatureEntry.inputMethod === "typed"
-                    ? "1.05rem"
-                    : undefined,
+                fontSize: fitFieldTextSize(
+                  signatureEntry.value,
+                  signatureEntry.inputMethod === "typed" ? 17 : 14,
+                ),
               }}
             >
               {signatureEntry.value}
             </span>
-          ) : showInlineLabel ? (
-            <span className="block max-w-full truncate px-1 text-xs font-bold">
+          ) : (
+            <span
+              className="field-fit-text block max-w-full truncate px-1 font-bold"
+              style={{
+                fontSize: fitFieldTextSize(getCanvasFieldLabel(field), 12),
+              }}
+            >
               {getCanvasFieldLabel(field)}
             </span>
-          ) : null}
+          )}
         </span>
       </button>
     );
@@ -1785,19 +1784,24 @@ function CurrentSignerField({
 
   // Filled in for the signer: the day they sign, or their name.
   if (field.type === "date" || field.type === "name") {
+    const value =
+      field.type === "date"
+        ? localDateLabels[field.dateFormat ?? "date"]
+        : signerName;
+
+    // One line, made smaller if need be, as the signed PDF stamps it.
     return (
       <div
-        className="absolute z-2 overflow-hidden rounded-[0.375rem] border border-(--border-strong) bg-white/92 text-sm text-(--fg)"
+        className="field-box absolute z-2 overflow-hidden rounded-[0.375rem] border border-(--border-strong) bg-white/92 text-(--fg)"
         data-signing-field="true"
         style={frame}
       >
-        {showInlineValue ? (
-          <p className="flex h-full items-center px-2 text-[12px] leading-tight font-semibold">
-            {field.type === "date"
-              ? localDateLabels[field.dateFormat ?? "date"]
-              : signerName}
-          </p>
-        ) : null}
+        <p
+          className="field-fit-text flex h-full items-center px-1.5 font-semibold whitespace-nowrap"
+          style={{ fontSize: fitFieldTextSize(value, 12) }}
+        >
+          {value}
+        </p>
       </div>
     );
   }
@@ -1950,8 +1954,6 @@ function CurrentSignerField({
 
 function VisibleFieldStamp({ field }: { field: SigningVisibleField }) {
   const frame = getFieldFrame(field);
-  const showInlineLabel = shouldShowInlineFieldLabel(field);
-  const showInlineValue = shouldShowInlineFieldValue(field);
 
   if (field.type === "radio") {
     return (
@@ -2018,38 +2020,30 @@ function VisibleFieldStamp({ field }: { field: SigningVisibleField }) {
     );
   }
 
+  const visibleValue = getVisibleFieldValue(field);
+  const isTypedSignature =
+    field.inputMethod === "typed" &&
+    (field.type === "signature" || field.type === "initials");
+
   return (
     <div
-      className="pointer-events-none absolute z-1 overflow-hidden rounded-[0.375rem] border border-(--border-strong) bg-[rgba(28,29,43,0.03)] text-(--secondary)"
+      className="field-box pointer-events-none absolute z-1 overflow-hidden rounded-[0.375rem] border border-(--border-strong) bg-[rgba(28,29,43,0.03)] text-(--secondary)"
       data-signing-field="true"
       style={frame}
     >
       <div className="flex h-full w-full items-center overflow-hidden px-1">
-        {showInlineValue ? (
-          <p
-            className={`truncate ${
-              showInlineLabel ? "text-[12px]" : "w-full text-center text-[11px]"
-            } font-medium`}
-            style={{
-              fontFamily:
-                field.inputMethod === "typed" &&
-                (field.type === "signature" || field.type === "initials")
-                  ? typedSignatureFont
-                  : undefined,
-              fontSize:
-                field.inputMethod === "typed" &&
-                (field.type === "signature" || field.type === "initials")
-                  ? "1rem"
-                  : undefined,
-            }}
-          >
-            {getVisibleFieldValue(field)}
-          </p>
-        ) : showInlineLabel ? (
-          <p className="w-full truncate text-center text-[11px] font-semibold text-(--tertiary)">
-            {getCanvasFieldLabel(field)}
-          </p>
-        ) : null}
+        <p
+          className="field-fit-text truncate font-medium"
+          style={{
+            fontFamily: isTypedSignature ? typedSignatureFont : undefined,
+            fontSize: fitFieldTextSize(
+              visibleValue,
+              isTypedSignature ? 16 : 12,
+            ),
+          }}
+        >
+          {visibleValue}
+        </p>
       </div>
     </div>
   );
