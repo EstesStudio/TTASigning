@@ -699,6 +699,63 @@ export const idMessages: Messages = defineMessages({
     },
   },
   legal: {
+    accessibility: {
+      hero: {
+        description:
+          "Pernyataan ini menjelaskan fitur aksesibilitas Sakta saat ini, keterbatasan yang diketahui, serta cara meminta bantuan atau memberi masukan.",
+        title: "Pernyataan Aksesibilitas",
+      },
+      metadata: {
+        description:
+          "Baca pernyataan aksesibilitas Sakta, fitur yang tersedia, keterbatasan yang diketahui, dan cara meminta bantuan.",
+        title: "Pernyataan Aksesibilitas | Sakta",
+      },
+      sections: {
+        assistance: {
+          heading: "4. Bantuan alternatif",
+          paragraphs: [
+            "Tergantung situasinya, kami mungkin dapat memberikan bantuan manual, jalur komunikasi alternatif, atau cara lain yang didukung untuk menyelesaikan alur kerja.",
+          ],
+          requestWithSupport:
+            "Jika Anda membutuhkan bantuan membuat, mengirim, meninjau, atau menandatangani dokumen, kirim surel ke {supportAddress}. Sampaikan bagian alur kerja yang ingin Anda selesaikan, teknologi bantu yang Anda gunakan bila Anda bersedia membagikannya, serta jenis akomodasi yang akan membantu.",
+        },
+        commitment: {
+          heading: "1. Komitmen",
+          paragraphs: [
+            "Kami ingin Sakta dapat digunakan oleh sebanyak mungkin orang, termasuk mereka yang mengandalkan navigasi papan ketik, pembaca layar, pembesaran tampilan, atau teknologi bantu lainnya. Kami mengikuti praktik baik aksesibilitas dan menjadikan masukan aksesibilitas sebagai prioritas produk.",
+            "Sakta masih berada pada tahap peluncuran, sehingga sebagian pengalaman lebih mudah diakses daripada bagian lainnya. Pernyataan ini sengaja dibuat jujur mengenai kondisi produk saat ini dan bantuan yang tersedia sekarang.",
+          ],
+        },
+        feedback: {
+          contactWithSupport:
+            "Masukan aksesibilitas membantu kami memprioritaskan perbaikan yang tepat. Jika Anda menemukan hambatan, kirim surel ke {supportAddress} atau gunakan halaman {contactLink}.",
+          heading: "6. Masukan",
+        },
+        limitations: {
+          heading: "3. Keterbatasan yang diketahui",
+          items: [
+            "Pratinjau PDF dirender pada canvas, sehingga bukan representasi semantis penuh dari dokumen asli bagi pembaca layar.",
+            "Penyiapan dokumen di sisi pengirim saat ini sangat bergantung pada seret dan lepas serta penempatan kolom dengan pointer, yang belum sepenuhnya dapat diakses oleh pengguna tunanetra atau sebagian pengguna yang hanya memakai papan ketik.",
+            "Beberapa PDF yang diunggah mungkin memuat gambar hasil pindai, tata letak kompleks, atau masalah aksesibilitas dari pihak ketiga yang tidak dapat diperbaiki sepenuhnya oleh Sakta saat ditampilkan.",
+          ],
+        },
+        standards: {
+          heading: "5. Standar dan upaya berkelanjutan",
+          paragraphs: [
+            "Di Indonesia, UU Nomor 8 Tahun 2016 tentang Penyandang Disabilitas mengakui aksesibilitas serta akses atas informasi dan komunikasi sebagai hak penyandang disabilitas. Kami memakai WCAG 2.2 Tingkat AA sebagai acuan teknis praktis saat merencanakan perbaikan, tetapi kami tidak menyatakan bahwa setiap bagian Sakta telah sepenuhnya mematuhinya saat ini.",
+            "Fokus jangka dekat kami mencakup peningkatan aksesibilitas pengalaman PDF berbasis canvas, penguatan perilaku fokus pada dialog, pengurangan interaksi yang hanya memakai pointer, serta perluasan alternatif yang ramah papan ketik.",
+          ],
+        },
+        works: {
+          heading: "2. Bagian yang saat ini paling baik",
+          items: [
+            "Pembuatan akun, masuk, dasbor, pengaturan, dan sebagian besar formulir non-canvas memakai kontrol semantis serta dirancang untuk dapat dinavigasi dengan papan ketik.",
+            "Pengalaman penandatanganan memakai kolom dan tombol HTML yang dapat difokuskan dengan papan ketik di atas pratinjau PDF, serta menyediakan ringkasan kolom yang ditugaskan di panel samping.",
+            "Pesan status, tombol, dan label formulir dirancang untuk menyampaikan teks yang bermakna kepada teknologi bantu.",
+          ],
+        },
+      },
+    },
     privacy: {
       hero: {
         description:

@@ -3,6 +3,7 @@ import { intlLocales, type Locale } from "./i18n/types.ts";
 /** Effective dates for the hosted legal pages, kept per document. */
 export const TERMS_EFFECTIVE_DATE = "2026-03-21";
 export const PRIVACY_EFFECTIVE_DATE = "2026-03-25";
+export const ACCESSIBILITY_EFFECTIVE_DATE = "2026-03-25";
 
 /**
  * Formats an ISO date for a legal page in the active language, always in UTC

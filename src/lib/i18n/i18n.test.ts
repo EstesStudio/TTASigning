@@ -102,3 +102,15 @@ test("the privacy notice uses Indonesian law and names its processors", () => {
   assert.match(en.children.paragraphs.join(" "), /18 years/);
   assert.match(id.children.paragraphs.join(" "), /18 \(delapan belas\) tahun/);
 });
+
+test("the accessibility statement stays candid and cites Indonesian law", () => {
+  const en = enMessages.legal.accessibility.sections;
+  const id = idMessages.legal.accessibility.sections;
+
+  assert.match(en.standards.paragraphs.join(" "), /UU No\. 8 of 2016/);
+  assert.match(id.standards.paragraphs.join(" "), /UU Nomor 8 Tahun 2016/);
+  assert.match(en.standards.paragraphs.join(" "), /do not claim/);
+  assert.match(id.standards.paragraphs.join(" "), /tidak menyatakan/);
+  assert.match(en.limitations.items.join(" "), /canvas/);
+  assert.match(id.limitations.items.join(" "), /canvas/);
+});

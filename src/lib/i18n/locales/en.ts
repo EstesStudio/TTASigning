@@ -694,6 +694,63 @@ export const enMessages = defineMessages({
     },
   },
   legal: {
+    accessibility: {
+      hero: {
+        description:
+          "This statement describes Sakta's current accessibility features, known limitations, and how to ask for help or give feedback.",
+        title: "Accessibility Statement",
+      },
+      metadata: {
+        description:
+          "Read Sakta's accessibility statement, current features, known limitations, and how to request assistance.",
+        title: "Accessibility Statement | Sakta",
+      },
+      sections: {
+        assistance: {
+          heading: "4. Alternative assistance",
+          paragraphs: [
+            "Depending on the situation, we may be able to provide manual assistance, an alternative communication path, or another supported way to complete the workflow.",
+          ],
+          requestWithSupport:
+            "If you need help creating, sending, reviewing, or signing a document, email {supportAddress}. Tell us which part of the workflow you are trying to complete, what assistive technology you use if you are comfortable sharing it, and what kind of accommodation would help.",
+        },
+        commitment: {
+          heading: "1. Commitment",
+          paragraphs: [
+            "We want Sakta to be usable by as many people as possible, including people who rely on keyboard navigation, screen readers, zoom, or other assistive technologies. We use accessibility best practices and treat accessibility feedback as a product priority.",
+            "Sakta is still a launch-stage product, and some parts of the experience are more accessible than others. This statement is intended to be candid about the current state of the product and the help that is available right now.",
+          ],
+        },
+        feedback: {
+          contactWithSupport:
+            "Accessibility feedback helps us prioritize the right fixes. If you find a barrier, email {supportAddress} or use the {contactLink} page.",
+          heading: "6. Feedback",
+        },
+        limitations: {
+          heading: "3. Known limitations",
+          items: [
+            "The PDF preview is rendered on a canvas and is therefore not a fully semantic representation of the source document for screen readers.",
+            "Sender-side document preparation currently relies heavily on drag-and-drop and pointer-based field placement, which is not yet a fully accessible workflow for blind users or some keyboard-only users.",
+            "Some uploaded PDFs may contain scanned images, complex layouts, or third-party accessibility issues that Sakta cannot fully correct at display time.",
+          ],
+        },
+        standards: {
+          heading: "5. Standards and ongoing work",
+          paragraphs: [
+            "In Indonesia, the Law on Persons with Disabilities (UU No. 8 of 2016) recognizes accessibility and access to information and communication as rights of persons with disabilities. We use WCAG 2.2 Level AA as a practical technical reference when planning improvements, but we do not claim that every part of Sakta fully conforms today.",
+            "Our near-term focus includes improving the accessibility of the canvas-based PDF experience, strengthening modal focus behavior, reducing pointer-only interactions, and continuing to expand keyboard-friendly alternatives.",
+          ],
+        },
+        works: {
+          heading: "2. What currently works best",
+          items: [
+            "Account creation, log in, dashboard, settings, and most non-canvas forms use semantic controls and are intended to be keyboard navigable.",
+            "The signing experience uses keyboard-focusable HTML inputs and buttons layered over the PDF preview, and includes a sidebar summary of assigned fields.",
+            "Status messages, buttons, and form labels are designed to expose meaningful text to assistive technology.",
+          ],
+        },
+      },
+    },
     privacy: {
       hero: {
         description:
