@@ -952,6 +952,117 @@ export const idMessages: Messages = defineMessages({
   },
   envelope: {
     steps: ["Unggah", "Penandatangan", "Tempatkan kolom", "Tinjau"],
+    prepare: {
+      actions: {
+        addRadioButton: "+ Tambah tombol ke grup ini",
+        back: "Kembali",
+        closeFieldTools: "Tutup alat kolom",
+        delete: "Hapus",
+        done: "Selesai",
+        next: "Lanjut →",
+        openFieldTools: "Buka alat kolom",
+        place: "Tempatkan",
+        placing: "Menempatkan",
+        retry: "Coba lagi",
+      },
+      choiceProblems: {
+        dropdown_options:
+          "Dropdown untuk {signer} perlu setidaknya dua pilihan. Pilih dropdown itu lalu tambahkan pilihannya.",
+        radio_group_size:
+          "Tombol radio untuk {signer} masih berdiri sendiri. Tambahkan tombol lain ke grupnya, atau hapus tombol itu.",
+      },
+      error: {
+        generic: "Terjadi kesalahan. Silakan coba lagi.",
+        loadDescription: "Terjadi kesalahan. Silakan coba lagi.",
+        loadTitle: "Dokumen ini tidak dapat dimuat",
+        saveNetwork: "Perubahan Anda tidak dapat disimpan. Coba lagi.",
+      },
+      fallbackSignerName: "seorang penandatangan",
+      fieldSettings: {
+        ariaLabel: "Pengaturan kolom",
+        assignedTo: "Ditugaskan kepada",
+        choices: "Pilihan",
+        choicesPlaceholder: "Ya\nTidak\nBelum tahu",
+        choicesReady:
+          "Satu pilihan per baris. {count} dari maksimal {max}. Penandatangan memilih salah satu.",
+        choicesTooFew: "Satu pilihan per baris. Tambahkan setidaknya dua.",
+        optional: "Opsional",
+        radioMeaning: "Arti tombol ini",
+        radioPlaceholder: "Ya",
+        radioReady:
+          "{count} tombol dalam grup ini. Penandatangan memilih salah satu.",
+        radioTooFew:
+          "Tombol radio memerlukan setidaknya satu tombol lagi dalam grupnya.",
+        required: "Wajib",
+        requiredGroup: "Wajib (seluruh grup)",
+        title: "Pengaturan kolom",
+      },
+      fieldTools: {
+        checkbox: { label: "Kotak centang", placeholderLabel: "Kotak centang" },
+        date: { label: "Tanggal", placeholderLabel: "Tanggal" },
+        dropdown: { label: "Dropdown", placeholderLabel: "Dropdown" },
+        initials: { label: "Inisial", placeholderLabel: "Inisial" },
+        name: { label: "Nama", placeholderLabel: "Nama" },
+        number: { label: "Angka", placeholderLabel: "Angka" },
+        radio: { label: "Tombol radio", placeholderLabel: "Tombol radio" },
+        signature: { label: "Tanda tangan", placeholderLabel: "Tanda tangan" },
+        text: { label: "Teks", placeholderLabel: "Teks" },
+      },
+      fields: {
+        emptyDescription:
+          "Pilih kolom, lalu klik halaman untuk menempatkannya bagi penandatangan yang dipilih.",
+        emptyTitle: "Belum ada kolom ditempatkan",
+        placedMany: "{count} kolom ditempatkan",
+        placedOne: "1 kolom ditempatkan",
+        title: "Kolom",
+      },
+      inspector: {
+        emptyHint:
+          "Pilih kolom di halaman untuk mengubah pengaturannya, atau pilih alat kolom di sebelah kiri untuk menempatkan kolom baru.",
+        noField: "Tidak ada kolom dipilih",
+        placeHint: "Klik dokumen untuk menempatkan {field} bagi {signer}.",
+        title: "Inspektur",
+        toolReady: "{field} siap ditempatkan",
+      },
+      optionLabel: "Opsi {number}",
+      page: {
+        ariaDocument: "Halaman dokumen",
+        ariaNext: "Halaman berikutnya",
+        ariaPrevious: "Halaman sebelumnya",
+        label: "Halaman {page} dari {count}",
+      },
+      placedRadioLabel: "Tombol radio: {label}",
+      placement: {
+        ariaPlace: "Tempatkan {field} di halaman {page}",
+        clickFor: "untuk",
+        clickPrefix: "Klik halaman untuk menempatkan",
+        ready: "Siap ditempatkan",
+        srPlace: "Tempatkan {field} di halaman dokumen",
+      },
+      save: {
+        failed: "Gagal menyimpan",
+        saved: "Tersimpan",
+        saving: "Menyimpan...",
+      },
+      signerPanel: {
+        newFieldsHere: "Kolom baru akan ditugaskan di sini",
+        placing: "Menempatkan {field}",
+        title: "Penandatangan dipilih",
+      },
+      signers: {
+        fieldsMany: "{count} kolom ditempatkan",
+        fieldsOne: "1 kolom ditempatkan",
+        signatureNeeded: "Tanda tangan diperlukan",
+        signatureReady: "Tanda tangan siap",
+        title: "Penandatangan",
+      },
+      step: "Langkah 3 dari 4",
+      title: '"Dokumen"',
+      toolSheet: {
+        ariaLabel: "Alat kolom",
+        title: "Kolom",
+      },
+    },
     reminderIntervals: {
       everyDays: "Setiap {days} hari",
       everyDay: "Setiap hari",

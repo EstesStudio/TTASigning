@@ -245,8 +245,35 @@ test("the envelope editor has translated copy in both languages", () => {
   assert.match(id.detail.dialogs.void.title, /Batalkan amplop/);
   assert.equal(en.reminderIntervals.everyDay, "Every day");
   assert.equal(id.reminderIntervals.everyDay, "Setiap hari");
+  assert.equal(en.prepare.step, "Step 3 of 4");
+  assert.equal(id.prepare.step, "Langkah 3 dari 4");
+  assert.equal(en.prepare.actions.next, "Next →");
+  assert.equal(id.prepare.actions.next, "Lanjut →");
+  assert.equal(en.prepare.error.loadTitle, "Couldn't load this document");
+  assert.match(id.prepare.error.loadTitle, /tidak dapat dimuat/);
+  assert.equal(en.prepare.fieldTools.signature.placeholderLabel, "Sign");
+  assert.equal(
+    id.prepare.fieldTools.signature.placeholderLabel,
+    "Tanda tangan",
+  );
+  assert.equal(en.prepare.signers.signatureReady, "Signature ready");
+  assert.equal(id.prepare.signers.signatureReady, "Tanda tangan siap");
 
   for (const copy of [en, id]) {
+    assert.match(copy.prepare.choiceProblems.dropdown_options, /\{signer\}/);
+    assert.match(copy.prepare.choiceProblems.radio_group_size, /\{signer\}/);
+    assert.match(copy.prepare.fieldSettings.choicesReady, /\{count\}.*\{max\}/);
+    assert.match(copy.prepare.fieldSettings.radioReady, /\{count\}/);
+    assert.match(copy.prepare.fields.placedMany, /\{count\}/);
+    assert.match(copy.prepare.inspector.placeHint, /\{field\}.*\{signer\}/);
+    assert.match(copy.prepare.inspector.toolReady, /\{field\}/);
+    assert.match(copy.prepare.optionLabel, /\{number\}/);
+    assert.match(copy.prepare.page.label, /\{page\}.*\{count\}/);
+    assert.match(copy.prepare.placedRadioLabel, /\{label\}/);
+    assert.match(copy.prepare.placement.ariaPlace, /\{field\}.*\{page\}/);
+    assert.match(copy.prepare.signerPanel.placing, /\{field\}/);
+    assert.match(copy.prepare.signers.fieldsMany, /\{count\}/);
+    assert.equal(Object.keys(copy.prepare.fieldTools).length, 9);
     assert.match(copy.placedField.ariaLabel, /\{name\}.*\{label\}/);
     assert.match(copy.placedField.resizeAriaLabel, /\{label\}.*\{corner\}/);
     assert.equal(Object.keys(copy.placedField.corners).length, 4);
