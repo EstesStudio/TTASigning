@@ -1,3 +1,4 @@
+import { CUSTOM_DISCLOSURE_NOTICE_VERSION } from "../src/lib/consent-disclosure-notice";
 import { expect, test } from "@playwright/test";
 import pg from "pg";
 import { e2eDatabaseUrl, e2eSetupToken } from "../playwright.config";
@@ -48,6 +49,14 @@ test("Spanish and English signers receive their own language through signing and
       .getByRole("button", { name: "I agree" })
       .click();
     await expect(page.getByText("Organization settings saved.")).toBeVisible();
+    const disclosureAudit = await database.query(
+      `select metadata from system_audit_events where event='settings_changed' and metadata->'changes' ? 'consentDisclosureTranslations' order by sequence desc limit 1`,
+    );
+    expect(disclosureAudit.rows[0]?.metadata.consentDisclosureNotice).toEqual({
+      agreed: true,
+      noticeVersion: CUSTOM_DISCLOSURE_NOTICE_VERSION,
+    });
+
     await page.getByLabel("Disclosure language").selectOption("en");
     await expect(page.getByLabel("Disclosure text")).toHaveValue("");
     await page.getByLabel("Disclosure language").selectOption("es");
@@ -151,9 +160,50 @@ test("Spanish and English signers receive their own language through signing and
         ).toHaveText(t(language, "verify.checkError"));
         await signerPage.unroute("**/verify");
         await database.query(
-          "update signers set require_email_code=false where id=$1",
+          "update signers set require_email_code=false, user_id=(select id from public.\"user\" where role='admin' limit 1) where id=$1",
           [signers.rows[index].id],
         );
+        await signerPage.goto(signingUrl);
+        await signerPage
+          .getByLabel(t(language, "verify.emailAddress"))
+          .fill("language.admin@example.test");
+        await signerPage
+          .getByLabel(t(language, "verify.accountLabel"))
+          .fill("wrong-password");
+        for (const [payload, message] of [
+          [
+            { code: "account_credentials_invalid", attemptsLeft: 1 },
+            t(language, "error.credentials.wrongOne", { count: 1 }),
+          ],
+          [
+            { code: "account_locked", maxAttempts: 5 },
+            t(language, "error.credentials.locked", { attempts: 5 }),
+          ],
+          [
+            { code: "account_identity_unconfirmed" },
+            t(language, "error.credentials.identityNotConfirmed"),
+          ],
+        ] as const) {
+          await signerPage.route("**/verify", (route) =>
+            route.fulfill({
+              status: 400,
+              json: { ...payload, error: "Raw server text must not appear" },
+            }),
+          );
+          await signerPage
+            .getByRole("button", {
+              name: t(language, "verify.continue"),
+              exact: true,
+            })
+            .click();
+          await expect(
+            signerPage.getByRole("main").getByRole("alert"),
+          ).toHaveText(message);
+          await signerPage.unroute("**/verify");
+        }
+        await database.query("update signers set user_id=null where id=$1", [
+          signers.rows[index].id,
+        ]);
       }
       await signerPage.goto(signingUrl);
       const consent = signerPage.getByRole("dialog", {
@@ -301,6 +351,23 @@ test("Spanish and English signers receive their own language through signing and
       expect(text).toContain(t("es", "disclosure.consent"));
       expect(text).toContain(t("en", "disclosure.consent"));
     }
+    // Restoring the default needs no notice acceptance and must not invent one.
+    await page.goto("/settings#organization");
+    await page.getByLabel("Disclosure language").selectOption("es");
+    await page.getByLabel("Disclosure text").fill("");
+    await page
+      .getByRole("button", { name: "Save organization settings" })
+      .click();
+    await expect(page.getByText("Organization settings saved.")).toBeVisible();
+    const resetAudit = await database.query(
+      `select metadata from system_audit_events where event='settings_changed' and metadata->'changes' ? 'consentDisclosureTranslations' order by sequence desc limit 1`,
+    );
+    expect(
+      resetAudit.rows[0]?.metadata.changes.consentDisclosureTranslations.to,
+    ).toEqual({ es: null });
+    expect(
+      resetAudit.rows[0]?.metadata.consentDisclosureNotice,
+    ).toBeUndefined();
   } finally {
     await database.query(
       "update public.app_settings set consent_disclosure_translations = '{}'::jsonb where id",

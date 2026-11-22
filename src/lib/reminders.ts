@@ -30,10 +30,7 @@ import {
   isEmailNotConnectedError,
   type EmailService,
 } from "./services/email.ts";
-import {
-  buildDeadlineLine,
-  describeRequestedAction,
-} from "./services/signing-invitation-email.ts";
+import { buildDeadlineLine } from "./services/signing-invitation-email.ts";
 import { isEmbeddedEnvelope } from "./embedding.ts";
 import { withUserEmailLegalFooter } from "./services/email-legal-footer.ts";
 import {
@@ -265,12 +262,24 @@ function buildReminderEmail(input: {
   const automatic = input.kind === "automatic";
   const subject = t(
     locale,
-    automatic ? "email.reminder.auto.subject" : "email.reminder.manual.subject",
+    input.signerRole === "approver"
+      ? automatic
+        ? "approval.reminder.auto.subject"
+        : "approval.reminder.manual.subject"
+      : automatic
+        ? "email.reminder.auto.subject"
+        : "email.reminder.manual.subject",
     { sender: input.senderName, title: input.envelopeTitle },
   );
   const introLine = t(
     locale,
-    automatic ? "email.reminder.auto.intro" : "email.reminder.manual.intro",
+    input.signerRole === "approver"
+      ? automatic
+        ? "approval.reminder.auto.intro"
+        : "approval.reminder.manual.intro"
+      : automatic
+        ? "email.reminder.auto.intro"
+        : "email.reminder.manual.intro",
     {
       sender: input.senderName,
       title: input.envelopeTitle,
@@ -278,18 +287,28 @@ function buildReminderEmail(input: {
     },
   );
   const greeting = t(locale, "email.greeting", { name: input.signerName });
-  const cta = t(locale, "email.cta");
+  const cta = t(
+    locale,
+    input.signerRole === "approver" ? "approval.cta" : "email.cta",
+  );
   const deadlineLine = buildDeadlineLine(input.expiresAt, locale);
-  const noAccount = t(locale, "email.noAccount", {
-    product: input.branding.productName,
-  });
+  const noAccount = t(
+    locale,
+    input.signerRole === "approver" ? "approval.noAccount" : "email.noAccount",
+    {
+      product: input.branding.productName,
+    },
+  );
   const newestLink = t(locale, "email.newestLink");
   const textBody = [
     greeting,
     "",
     introLine,
     "",
-    cta,
+    t(
+      locale,
+      input.signerRole === "approver" ? "approval.ctaText" : "email.ctaText",
+    ),
     input.signingUrl,
     ...(deadlineLine ? ["", deadlineLine] : []),
     "",

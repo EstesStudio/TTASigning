@@ -60,11 +60,9 @@ export function SigningDoneShell({
             {t(locale, "done.title")}
           </h1>
           <p className="mx-auto mt-4 max-w-[480px] text-base leading-7 text-(--secondary)">
-            Your {approved ? "approval" : "signature"} has been recorded for{" "}
-            <span className="font-bold text-(--fg)">
-              &quot;{resolvedEnvelopeTitle}&quot;
-            </span>
-            .
+            {t(locale, approved ? "approval.done" : "done.recorded", {
+              title: resolvedEnvelopeTitle,
+            })}
           </p>
           <p className="mx-auto mt-3 max-w-[480px] text-base leading-7 text-(--secondary)">
             {t(locale, "done.emailComing")}

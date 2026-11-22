@@ -202,7 +202,10 @@ async function createEnvelope(
     if (link) {
       await recordSignerConsent(
         link.token,
-        { disclosureVersion: ELECTRONIC_RECORDS_DISCLOSURE_VERSION },
+        {
+          language: "en",
+          disclosureVersion: ELECTRONIC_RECORDS_DISCLOSURE_VERSION,
+        },
         { database },
       );
     }
@@ -234,7 +237,10 @@ async function takeOverLink(party: Party) {
   assert.equal(updated.rowCount, 1, `${party.name} is not waiting`);
   await recordSignerConsent(
     link.token,
-    { disclosureVersion: ELECTRONIC_RECORDS_DISCLOSURE_VERSION },
+    {
+      language: "en",
+      disclosureVersion: ELECTRONIC_RECORDS_DISCLOSURE_VERSION,
+    },
     { database },
   );
   party.token = link.token;

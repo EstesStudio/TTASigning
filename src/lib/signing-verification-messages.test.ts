@@ -36,3 +36,59 @@ test("verification failures use translated status messages and safe fallbacks", 
     );
   }
 });
+
+for (const locale of ["en", "es"] as const) {
+  test(
+    locale +
+      " account errors retain recovery instructions and attempt warnings",
+    () => {
+      for (const count of [1, 4])
+        assert.equal(
+          verificationErrorMessage(locale, 400, "check", "account", {
+            code: "account_credentials_invalid",
+            attemptsLeft: count,
+          }),
+          t(
+            locale,
+            count === 1
+              ? "error.credentials.wrongOne"
+              : "error.credentials.wrongMany",
+            { count },
+          ),
+        );
+      assert.equal(
+        verificationErrorMessage(locale, 400, "check", "account", {
+          code: "account_locked",
+          maxAttempts: 5,
+        }),
+        t(locale, "error.credentials.locked", { attempts: 5 }),
+      );
+      assert.equal(
+        verificationErrorMessage(locale, 400, "check", "account", {
+          code: "account_identity_unconfirmed",
+        }),
+        t(locale, "error.credentials.identityNotConfirmed"),
+      );
+      for (const payload of [
+        null,
+        { code: "unknown", error: "raw server text" },
+        {
+          code: "account_credentials_invalid",
+          attemptsLeft: "raw server text",
+        },
+        { code: "account_credentials_invalid", attemptsLeft: -1 },
+      ])
+        assert.equal(
+          verificationErrorMessage(locale, 400, "check", "account", payload),
+          t(locale, "verify.accountError"),
+        );
+      assert.equal(
+        verificationErrorMessage(locale, 500, "check", "account", {
+          code: "account_locked",
+          maxAttempts: 5,
+        }),
+        t(locale, "verify.checkError"),
+      );
+    },
+  );
+}

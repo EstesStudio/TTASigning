@@ -1,3 +1,4 @@
+import type { AccountVerificationFailure } from "./signing-verification-messages.ts";
 import { Buffer } from "node:buffer";
 import { randomUUID } from "node:crypto";
 
@@ -1410,11 +1411,17 @@ const ACCESS_CODE_FAILURE_WINDOW_MS = 7 * 24 * 60 * 60 * 1000;
 
 export class SigningMutationError extends Error {
   readonly statusCode: number;
+  readonly verificationFailure?: AccountVerificationFailure;
 
-  constructor(message: string, statusCode: number) {
+  constructor(
+    message: string,
+    statusCode: number,
+    verificationFailure?: AccountVerificationFailure,
+  ) {
     super(message);
     this.name = "SigningMutationError";
     this.statusCode = statusCode;
+    this.verificationFailure = verificationFailure;
   }
 }
 
@@ -1756,6 +1763,17 @@ export async function verifySignerCheck(
       throw new SigningMutationError(
         describeCredentialFailure(result, getSignerLocale(context)),
         400,
+        result.identityNotConfirmed
+          ? { code: "account_identity_unconfirmed" }
+          : result.locked
+            ? {
+                code: "account_locked",
+                maxAttempts: MAX_SIGNING_PASSWORD_ATTEMPTS,
+              }
+            : {
+                code: "account_credentials_invalid",
+                attemptsLeft: result.attemptsLeft,
+              },
       );
     }
   } else if (parsed.method === "access_code") {

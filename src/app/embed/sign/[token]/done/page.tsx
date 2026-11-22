@@ -24,7 +24,8 @@ export default async function EmbedSignDonePage({
     : resolved?.title;
 
   return (
-    <SigningDoneShell locale={locale}
+    <SigningDoneShell
+      locale={locale}
       approved={resolved?.approved === "1"}
       embedded
       envelopeTitle={envelopeTitle}

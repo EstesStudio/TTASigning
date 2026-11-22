@@ -49,12 +49,22 @@ Hosted mode continues to use the standard English disclosure.
 
 Signing screens, dialog portals, privacy/download pages and signer email HTML
 documents declare their language. Sender and administrator mail stays English.
-Verification failures select catalogue messages by HTTP status; raw server
-error prose is never displayed. Manual and automatic reminders read settings
+Verification failures select catalogue messages by HTTP status and stable
+account-error codes. Remaining attempts, account locks and identity-confirmation
+instructions remain visible in the signer's language; raw server error prose
+is never displayed. Manual and automatic reminders read settings
 inside their error boundary before replacing the current signing link.
 
 The English `declinedConfirmation` export is retained for compatibility with
 external imports. Rendered decline screens use the signer's own locale.
+
+Translated disclosure edits record the administrator's accepted notice version
+in the settings audit event, just like English edits. Restoring a default does
+not create a notice-acceptance record.
+
+The layer retains upstream's approver role and team access rules. Approvers see
+localized approval/rejection controls and receive approval invitations and
+reminders; certificate evidence distinguishes approvals from signatures.
 
 Both implementation rounds of issue #200 are included; the PR remains a draft.
 Czech, Bulgarian and French catalogues and further legal starting texts are

@@ -1,4 +1,3 @@
-import { createHash } from "node:crypto";
 import { expect, type Page } from "@playwright/test";
 import pg from "pg";
 
@@ -42,13 +41,6 @@ export async function signInAsAdministrator(page: Page): Promise<string> {
     // four sign-ins into Better Auth's ten-second window.
     await startSignInWindowAfresh(database);
     await startSendLimitAfresh(database, admin.rows[0]?.id ?? "");
-    // The growing suite can create more than twenty drafts in ten minutes.
-    // Each scenario gets its own creation window, just as it does for sends.
-    await database.query("delete from public.rate_limits where key = $1", [
-      createHash("sha256")
-        .update(`draft-create:${admin.rows[0]?.id ?? ""}`)
-        .digest("hex"),
-    ]);
   } finally {
     await database.end();
   }

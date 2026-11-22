@@ -6,6 +6,54 @@ export const SIGNER_LANGUAGES = ["en", "es"] as const;
 export type SignerLocale = (typeof SIGNER_LANGUAGES)[number];
 
 export const en = {
+  "approval.intro":
+    "{sender} asks you to review “{title}” and approve or reject it. You have nothing to fill in, and nothing of yours is added to the document.",
+  "approval.invitation.subject":
+    '{sender} requested your approval on "{title}"',
+  "approval.cta": "Review and approve or reject the document",
+  "approval.ctaText": "Review and approve or reject the document here:",
+  "approval.noAccount": "You do not need a {product} account to approve.",
+  "approval.reminder.auto.subject":
+    'Reminder: {sender} is waiting for your approval on "{title}"',
+  "approval.reminder.manual.subject":
+    '{sender} sent you a reminder to approve "{title}"',
+  "approval.reminder.auto.intro":
+    '{sender} is still waiting for your approval on "{title}", sent through {product}.',
+  "approval.reminder.manual.intro":
+    '{sender} sent you a reminder to approve "{title}" through {product}.',
+  "approval.done": 'Your approval has been recorded for "{title}".',
+  "approval.reject": "Reject",
+  "approval.approve": "Approve",
+  "approval.role": "Approver",
+  "approval.rejected.title": "You rejected this document",
+  "approval.rejected.description":
+    "Your rejection has been recorded and the sender has been told. No further action is needed, and this link no longer opens the document.",
+  "approval.finish.description": 'You are approving "{title}" from {sender}.',
+  "approval.finish.title": "Approve this document?",
+  "approval.finish.confirm":
+    "By clicking Approve, you confirm that you reviewed this document and approve it. Your approval is recorded in its audit trail and certificate. You place no signature on the document.",
+  "approval.approving": "Approving...",
+  "approval.consent.description":
+    '{sender} sent you "{title}" to review and approve electronically.',
+  "approval.consent.title": "Before you approve",
+  "approval.reject.description":
+    "The sender ({sender}) will be notified that you rejected it. This ends the envelope for everyone and cannot be undone.",
+  "approval.reject.title": "Reject this document?",
+  "approval.rejecting": "Rejecting...",
+  "certificate.signersApprovers": "Signers and approvers",
+  "certificate.approverNote":
+    "Approvers reviewed the document and approved or rejected it. They placed no signature and nothing of theirs is stamped on the document.",
+  "certificate.approvals": "Approvals",
+  "certificate.approvedBy": "Approved by {who} at {date}",
+  "certificate.rejectedBy": "Rejected by {who} at {date}{reason}",
+  "certificate.approvedAt": "Approved at {date}",
+  "certificate.rejectedAt": "Rejected at {date}",
+  "certificate.approvalWaiting": "Awaiting approval",
+  "certificate.approvalWaitingVoided":
+    "Awaiting approval when envelope was voided",
+  "certificate.approvalWaitingDeclined":
+    "Awaiting approval when envelope was declined",
+  "certificate.approvedIp": "Approved from IP {ip}",
   "live.remaining": {
     one: "{count} required field remaining",
     other: "{count} required fields remaining",
@@ -417,10 +465,10 @@ export const en = {
   "providerProblem.name":
     "The certificate you signed with at {provider} is not in the name this document was sent to. Nothing was signed. If the name is wrong, ask the sender to send the document again under the name on your certificate.",
   "state.alreadySigned.description":
-    "You already completed your signature for this document.",
-  "state.alreadySigned.title": "You've already signed",
+    "You already signed or approved this document. No further action is needed.",
+  "state.alreadySigned.title": "You've already finished",
   "state.declined.description":
-    "A signer declined this document. No further action is needed.",
+    "A signer declined, or an approver rejected, this document. No further action is needed.",
   "state.declined.title": "This envelope has been declined",
   "state.error.description":
     "We couldn't load this document right now. Reload the page or request a fresh signing link from the sender.",
@@ -466,6 +514,53 @@ export const en = {
 export type SignerMessageKey = keyof typeof en;
 
 export const es: Partial<Record<SignerMessageKey, Message>> = {
+  "approval.intro":
+    "{sender} le pide que revise «{title}» y lo apruebe o rechace. No tiene que rellenar nada y no se añade nada suyo al documento.",
+  "approval.invitation.subject": "{sender} le pide su aprobación de «{title}»",
+  "approval.cta": "Revise y apruebe o rechace el documento",
+  "approval.ctaText": "Revise y apruebe o rechace el documento aquí:",
+  "approval.noAccount": "No necesita una cuenta de {product} para aprobar.",
+  "approval.reminder.auto.subject":
+    "Recordatorio: {sender} espera su aprobación de «{title}»",
+  "approval.reminder.manual.subject":
+    "{sender} le recuerda que apruebe «{title}»",
+  "approval.reminder.auto.intro":
+    "{sender} sigue esperando su aprobación de «{title}», enviado mediante {product}.",
+  "approval.reminder.manual.intro":
+    "{sender} le recuerda que apruebe «{title}» mediante {product}.",
+  "approval.done": "Se ha registrado su aprobación de «{title}».",
+  "approval.reject": "Rechazar",
+  "approval.approve": "Aprobar",
+  "approval.role": "Aprobador",
+  "approval.rejected.title": "Ha rechazado este documento",
+  "approval.rejected.description":
+    "Se ha registrado su rechazo y se ha avisado al remitente. No necesita hacer nada más y este enlace ya no abre el documento.",
+  "approval.finish.description": "Está aprobando «{title}» de {sender}.",
+  "approval.finish.title": "¿Aprobar este documento?",
+  "approval.finish.confirm":
+    "Al pulsar Aprobar, confirma que ha revisado este documento y lo aprueba. Su aprobación queda registrada en el historial de auditoría y en el certificado. No se añade su firma al documento.",
+  "approval.approving": "Aprobando...",
+  "approval.consent.description":
+    "{sender} le envió «{title}» para revisarlo y aprobarlo electrónicamente.",
+  "approval.consent.title": "Antes de aprobar",
+  "approval.reject.description":
+    "Se notificará al remitente ({sender}) que lo ha rechazado. Esto finaliza el sobre para todos y no se puede deshacer.",
+  "approval.reject.title": "¿Rechazar este documento?",
+  "approval.rejecting": "Rechazando...",
+  "certificate.signersApprovers": "Firmantes y aprobadores",
+  "certificate.approverNote":
+    "Los aprobadores revisaron el documento y lo aprobaron o rechazaron. No añadieron ninguna firma ni se estampó ningún dato suyo en el documento.",
+  "certificate.approvals": "Aprobaciones",
+  "certificate.approvedBy": "Aprobado por {who} el {date}",
+  "certificate.rejectedBy": "Rechazado por {who} el {date}{reason}",
+  "certificate.approvedAt": "Aprobado el {date}",
+  "certificate.rejectedAt": "Rechazado el {date}",
+  "certificate.approvalWaiting": "Pendiente de aprobación",
+  "certificate.approvalWaitingVoided":
+    "Pendiente de aprobación cuando se anuló el sobre",
+  "certificate.approvalWaitingDeclined":
+    "Pendiente de aprobación cuando se rechazó el sobre",
+  "certificate.approvedIp": "Aprobado desde la IP {ip}",
   "live.remaining": {
     one: "{count} campo obligatorio pendiente",
     other: "{count} campos obligatorios pendientes",
@@ -873,10 +968,10 @@ export const es: Partial<Record<SignerMessageKey, Message>> = {
   "providerProblem.name":
     "El certificado con el que firmó en {provider} no está a nombre de la persona a la que se envió este documento. No se firmó nada. Si el nombre no es correcto, pida al remitente que envíe el documento de nuevo con el nombre que figura en su certificado.",
   "state.alreadySigned.description":
-    "Ya completó su firma para este documento.",
-  "state.alreadySigned.title": "Ya ha firmado",
+    "Ya firmó o aprobó este documento. No necesita hacer nada más.",
+  "state.alreadySigned.title": "Ya ha terminado",
   "state.declined.description":
-    "Un firmante rechazó este documento. No necesita hacer nada más.",
+    "Un firmante o un aprobador rechazó este documento. No necesita hacer nada más.",
   "state.declined.title": "Este sobre fue rechazado",
   "state.error.description":
     "No pudimos cargar este documento en este momento. Vuelva a cargar la página o pida al remitente un nuevo enlace de firma.",

@@ -1094,7 +1094,12 @@ function buildAuditLines(input: {
   );
 
   pushParagraph(
-    approvers.length > 0 ? "Signers and approvers" : "Signers",
+    t(
+      locale,
+      approvers.length > 0
+        ? "certificate.signersApprovers"
+        : "certificate.signers",
+    ),
     input.fonts.bold,
     sectionFontSize,
     {
@@ -1104,7 +1109,7 @@ function buildAuditLines(input: {
 
   if (approvers.length > 0) {
     pushParagraph(
-      "Approvers reviewed the document and approved or rejected it. They placed no signature and nothing of theirs is stamped on the document.",
+      t(locale, "certificate.approverNote"),
       input.fonts.regular,
       bodyFontSize,
     );
@@ -1147,10 +1152,15 @@ function buildAuditLines(input: {
   );
 
   if (decided.length > 0) {
-    pushParagraph("Approvals", input.fonts.bold, sectionFontSize, {
-      gapAfter: 4,
-      gapBefore: 10,
-    });
+    pushParagraph(
+      t(locale, "certificate.approvals"),
+      input.fonts.bold,
+      sectionFontSize,
+      {
+        gapAfter: 4,
+        gapBefore: 10,
+      },
+    );
 
     for (const approver of decided) {
       const who = input.redactForRecipients
@@ -1159,10 +1169,20 @@ function buildAuditLines(input: {
 
       pushParagraph(
         approver.status === "signed"
-          ? `Approved by ${who} at ${formatAuditTimestamp(approver.signedAt)}`
-          : `Rejected by ${who} at ${formatAuditTimestamp(approver.declinedAt)}${
-              approver.declineReason ? `: ${approver.declineReason}` : ""
-            }`,
+          ? t(approver.language ?? "en", "certificate.approvedBy", {
+              who,
+              date: formatSignerTimestamp(approver.signedAt, approver.language),
+            })
+          : t(approver.language ?? "en", "certificate.rejectedBy", {
+              who,
+              date: formatSignerTimestamp(
+                approver.declinedAt,
+                approver.language,
+              ),
+              reason: approver.declineReason
+                ? `: ${approver.declineReason}`
+                : "",
+            }),
         input.fonts.regular,
         bodyFontSize,
       );
@@ -1442,14 +1462,15 @@ function describeSignerEvidence(
     embedded
       ? describeEmbeddedDelivery(locale, embedded)
       : t(locale, "certificate.link"),
-    ...readStringArray((signed ?? ended)?.metadata?.authMethods).map((method) =>
-      ["access_code", "account", "email_code"].includes(method)
-        ? t(
-            locale,
-            ("certificate.auth." +
-              method) as import("../i18n.ts").SignerMessageKey,
-          )
-        : method,
+    ...readStringArray((signed ?? ended)?.metadata?.authMethods).map(
+      (method) =>
+        ["access_code", "account", "email_code"].includes(method)
+          ? t(
+              locale,
+              ("certificate.auth." +
+                method) as import("../i18n.ts").SignerMessageKey,
+            )
+          : method,
     ),
   ];
 
@@ -1529,7 +1550,9 @@ function describeSignerEvidence(
 
   if (!redacted && signed?.ipAddress) {
     details.push(
-      `${approver ? "Approved" : "Signed"} from IP ${signed.ipAddress}`,
+      t(locale, approver ? "certificate.approvedIp" : "certificate.ip", {
+        ip: signed.ipAddress,
+      }),
     );
   }
 
@@ -1630,23 +1653,43 @@ function getSignerCertificateActionLabel(
   const locale = signer.language ?? "en";
   // An approver's turn done is an approval, and their decline a rejection.
   const approver = signer.role === "approver";
-  const awaiting = approver ? "Awaiting approval" : "Awaiting signature";
 
   switch (signer.status) {
     case "signed":
-      return `${approver ? "Approved" : "Signed"} at ${formatAuditTimestamp(signer.signedAt)}`;
+      return t(
+        locale,
+        approver ? "certificate.approvedAt" : "certificate.signedAt",
+        { date: formatSignerTimestamp(signer.signedAt, signer.language) },
+      );
     case "declined":
-      return `${approver ? "Rejected" : "Declined"} at ${formatAuditTimestamp(signer.declinedAt)}`;
+      return t(
+        locale,
+        approver ? "certificate.rejectedAt" : "certificate.signerDeclinedAt",
+        { date: formatSignerTimestamp(signer.declinedAt, signer.language) },
+      );
     case "notified":
       if (envelope.status === "voided") {
-        return `${awaiting} when envelope was voided`;
+        return t(
+          locale,
+          approver
+            ? "certificate.approvalWaitingVoided"
+            : "certificate.waitingVoided",
+        );
       }
 
       if (envelope.status === "declined") {
-        return `${awaiting} when envelope was declined`;
+        return t(
+          locale,
+          approver
+            ? "certificate.approvalWaitingDeclined"
+            : "certificate.waitingDeclined",
+        );
       }
 
-      return awaiting;
+      return t(
+        locale,
+        approver ? "certificate.approvalWaiting" : "certificate.waiting",
+      );
     case "pending":
       return t(locale, "certificate.notReached");
     default: {

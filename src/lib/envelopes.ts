@@ -2650,7 +2650,8 @@ export async function getReviewEnvelopeDataForUser(
     signingOrderProblem ?? choiceProblem ?? approverProblem;
 
   return {
-    defaultLanguage: (await readStoredSettings(database))?.signerLanguage ?? "en",
+    defaultLanguage:
+      (await readStoredSettings(database))?.signerLanguage ?? "en",
     canSend: !isEmpty && !disabledReason,
     // Approvers approve on SignuDoc's own page, so a signing provider is
     // not offered alongside them (see sendDraftEnvelope).

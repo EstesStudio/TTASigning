@@ -62,20 +62,33 @@ export function buildSigningInvitationEmail(
     title: input.envelopeTitle,
     product: productName,
   });
-  const subject = t(locale, "email.invitation.subject", {
-    sender: input.senderName,
-    title: input.envelopeTitle,
-  });
+  const subject = t(
+    locale,
+    input.role === "approver"
+      ? "approval.invitation.subject"
+      : "email.invitation.subject",
+    {
+      sender: input.senderName,
+      title: input.envelopeTitle,
+    },
+  );
   const deadlineLine = buildDeadlineLine(input.expiresAt, locale);
-  const cta = t(locale, "email.cta");
-  const noAccount = t(locale, "email.noAccount", { product: productName });
+  const cta = t(
+    locale,
+    input.role === "approver" ? "approval.cta" : "email.cta",
+  );
+  const noAccount = t(
+    locale,
+    input.role === "approver" ? "approval.noAccount" : "email.noAccount",
+    { product: productName },
+  );
   const newestLink = t(locale, "email.newestLink");
   const textBody = [
     greeting,
     "",
     sentLine,
     "",
-    t(locale, "email.ctaText"),
+    t(locale, input.role === "approver" ? "approval.ctaText" : "email.ctaText"),
     input.signingUrl,
     ...(deadlineLine ? ["", deadlineLine] : []),
     "",

@@ -122,7 +122,13 @@ export function SignerVerificationScreen({
 
       if (!response.ok) {
         setError(
-          verificationErrorMessage(locale, response.status, "check", method),
+          verificationErrorMessage(
+            locale,
+            response.status,
+            "check",
+            method,
+            await response.json().catch(() => null),
+          ),
         );
         return;
       }

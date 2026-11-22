@@ -81,10 +81,6 @@ type PositionedSigningField = {
   width: string;
 };
 
-const defaultSubmitErrorMessage =
-  "We couldn't finish signing right now. Reload the page or request a fresh signing link from the sender.";
-const defaultDeclineErrorMessage =
-  "We couldn't record your decline right now. Reload the page or request a fresh signing link from the sender.";
 /** What a signer sees once their decline is recorded. */
 export const declinedConfirmation = {
   description:
@@ -99,12 +95,6 @@ export const rejectedConfirmation = {
 };
 const compactFieldHeightThreshold = 0.045;
 const compactFieldWidthThreshold = 0.12;
-
-/** English compatibility export; rendered screens use their signer's locale. */
-export const declinedConfirmation = {
-  description: t("en", "live.declineConfirm.description"),
-  title: t("en", "live.declineConfirm.title"),
-};
 
 function getSignerInitials(name: string): string {
   return getInitials(name, { max: 4 });
@@ -1031,16 +1021,20 @@ export function SigningLiveShell({
   }
 
   if (hasDeclined) {
-    const confirmation = isApprover
-      ? rejectedConfirmation
-      : declinedConfirmation;
-
     return (
       <SigningStateScreen
         locale={locale}
-        description={confirmation.description}
+        description={t(
+          locale,
+          isApprover
+            ? "approval.rejected.description"
+            : "live.declineConfirm.description",
+        )}
         focusHeading
-        title={confirmation.title}
+        title={t(
+          locale,
+          isApprover ? "approval.rejected.title" : "live.declineConfirm.title",
+        )}
       />
     );
   }
@@ -1080,7 +1074,7 @@ export function SigningLiveShell({
               }}
               variant="secondary"
             >
-              {isApprover ? "Reject" : "Decline"}
+              {t(locale, isApprover ? "approval.reject" : "live.decline")}
             </ShellButton>
           </div>
         </div>
@@ -1089,9 +1083,10 @@ export function SigningLiveShell({
       <main className="mx-auto flex w-full max-w-[1320px] flex-1 flex-col gap-5 px-4 pb-8 pt-1 sm:px-6">
         {isApprover ? (
           <div className="notice notice-accent" role="status">
-            {record.senderName} asks you to review &ldquo;{record.envelopeTitle}
-            &rdquo; and approve or reject it. You have nothing to fill in, and
-            nothing of yours is added to the document.
+            {t(locale, "approval.intro", {
+              sender: record.senderName,
+              title: record.envelopeTitle,
+            })}
           </div>
         ) : null}
         {signatureProblem && providerSignature ? (
@@ -1293,7 +1288,7 @@ export function SigningLiveShell({
           <aside className="min-w-0 space-y-4 xl:sticky xl:top-[5.25rem] xl:self-start">
             <section className="panel rounded-[1.25rem] p-5">
               <p className="section-eyebrow">
-                {isApprover ? "Approver" : "Current signer"}
+                {t(locale, isApprover ? "approval.role" : "live.currentSigner")}
               </p>
               <div className="mt-3 flex items-center gap-3">
                 <span className="inline-flex size-11 shrink-0 items-center justify-center rounded-full bg-(--accent-soft) text-[0.9375rem] font-bold text-(--accent-ink)">
@@ -1364,7 +1359,7 @@ export function SigningLiveShell({
                     setIsFinishDialogOpen(true);
                   }}
                 >
-                  {isApprover ? "Approve" : "Finish"}
+                  {t(locale, isApprover ? "approval.approve" : "live.finish")}
                 </ShellButton>
               </div>
             </section>
@@ -1460,12 +1455,17 @@ export function SigningLiveShell({
       {isFinishDialogOpen ? (
         <DialogFrame
           locale={locale}
-          description={
+          description={t(
+            locale,
             isApprover
-              ? `You are approving "${record.envelopeTitle}" from ${record.senderName}.`
-              : `You are signing "${record.envelopeTitle}" from ${record.senderName}.`
-          }
-          title={isApprover ? "Approve this document?" : "Finish signing?"}
+              ? "approval.finish.description"
+              : "finishDialog.description",
+            { title: record.envelopeTitle, sender: record.senderName },
+          )}
+          title={t(
+            locale,
+            isApprover ? "approval.finish.title" : "finishDialog.title",
+          )}
           onClose={() => {
             if (isSubmitting) {
               return;
@@ -1477,9 +1477,7 @@ export function SigningLiveShell({
         >
           {isApprover ? (
             <p className="text-sm leading-6 text-(--secondary)">
-              By clicking Approve, you confirm that you reviewed this document
-              and approve it. Your approval is recorded in its audit trail and
-              certificate. You place no signature on the document.
+              {t(locale, "approval.finish.confirm")}
             </p>
           ) : providerSignature ? (
             <div className="grid gap-3 text-sm leading-6 text-(--secondary)">
@@ -1572,15 +1570,17 @@ export function SigningLiveShell({
             >
               {isApprover
                 ? isSubmitting
-                  ? "Approving..."
-                  : "Approve"
+                  ? t(locale, "approval.approving")
+                  : t(locale, "approval.approve")
                 : providerSignature
                   ? isSubmitting
-                    ? "Preparing..."
-                    : `Continue to ${providerSignature.providerName}`
+                    ? t(locale, "finishDialog.preparing")
+                    : t(locale, "finishDialog.continueToProvider", {
+                        provider: providerSignature.providerName,
+                      })
                   : isSubmitting
-                    ? "Finishing..."
-                    : "Finish signing"}
+                    ? t(locale, "finishDialog.finishing")
+                    : t(locale, "finishDialog.finishSigning")}
             </ShellButton>
           </div>
         </DialogFrame>
@@ -1589,9 +1589,18 @@ export function SigningLiveShell({
       {consentedAt === null && !isDeclineDialogOpen ? (
         <DialogFrame
           locale={locale}
-          description={`${record.senderName} sent you "${record.envelopeTitle}" to ${isApprover ? "review and approve" : "sign"} electronically.`}
+          description={t(
+            locale,
+            isApprover
+              ? "approval.consent.description"
+              : "consentDialog.description",
+            { sender: record.senderName, title: record.envelopeTitle },
+          )}
           onClose={() => undefined}
-          title={isApprover ? "Before you approve" : "Before you sign"}
+          title={t(
+            locale,
+            isApprover ? "approval.consent.title" : "consentDialog.title",
+          )}
         >
           <div
             lang={record.disclosure.language ?? locale}
@@ -1640,7 +1649,7 @@ export function SigningLiveShell({
               }}
               variant="secondary"
             >
-              {isApprover ? "Reject" : "Decline"}
+              {t(locale, isApprover ? "approval.reject" : "live.decline")}
             </ShellButton>
             <ShellButton
               disabled={!isConsentChecked}
@@ -1656,8 +1665,17 @@ export function SigningLiveShell({
       {isDeclineDialogOpen ? (
         <DialogFrame
           locale={locale}
-          description={`The sender (${record.senderName}) will be notified that you ${isApprover ? "rejected it" : "declined"}. This ends the envelope for everyone and cannot be undone.`}
-          title={isApprover ? "Reject this document?" : "Decline to sign?"}
+          description={t(
+            locale,
+            isApprover
+              ? "approval.reject.description"
+              : "declineDialog.description",
+            { sender: record.senderName },
+          )}
+          title={t(
+            locale,
+            isApprover ? "approval.reject.title" : "declineDialog.title",
+          )}
           onClose={() => {
             if (isDeclining) {
               return;
@@ -1704,11 +1722,11 @@ export function SigningLiveShell({
             >
               {isApprover
                 ? isDeclining
-                  ? "Rejecting..."
-                  : "Reject"
+                  ? t(locale, "approval.rejecting")
+                  : t(locale, "approval.reject")
                 : isDeclining
-                  ? "Declining..."
-                  : "Decline to sign"}
+                  ? t(locale, "declineDialog.declining")
+                  : t(locale, "declineDialog.declineToSign")}
             </ShellButton>
           </div>
         </DialogFrame>

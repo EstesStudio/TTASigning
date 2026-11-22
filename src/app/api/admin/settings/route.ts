@@ -74,7 +74,17 @@ export async function PUT(request: Request) {
               changes,
               // Saving their own disclosure needs the administrator to agree
               // to the notice first, and the record says which notice.
-              ...(changes.consentDisclosure && after.consentDisclosure !== null
+              ...((changes.consentDisclosure &&
+                after.consentDisclosure !== null) ||
+              (changes.consentDisclosureTranslations &&
+                Object.entries(after.consentDisclosureTranslations ?? {}).some(
+                  ([locale, text]) =>
+                    text !== null &&
+                    text !==
+                      before?.consentDisclosureTranslations?.[
+                        locale as keyof typeof after.consentDisclosureTranslations
+                      ],
+                ))
                 ? {
                     consentDisclosureNotice: {
                       agreed: true,

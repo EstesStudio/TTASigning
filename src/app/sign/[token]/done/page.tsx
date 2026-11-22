@@ -29,5 +29,11 @@ export default async function SignDonePage({
     // Nothing to add: the page renders below in the language it has.
   }
 
-  return <SigningDoneShell approved={resolvedSearchParams?.approved === "1"} envelopeTitle={envelopeTitle} locale={locale} />;
+  return (
+    <SigningDoneShell
+      approved={resolvedSearchParams?.approved === "1"}
+      envelopeTitle={envelopeTitle}
+      locale={locale}
+    />
+  );
 }
