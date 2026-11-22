@@ -1039,6 +1039,136 @@ export const enMessages = defineMessages({
         title: "Signing order",
       },
     },
+    signers: {
+      actions: {
+        addCopy: "+ Add a copy recipient",
+        addSigner: "+ Add another signer",
+        back: "← Back",
+        maximumReached: "Maximum reached",
+        next: "Next →",
+        remove: "Remove",
+      },
+      checks: {
+        accessCode: {
+          hint: " (a code is set; type a new one to change it)",
+          label:
+            "Access code you will give them yourself, for example by phone",
+          placeholder: "At least 4 characters",
+          placeholderSaved: "••••••",
+        },
+        bothNotice:
+          "This signer has both an emailed code and an access code, so they must pass both. Picking one option below removes the other.",
+        description:
+          "By default anyone holding the emailed link can sign. Pick a check when the signer's identity matters.",
+        legend: "Extra check before signing",
+        options: {
+          accessCode: "Ask for an access code you give them yourself",
+          emailCode: "Email them a one-time code when they open the link",
+          none: "No extra check",
+        },
+        optional: "(optional)",
+        title: "Extra check before signing",
+      },
+      copyIntro: {
+        description:
+          "These people do not sign. They receive the finished document and its certificate once everyone has signed.",
+        optional: "(optional)",
+        title: "Send a copy to",
+      },
+      copyRecipient: {
+        aria: {
+          email: "Copy recipient {position} email",
+          name: "Copy recipient {position} name",
+          remove: "Remove copy recipient {position}",
+        },
+        emailPlaceholder: "alex@company.com",
+        label: "Copy {position}",
+        namePlaceholder: "Alex Jones",
+      },
+      error: {
+        description:
+          "We couldn't load this draft's signer list. Try again and confirm the upload step completed successfully.",
+        retry: "Retry",
+        title: "Couldn't load signer setup",
+      },
+      fields: {
+        email: "Email",
+        name: "Name",
+      },
+      header: {
+        description: "Step 2 of 4 - Add signers",
+        title: "New envelope",
+      },
+      intro: {
+        limit: "Up to {maxSigners} signers per document.",
+        parallel:
+          "Signers who sign at the same time are invited together, and the next signer is invited once they have all signed.",
+        part11: "In Part 11 mode each signer signs after the one before.",
+        title: "Signers will receive the document in this order.",
+      },
+      route: {
+        finishPlural: "finish",
+        finishSingular: "finishes",
+        firstImmediate: "Receives the invitation immediately after send.",
+        firstParallel:
+          "Receives the invitation immediately after send, and signs at the same time as the others in step 1.",
+        parallel:
+          "Signs at the same time as {previous}, once {previous} {finishVerb}.",
+        sequential: "Receives the document after {previous} {finishVerb}.",
+      },
+      signatureMeaning: {
+        choose: "Choose a meaning",
+        description:
+          "Part 11 mode is on. The meaning is printed beside the signature with the signer's name and the time. The signer needs an account here with a confirmed email address, and an administrator must have confirmed who they are.",
+        options: {
+          approval: {
+            label: "Approval",
+            statement: "I approve this document.",
+          },
+          authorship: {
+            label: "Authorship",
+            statement: "I am the author of this document.",
+          },
+          responsibility: {
+            label: "Responsibility",
+            statement: "I take responsibility for this document.",
+          },
+          review: {
+            label: "Review",
+            statement: "I have reviewed this document.",
+          },
+        },
+        title: "What this signature means",
+      },
+      signer: {
+        aria: {
+          accessCode: "Signer {order} access code",
+          check: "Signer {order} check: {label}",
+          email: "Signer {order} email",
+          meaning: "Signer {order} signature meaning",
+          moveEarlier: "Move signer {order} earlier",
+          moveLater: "Move signer {order} later",
+          name: "Signer {order} name",
+          remove: "Remove signer {order}",
+        },
+        label: "Signer {order}",
+        moveEarlier: "Earlier",
+        moveLater: "Later",
+        step: " · Step {step}",
+        stepLabelMany: "Signers {orders}",
+        stepLabelOne: "Signer {order}",
+        together: "Sign at the same time as Signer {order}",
+      },
+      validation: {
+        accessCodeLength: "Use 4 to 64 characters",
+        accessCodeRequired: "Type the code you will give them",
+        duplicateCopy: "This address is already a signer or a copy recipient.",
+        duplicateSigner: "Each signer must have a unique email address.",
+        emailInvalid: "Enter a valid email address",
+        generic: "Something went wrong. Please try again.",
+        nameRequired: "Name is required",
+      },
+    },
     upload: {
       action: {
         fromTemplate: "Start from a template",

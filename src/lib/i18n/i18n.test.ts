@@ -236,6 +236,11 @@ test("the envelope editor has translated copy in both languages", () => {
   assert.match(id.pdfPage.error.title, /tidak dapat dirender/);
   assert.equal(en.review.actions.send, "Send envelope");
   assert.equal(id.review.actions.send, "Kirim amplop");
+  assert.equal(
+    en.signers.intro.title,
+    "Signers will receive the document in this order.",
+  );
+  assert.match(id.signers.intro.title, /urutan ini/);
   assert.equal(en.reminderIntervals.everyDay, "Every day");
   assert.equal(id.reminderIntervals.everyDay, "Setiap hari");
 
@@ -253,6 +258,15 @@ test("the envelope editor has translated copy in both languages", () => {
       copy.review.signature.providerDescription,
       /\{providerName\}.*\{qualifiedNote\}/,
     );
+    assert.match(
+      copy.signers.header.description,
+      /Step 2 of 4|Langkah 2 dari 4/,
+    );
+    assert.match(copy.signers.intro.limit, /\{maxSigners\}/);
+    assert.match(copy.signers.route.parallel, /\{previous\}.*\{finishVerb\}/);
+    assert.equal(Object.keys(copy.signers.signatureMeaning.options).length, 4);
+    assert.equal(Object.keys(copy.signers.checks.options).length, 3);
+    assert.equal(Object.keys(copy.signers.fields).length, 2);
     assert.match(copy.reminderIntervals.everyDays, /\{days\}/);
   }
 });

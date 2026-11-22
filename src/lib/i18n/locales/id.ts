@@ -1052,6 +1052,140 @@ export const idMessages: Messages = defineMessages({
         title: "Urutan penandatanganan",
       },
     },
+    signers: {
+      actions: {
+        addCopy: "+ Tambah penerima tembusan",
+        addSigner: "+ Tambah penandatangan lain",
+        back: "← Kembali",
+        maximumReached: "Batas maksimum tercapai",
+        next: "Lanjut →",
+        remove: "Hapus",
+      },
+      checks: {
+        accessCode: {
+          hint: " (kode sudah disetel; ketik yang baru untuk mengubahnya)",
+          label:
+            "Kode akses yang Anda berikan sendiri, misalnya melalui telepon",
+          placeholder: "Minimal 4 karakter",
+          placeholderSaved: "••••••",
+        },
+        bothNotice:
+          "Penandatangan ini memiliki kode melalui surel dan kode akses, jadi keduanya harus dimasukkan. Memilih satu opsi di bawah akan menghapus opsi lainnya.",
+        description:
+          "Secara default, siapa pun yang memegang tautan melalui surel dapat menandatangani. Pilih pemeriksaan jika identitas penandatangan penting.",
+        legend: "Pemeriksaan tambahan sebelum menandatangani",
+        options: {
+          accessCode: "Minta kode akses yang Anda berikan sendiri",
+          emailCode:
+            "Kirim kode sekali pakai melalui surel saat mereka membuka tautan",
+          none: "Tanpa pemeriksaan tambahan",
+        },
+        optional: "(opsional)",
+        title: "Pemeriksaan tambahan sebelum menandatangani",
+      },
+      copyIntro: {
+        description:
+          "Orang-orang ini tidak menandatangani. Mereka menerima dokumen akhir dan sertifikatnya setelah semua selesai menandatangani.",
+        optional: "(opsional)",
+        title: "Kirim tembusan ke",
+      },
+      copyRecipient: {
+        aria: {
+          email: "Surel penerima tembusan {position}",
+          name: "Nama penerima tembusan {position}",
+          remove: "Hapus penerima tembusan {position}",
+        },
+        emailPlaceholder: "alex@perusahaan.com",
+        label: "Tembusan {position}",
+        namePlaceholder: "Alex Jones",
+      },
+      error: {
+        description:
+          "Daftar penandatangan draf ini tidak dapat dimuat. Coba lagi dan pastikan langkah unggah berhasil.",
+        retry: "Coba lagi",
+        title: "Pengaturan penandatangan tidak dapat dimuat",
+      },
+      fields: {
+        email: "Surel",
+        name: "Nama",
+      },
+      header: {
+        description: "Langkah 2 dari 4 - Tambah penandatangan",
+        title: "Amplop baru",
+      },
+      intro: {
+        limit: "Maksimal {maxSigners} penandatangan per dokumen.",
+        parallel:
+          "Penandatangan yang menandatangani bersamaan diundang bersama, dan penandatangan berikutnya diundang setelah semuanya selesai.",
+        part11:
+          "Pada mode Part 11, setiap penandatangan menandatangani setelah penandatangan sebelumnya.",
+        title: "Penandatangan akan menerima dokumen dengan urutan ini.",
+      },
+      route: {
+        finishPlural: "selesai",
+        finishSingular: "selesai",
+        firstImmediate: "Menerima undangan segera setelah dikirim.",
+        firstParallel:
+          "Menerima undangan segera setelah dikirim, dan menandatangani bersamaan dengan penandatangan lain pada langkah 1.",
+        parallel:
+          "Menandatangani bersamaan dengan {previous}, setelah {previous} {finishVerb}.",
+        sequential: "Menerima dokumen setelah {previous} {finishVerb}.",
+      },
+      signatureMeaning: {
+        choose: "Pilih makna",
+        description:
+          "Mode Part 11 aktif. Makna tanda tangan dicetak di samping tanda tangan bersama nama penandatangan dan waktunya. Penandatangan harus memiliki akun di sini dengan alamat surel yang telah dikonfirmasi, dan administrator harus telah mengonfirmasi identitas mereka.",
+        options: {
+          approval: {
+            label: "Persetujuan",
+            statement: "Saya menyetujui dokumen ini.",
+          },
+          authorship: {
+            label: "Penulisan",
+            statement: "Saya adalah penulis dokumen ini.",
+          },
+          responsibility: {
+            label: "Tanggung jawab",
+            statement: "Saya bertanggung jawab atas dokumen ini.",
+          },
+          review: {
+            label: "Peninjauan",
+            statement: "Saya telah meninjau dokumen ini.",
+          },
+        },
+        title: "Makna tanda tangan ini",
+      },
+      signer: {
+        aria: {
+          accessCode: "Kode akses penandatangan {order}",
+          check: "Pemeriksaan penandatangan {order}: {label}",
+          email: "Surel penandatangan {order}",
+          meaning: "Makna tanda tangan penandatangan {order}",
+          moveEarlier: "Pindahkan penandatangan {order} lebih awal",
+          moveLater: "Pindahkan penandatangan {order} lebih lambat",
+          name: "Nama penandatangan {order}",
+          remove: "Hapus penandatangan {order}",
+        },
+        label: "Penandatangan {order}",
+        moveEarlier: "Lebih awal",
+        moveLater: "Lebih lambat",
+        step: " · Langkah {step}",
+        stepLabelMany: "Penandatangan {orders}",
+        stepLabelOne: "Penandatangan {order}",
+        together: "Menandatangani bersamaan dengan Penandatangan {order}",
+      },
+      validation: {
+        accessCodeLength: "Gunakan 4 sampai 64 karakter.",
+        accessCodeRequired: "Ketik kode yang akan Anda berikan kepada mereka.",
+        duplicateCopy:
+          "Alamat ini sudah menjadi penandatangan atau penerima tembusan.",
+        duplicateSigner:
+          "Setiap penandatangan harus memiliki alamat surel yang unik.",
+        emailInvalid: "Masukkan alamat surel yang valid.",
+        generic: "Terjadi kesalahan. Silakan coba lagi.",
+        nameRequired: "Nama wajib diisi.",
+      },
+    },
     upload: {
       action: {
         fromTemplate: "Mulai dari templat",
