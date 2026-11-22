@@ -1,3 +1,5 @@
+import { createHash } from "node:crypto";
+
 import { expect, test, type Page } from "@playwright/test";
 import pg from "pg";
 
@@ -685,10 +687,16 @@ test("a new install is set up, a sender sends a PDF and a recipient signs it", a
   });
 
   await test.step("the sender sees it completed and can download", async () => {
-    await waitForEmail({
+    const senderEmailMessage = await waitForEmail({
       template: "completion_notification",
       to: senderEmail,
     });
+    const attachSenderDocuments =
+      process.env.SIGNUDOC_EMAIL_SENDER_COMPLETION_ATTACHMENTS === "1";
+    expect(senderEmailMessage.text).toContain(`/envelopes/${envelopeId}`);
+    expect(senderEmailMessage.attachments ?? []).toHaveLength(
+      attachSenderDocuments ? 1 : 0,
+    );
     await page.goto(`/envelopes/${envelopeId}`);
     await expect(page.getByText("Completed", { exact: true })).toBeVisible();
     await expect(
@@ -696,11 +704,16 @@ test("a new install is set up, a sender sends a PDF and a recipient signs it", a
     ).toBeVisible();
 
     for (const type of ["signed", "evidence"]) {
-      await expectPdfResponse(
-        await page.request.get(
-          `/api/envelopes/${envelopeId}/download?type=${type}`,
-        ),
+      const download = await page.request.get(
+        `/api/envelopes/${envelopeId}/download?type=${type}`,
       );
+      await expectPdfResponse(download);
+      if (attachSenderDocuments && type === "signed") {
+        const signedPdfHash = createHash("sha256")
+          .update(await download.body())
+          .digest("hex");
+        expect(senderEmailMessage.attachments?.[0]?.sha256).toBe(signedPdfHash);
+      }
     }
   });
 
