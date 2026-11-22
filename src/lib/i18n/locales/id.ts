@@ -5,6 +5,44 @@ export const idMessages: Messages = defineMessages({
   common: {
     lastUpdated: "Terakhir diperbarui {date}",
   },
+  contact: {
+    form: {
+      company: "Perusahaan",
+      email: "Surel",
+      emailPlaceholder: "anda@contoh.com",
+      errors: {
+        botRejected:
+          "Permintaan tidak dapat diterima. Silakan coba lagi beberapa saat.",
+        email: "Masukkan alamat surel yang valid",
+        generic: "Terjadi kesalahan. Silakan coba lagi.",
+        message: "Masukkan pesan",
+        messageTooLong: "Pesan maksimal 5000 karakter",
+        name: "Masukkan nama Anda",
+        reviewFields: "Periksa kembali kolom yang ditandai.",
+        tooManyRequests: "Terlalu banyak permintaan. Silakan coba lagi nanti.",
+        unavailable: "Formulir kontak sedang tidak tersedia.",
+      },
+      message: "Pesan",
+      messagePlaceholder:
+        "Sampaikan kebutuhan Anda, dan sertakan alamat surel akun, nama pengirim, judul dokumen, atau tautan yang membantu kami mengidentifikasi permohonan.",
+      name: "Nama",
+      namePlaceholder: "Nama Anda",
+      sending: "Mengirim...",
+      submit: "Kirim pesan",
+      success:
+        "Pesan Anda sudah dikirim. Kami akan menindaklanjuti ke {email} jika memerlukan keterangan tambahan.",
+    },
+    hero: {
+      description:
+        "Gunakan formulir di bawah untuk dukungan produk, permohonan privasi, akomodasi aksesibilitas, pemberitahuan hukum, atau pertanyaan tentang dokumen yang dikirim melalui Sakta.",
+      title: "Kontak",
+    },
+    metadata: {
+      description:
+        "Hubungi Sakta untuk dukungan, pertanyaan privasi, permohonan aksesibilitas, atau pertanyaan hukum.",
+      title: "Kontak | Sakta",
+    },
+  },
   footer: {
     accessibilityLong: "Pernyataan Aksesibilitas",
     accessibilityShort: "Aksesibilitas",

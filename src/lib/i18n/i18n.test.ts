@@ -114,3 +114,15 @@ test("the accessibility statement stays candid and cites Indonesian law", () => 
   assert.match(en.limitations.items.join(" "), /canvas/);
   assert.match(id.limitations.items.join(" "), /canvas/);
 });
+
+test("the contact form and its errors are available in both languages", () => {
+  const en = enMessages.contact.form;
+  const id = idMessages.contact.form;
+
+  assert.match(en.submit, /Send message/);
+  assert.match(id.submit, /Kirim pesan/);
+  assert.match(en.success, /\{email\}/);
+  assert.match(id.success, /\{email\}/);
+  assert.match(en.errors.reviewFields, /highlighted fields/);
+  assert.match(id.errors.reviewFields, /kolom yang ditandai/);
+});

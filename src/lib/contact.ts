@@ -1,3 +1,6 @@
+import type { Messages } from "./i18n/locales/en.ts";
+import { getMessages } from "./i18n/messages.ts";
+import { DEFAULT_LOCALE, type Locale } from "./i18n/types.ts";
 import { resolvePublicSupportAddress } from "./public-contact.ts";
 import { type ContactFormInput, contactFormSchema } from "./schemas/contact.ts";
 import { createEmailService } from "./services/email.ts";
@@ -9,7 +12,10 @@ type ContactFieldName = "email" | "message" | "name";
 
 type SubmitPublicContactMessageOptions = {
   env?: EnvSource;
+  locale?: Locale;
 };
+
+type ContactFormErrors = Messages["contact"]["form"]["errors"];
 
 type SubmitPublicContactMessageResult = {
   ignored: boolean;
@@ -56,7 +62,10 @@ function isEmailServiceConfigurationError(error: unknown): boolean {
   );
 }
 
-function buildContactValidationError(input: unknown): ContactFormInput {
+function buildContactValidationError(
+  input: unknown,
+  copy: ContactFormErrors,
+): ContactFormInput {
   const parsedInput = contactFormSchema.safeParse(input);
 
   if (parsedInput.success) {
@@ -69,33 +78,31 @@ function buildContactValidationError(input: unknown): ContactFormInput {
     const field = issue.path[0];
 
     if (field === "name") {
-      fieldErrors.name = "Enter your name";
+      fieldErrors.name = copy.name;
     }
 
     if (field === "email") {
-      fieldErrors.email = "Enter a valid email address";
+      fieldErrors.email = copy.email;
     }
 
     if (field === "message") {
       fieldErrors.message =
-        issue.code === "too_big"
-          ? "Message must be 5000 characters or fewer"
-          : "Enter a message";
+        issue.code === "too_big" ? copy.messageTooLong : copy.message;
     }
   }
 
-  throw new ContactSubmissionError(
-    "Please review the highlighted fields.",
-    400,
-    fieldErrors,
-  );
+  throw new ContactSubmissionError(copy.reviewFields, 400, fieldErrors);
 }
 
 export async function submitPublicContactMessage(
   input: unknown,
-  { env = process.env }: SubmitPublicContactMessageOptions = {},
+  {
+    env = process.env,
+    locale = DEFAULT_LOCALE,
+  }: SubmitPublicContactMessageOptions = {},
 ): Promise<SubmitPublicContactMessageResult> {
-  const parsedInput = buildContactValidationError(input);
+  const errors = getMessages(locale).contact.form.errors;
+  const parsedInput = buildContactValidationError(input, errors);
 
   if (parsedInput.company) {
     return {
@@ -140,10 +147,7 @@ export async function submitPublicContactMessage(
     };
   } catch (error) {
     if (isEmailServiceConfigurationError(error)) {
-      throw new ContactSubmissionError(
-        "Contact form is temporarily unavailable.",
-        503,
-      );
+      throw new ContactSubmissionError(errors.unavailable, 503);
     }
 
     throw error;

@@ -4,6 +4,44 @@ export const enMessages = defineMessages({
   common: {
     lastUpdated: "Last updated {date}",
   },
+  contact: {
+    form: {
+      company: "Company",
+      email: "Email",
+      emailPlaceholder: "you@example.com",
+      errors: {
+        botRejected:
+          "The request could not be accepted. Please try again in a moment.",
+        email: "Enter a valid email address",
+        generic: "Something went wrong. Please try again.",
+        message: "Enter a message",
+        messageTooLong: "Message must be 5000 characters or fewer",
+        name: "Enter your name",
+        reviewFields: "Please review the highlighted fields.",
+        tooManyRequests: "Too many requests. Please try again soon.",
+        unavailable: "Contact form is temporarily unavailable.",
+      },
+      message: "Message",
+      messagePlaceholder:
+        "Tell us what you need, and include any account email, sender name, document title, or link that helps us identify the request.",
+      name: "Name",
+      namePlaceholder: "Your name",
+      sending: "Sending...",
+      submit: "Send message",
+      success:
+        "Your message was sent. We’ll follow up at {email} if we need more detail.",
+    },
+    hero: {
+      description:
+        "Use the form below for product support, privacy requests, accessibility accommodations, legal notices, or questions about a document sent through Sakta.",
+      title: "Contact",
+    },
+    metadata: {
+      description:
+        "Get in touch with Sakta for support, privacy questions, accessibility requests, or legal inquiries.",
+      title: "Contact | Sakta",
+    },
+  },
   footer: {
     accessibilityLong: "Accessibility Statement",
     accessibilityShort: "Accessibility",
