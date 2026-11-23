@@ -24,6 +24,10 @@ import {
 } from "./field-choices.ts";
 import { fieldPlacementListSchema } from "./schemas/field.ts";
 import {
+  invitationCopySchema,
+  type InvitationCopy,
+} from "./schemas/invitation.ts";
+import {
   saveTemplateSchema,
   templateRolesSchema,
   useTemplateSchema,
@@ -87,6 +91,8 @@ type TemplateRow = {
   createdAt: number;
   fields: unknown;
   id: string;
+  invitationMessage: string | null;
+  invitationSubject: string | null;
   name: string;
   pageCount: number;
   roles: unknown;
@@ -98,6 +104,7 @@ export type TemplateListItem = {
   createdAtLabel: string;
   fieldCountLabel: string;
   id: string;
+  invitation?: InvitationCopy;
   name: string;
   pageCountLabel: string;
   /** In signing order. */
@@ -126,6 +133,8 @@ export type DraftFromTemplate = {
 const TEMPLATE_COLUMNS = `
   id,
   name,
+  invitation_message AS "invitationMessage",
+  invitation_subject AS "invitationSubject",
   page_count AS "pageCount",
   roles,
   fields,
@@ -217,6 +226,14 @@ export async function listTemplatesForUser(
     createdAtLabel: dateFormatter.format(new Date(row.createdAt * 1000)),
     fieldCountLabel: countLabel(countFields(row.fields), "field"),
     id: row.id,
+    ...(row.invitationSubject || row.invitationMessage
+      ? {
+          invitation: {
+            subject: row.invitationSubject,
+            message: row.invitationMessage,
+          },
+        }
+      : {}),
     name: row.name,
     pageCountLabel: countLabel(row.pageCount, "page"),
     roleNames: readRoleNames(row.roles),
@@ -483,9 +500,11 @@ export async function saveEnvelopeAsTemplate(
             page_count,
             roles,
             fields,
+            invitation_subject,
+            invitation_message,
             created_at,
             updated_at
-          ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8::jsonb, $9::jsonb, $10, $10)
+          ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8::jsonb, $9::jsonb, $10, $11, $12, $12)
         `,
         [
           templateId,
@@ -497,6 +516,8 @@ export async function saveEnvelopeAsTemplate(
           envelope.pageCount,
           JSON.stringify(roles),
           JSON.stringify(fields),
+          parsedInput.invitation?.subject ?? null,
+          parsedInput.invitation?.message ?? null,
           now,
         ],
       );
@@ -578,6 +599,24 @@ export async function createDraftFromTemplate(
   const envelopeId = draft.envelope.id;
 
   try {
+    const subject =
+      parsedInput.invitation?.subject === undefined
+        ? template.invitationSubject
+        : parsedInput.invitation.subject;
+    const message =
+      parsedInput.invitation?.message === undefined
+        ? template.invitationMessage
+        : parsedInput.invitation.message;
+
+    if (subject !== null || message !== null) {
+      await database.query(
+        `UPDATE envelopes
+         SET invitation_subject = $1, invitation_message = $2
+         WHERE id = $3 AND user_id = $4 AND status = 'draft'`,
+        [subject, message, envelopeId, userId],
+      );
+    }
+
     const roleSteps = roles.data.every((role) => role.step !== undefined)
       ? roles.data.map((role) => role.step)
       : null;
@@ -632,6 +671,35 @@ export async function createDraftFromTemplate(
     // check it and send. The earlier steps are one click back.
     redirectPath: `/envelopes/${envelopeId}/review`,
   };
+}
+
+export async function updateTemplateInvitation(
+  userId: string,
+  templateId: string,
+  input: unknown,
+  database: DbExecutor = getDb(),
+): Promise<void> {
+  const { subject, message } = invitationCopySchema.parse(input);
+  const updated = await database.query(
+    `UPDATE templates
+     SET invitation_subject = CASE WHEN $1 THEN $2 ELSE invitation_subject END,
+         invitation_message = CASE WHEN $3 THEN $4 ELSE invitation_message END,
+         updated_at = $5
+     WHERE id = $6 AND user_id = $7`,
+    [
+      subject !== undefined,
+      subject ?? null,
+      message !== undefined,
+      message ?? null,
+      Math.floor(Date.now() / 1000),
+      templateId,
+      userId,
+    ],
+  );
+
+  if (updated.rowCount !== 1) {
+    throw new TemplateError("Template not found.", 404);
+  }
 }
 
 export async function deleteTemplate(

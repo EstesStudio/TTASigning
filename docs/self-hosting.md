@@ -338,6 +338,10 @@ For digests on Vercel, set `CRON_SECRET`. For another scheduler, set `RETENTION_
 
 Signing continues if an activity email fails. The app logs delivery errors and records the activity in the envelope's audit trail.
 
+For requests sent by email, `SIGNUDOC_EMAIL_COPY_ACTIVITY=1` sends copy recipients a notice when the request goes out, is first opened by a recipient, or advances to another turn. `SIGNUDOC_EMAIL_ORDERED_SIGNING_STARTED=1` lets later signers know that the request is underway. Their signing link arrives when their turn begins.
+
+`SIGNUDOC_EMAIL_SENDER_SENT_ATTACHMENT=1` sends the sender a copy of the original PDF when the request goes out. `SIGNUDOC_EMAIL_SIGNER_INVITATION_ATTACHMENT=1` attaches it to each invitation within the provider's attachment limit. Signers who require an access code, an email code, or a Part 11 account open the document through the signing page.
+
 ## Rate limits
 
 Sign-in, sign-up, password reset, the signing pages, uploads and sending are rate limited per visitor. The counts are kept in the `rate_limits` table in Postgres, so they hold across every instance of the app. On Vercel the visitor's address is read from the header Vercel sets itself, which a visitor cannot forge. If the database cannot be reached, each instance falls back to counting in its own memory.

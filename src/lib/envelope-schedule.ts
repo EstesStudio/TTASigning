@@ -250,16 +250,28 @@ async function listSignersDueForReminder(
         -- Embedded envelopes get no reminders; left out here, before the
         -- batch limit, so they cannot fill every batch.
         AND e.delivery = 'email'
-        AND e.reminder_interval_days IS NOT NULL
         AND (e.expires_at IS NULL OR e.expires_at > $1)
-        AND GREATEST(
-          COALESCE(s.last_notified_at, 0),
-          COALESCE(s.last_nudged_at, 0)
-        ) > 0
-        AND GREATEST(
-          COALESCE(s.last_notified_at, 0),
-          COALESCE(s.last_nudged_at, 0)
-        ) + e.reminder_interval_days * 86400 - $2 <= $1
+        AND (
+          (
+            e.reminder_interval_days IS NOT NULL
+            AND GREATEST(
+              COALESCE(s.last_notified_at, 0),
+              COALESCE(s.last_nudged_at, 0)
+            ) > 0
+            AND GREATEST(
+              COALESCE(s.last_notified_at, 0),
+              COALESCE(s.last_nudged_at, 0)
+            ) + e.reminder_interval_days * 86400 - $2 <= $1
+          )
+          OR (
+            e.reminder_schedule = 'days_3_and_7'
+            AND CASE s.last_automatic_reminder_day
+              WHEN 7 THEN false
+              WHEN 3 THEN s.turn_started_at + 7 * 86400 <= $1
+              ELSE s.turn_started_at + 3 * 86400 <= $1
+            END
+          )
+        )
       ORDER BY
         GREATEST(
           COALESCE(s.last_notified_at, 0),

@@ -573,6 +573,30 @@ test("a new install is set up, a sender sends a PDF and a recipient signs it", a
   const signingLink = extractLink(invitation.text, "/sign/");
 
   expect(invitation.text).toContain(`through ${ORGANIZATION_NAME}.`);
+  const attachOriginal =
+    process.env.SIGNUDOC_EMAIL_SIGNER_INVITATION_ATTACHMENT === "1";
+  expect(invitation.attachments ?? []).toHaveLength(attachOriginal ? 1 : 0);
+  if (process.env.SIGNUDOC_EMAIL_SENDER_SENT_ATTACHMENT === "1") {
+    const sentCopy = await waitForEmail({
+      template: "sender_sent_copy",
+      to: senderEmail,
+    });
+    expect(sentCopy.attachments).toHaveLength(1);
+    if (attachOriginal)
+      expect(sentCopy.attachments?.[0]?.sha256).toBe(
+        invitation.attachments?.[0]?.sha256,
+      );
+  }
+  const copyActivity = process.env.SIGNUDOC_EMAIL_COPY_ACTIVITY === "1";
+  if (copyActivity) {
+    const sentNotice = await waitForEmail({
+      template: "copy_recipient_sent",
+      to: copyEmail,
+    });
+    expect(sentNotice.text).toContain(ENVELOPE_TITLE);
+    expect(sentNotice.text).not.toContain("/sign/");
+    expect(sentNotice.attachments ?? []).toHaveLength(0);
+  }
   expect(invitation.replyTo).toBe(supportEmail);
   // The logo opens the message, fetched from this site.
   expect(invitation.html).toMatch(
@@ -590,6 +614,14 @@ test("a new install is set up, a sender sends a PDF and a recipient signs it", a
     watchForContentSecurityPolicyViolations(recipientPage, cspViolations);
 
     await recipientPage.goto(signingLink);
+    if (copyActivity) {
+      const opened = await waitForEmail({
+        template: "copy_recipient_activity",
+        to: copyEmail,
+      });
+      expect(opened.subject).toContain("opened");
+      expect(opened.text).not.toContain("/sign/");
+    }
 
     // Agreement to electronic records comes before anything else.
     const consent = recipientPage.getByRole("dialog", {
@@ -672,7 +704,7 @@ test("a new install is set up, a sender sends a PDF and a recipient signs it", a
     await recipientContext.close();
   });
 
-  await test.step("the copy recipient gets the finished document and nothing before it", async () => {
+  await test.step("the copy recipient gets the finished document", async () => {
     const copyEmailMessage = await waitForEmail({
       template: "completion_notification",
       to: copyEmail,
@@ -782,6 +814,10 @@ test("a new install is set up, a sender sends a PDF and a recipient signs it", a
     await saveDialog
       .getByRole("textbox", { name: /^Signer 1/ })
       .fill("Contractor");
+    await saveDialog.getByLabel("Email subject (optional)").fill("Please sign");
+    await saveDialog
+      .getByLabel("Email message (optional)")
+      .fill("Please review the scope of work.");
     await saveDialog.getByRole("button", { name: "Save template" }).click();
     await expect(page.getByText("Saved as the template")).toBeVisible();
 
@@ -793,6 +829,18 @@ test("a new install is set up, a sender sends a PDF and a recipient signs it", a
     // The template names a role, not the person who signed the original.
     await expect(page.getByText("1. Contractor")).toBeVisible();
     await expect(page.getByText("Riley Recipient")).toHaveCount(0);
+    await page
+      .getByRole("button", { name: "Edit invitation for Works agreement" })
+      .click();
+    const editDialog = page.getByRole("dialog", { name: "Edit invitation" });
+    await expect(editDialog.getByLabel("Email subject (optional)")).toHaveValue(
+      "Please sign",
+    );
+    await editDialog
+      .getByLabel("Email message (optional)")
+      .fill("Please review the updated scope of work.");
+    await editDialog.getByRole("button", { name: "Save invitation" }).click();
+    await expect(editDialog).toHaveCount(0);
 
     await page.getByRole("link", { name: "Use template" }).click();
     await expect(page).toHaveURL(/\/templates\/[^/]+\/use$/);
@@ -810,6 +858,12 @@ test("a new install is set up, a sender sends a PDF and a recipient signs it", a
     ).toBeVisible();
     await expect(page.getByText("Sasha Second")).toBeVisible();
     await expect(page.getByText("(4 fields)")).toBeVisible();
+    await expect(page.getByLabel("Email subject (optional)")).toHaveValue(
+      "Please sign",
+    );
+    await expect(page.getByLabel("Email message (optional)")).toHaveValue(
+      "Please review the updated scope of work.",
+    );
     await expect(
       page.getByRole("button", { name: "Send envelope" }),
     ).toBeEnabled();
@@ -1051,6 +1105,7 @@ test("in Part 11 mode a verified account signs, with its password and a stated m
       template: "signing_invitation",
       to: signerEmail,
     });
+    expect(invitation.attachments ?? []).toHaveLength(0);
     const signerContext = await browser.newContext({
       viewport: { height: 900, width: 1440 },
     });

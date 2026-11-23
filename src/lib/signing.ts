@@ -4,6 +4,7 @@ import { randomUUID } from "node:crypto";
 import { waitUntil } from "@vercel/functions";
 
 import { type Branding } from "./branding.ts";
+import { readInvitationCopy } from "./invitation-copy.ts";
 import { removeUnclaimedEnvelopeCertificates } from "./certificate-cleanup.ts";
 import {
   type DbExecutor,
@@ -73,6 +74,10 @@ import {
   type EmailService,
 } from "./services/email.ts";
 import { withUserEmailLegalFooter } from "./services/email-legal-footer.ts";
+import {
+  sendEnvelopeNotices,
+  sendSigningInvitation,
+} from "./services/envelope-notice-email.ts";
 import { hashOpaqueToken } from "./services/opaque-tokens.ts";
 import {
   finalizeEnvelope,
@@ -82,7 +87,7 @@ import {
   storeRecipientEnvelopeCertificatePdf,
 } from "./services/pdf-finalize.ts";
 import { buildSigningInvitationEmail } from "./services/signing-invitation-email.ts";
-import { readEmbedEvidence } from "./embedding.ts";
+import { isEmbeddedEnvelope, readEmbedEvidence } from "./embedding.ts";
 import { issueSigningLink } from "./services/signing-links.ts";
 import { signingProviderById } from "./services/signing-providers.ts";
 import {
@@ -401,66 +406,97 @@ function getVerifiedEnvelopeSender(
   );
 }
 
-function notifySenderOfActivity(
+async function notifySenderOfActivity(
   event: "viewed" | "signed" | "approved",
   eventId: string,
   context: ResolvedSigningContext,
   database: DbPool,
   emailService?: EmailService,
-): void {
-  if (process.env.SIGNUDOC_EMAIL_SENDER_ACTIVITY !== "1") return;
+): Promise<void> {
+  const sendSender = process.env.SIGNUDOC_EMAIL_SENDER_ACTIVITY === "1";
+  const sendCopies = process.env.SIGNUDOC_EMAIL_COPY_ACTIVITY === "1";
+  if (!sendSender && !sendCopies) return;
 
   const { envelope, signer } = context;
-  waitUntil(
-    (async () => {
-      const sender = await getVerifiedEnvelopeSender(
-        envelope.id,
-        envelope.userId,
-        database,
-      );
-      if (
-        !sender ||
-        sender.email.toLowerCase() === signer.email.toLowerCase()
-      ) {
-        return;
-      }
-
-      const template = `sender_signer_${event}` as const;
-      const verb = event === "viewed" ? "opened" : event;
-      const subject = `${signer.name} ${verb} "${envelope.title}"`.replace(
-        /\s+/g,
-        " ",
-      );
-      const url = getEnvelopeUrl(envelope.id);
-      const name = sender.name?.trim().split(/\s+/, 1)[0] || "there";
-      const content = withUserEmailLegalFooter(
-        {
-          textBody: `Hi ${name},\n\n${subject}.\n\nReview the envelope:\n${url}`,
-          htmlBody: `<p>Hi ${escapeHtml(name)},</p><p>${escapeHtml(subject)}.</p><p><a href="${escapeHtml(url)}">Review the envelope</a></p>`,
-        },
-        await getBranding(),
-      );
-      const delivery = await (emailService ?? createLazyEmailService()).send(
-        { ...content, subject, template, to: sender.email },
-        { idempotencyKey: `sender-activity/${eventId}` },
-      );
-      await recordEmailSent(
-        {
-          envelopeId: envelope.id,
-          messageId: delivery.messageId,
-          recipient: sender.email,
-          signerId: signer.id,
-          template,
-        },
-        database,
-      );
-    })().catch((error: unknown) => {
-      console.error(
-        `Failed to send sender activity email for envelope ${envelope.id}:`,
-        error,
-      );
-    }),
+  const mailer = emailService ?? createLazyEmailService();
+  const verb = event === "viewed" ? "opened" : event;
+  const subject = `${signer.name} ${verb} "${envelope.title}"`.replace(
+    /\s+/g,
+    " ",
   );
+  const senderDelivery = (async () => {
+    if (!sendSender) return;
+    const sender = await getVerifiedEnvelopeSender(
+      envelope.id,
+      envelope.userId,
+      database,
+    );
+    if (!sender || sender.email.toLowerCase() === signer.email.toLowerCase()) {
+      return;
+    }
+
+    const template = `sender_signer_${event}` as const;
+    const url = getEnvelopeUrl(envelope.id);
+    const name = sender.name?.trim().split(/\s+/, 1)[0] || "there";
+    const content = withUserEmailLegalFooter(
+      {
+        textBody: `Hi ${name},\n\n${subject}.\n\nReview the envelope:\n${url}`,
+        htmlBody: `<p>Hi ${escapeHtml(name)},</p><p>${escapeHtml(subject)}.</p><p><a href="${escapeHtml(url)}">Review the envelope</a></p>`,
+      },
+      await getBranding(),
+    );
+    const delivery = await mailer.send(
+      { ...content, subject, template, to: sender.email },
+      { idempotencyKey: `sender-activity/${eventId}` },
+    );
+    await recordEmailSent(
+      {
+        envelopeId: envelope.id,
+        messageId: delivery.messageId,
+        recipient: sender.email,
+        signerId: signer.id,
+        template,
+      },
+      database,
+    );
+  })().catch((error: unknown) => {
+    console.error(
+      `Failed to send sender activity email for envelope ${envelope.id}:`,
+      error,
+    );
+  });
+  const copyDelivery = (async () => {
+    if (!sendCopies || (await isEmbeddedEnvelope(envelope.id, database)))
+      return;
+    const source = await listCopyRecipientRows(envelope.id, database);
+    const excluded = new Set([
+      signer.email.toLowerCase(),
+      context.sender.email.toLowerCase(),
+    ]);
+    await sendEnvelopeNotices({
+      database,
+      emailService: mailer,
+      envelope,
+      eventKey: eventId,
+      message: `${subject}.`,
+      recipients: source.filter(
+        (recipient) => !excluded.has(recipient.email.toLowerCase()),
+      ),
+      template: "copy_recipient_activity",
+    });
+  })().catch((error: unknown) => {
+    console.error(
+      `Failed to list copy recipients for envelope ${envelope.id}:`,
+      error,
+    );
+  });
+  const delivery = Promise.all([senderDelivery, copyDelivery]);
+  if (process.env.VERCEL === "1") {
+    waitUntil(delivery);
+  } else {
+    // Cloud Run can suspend request-based CPU after the response.
+    await delivery;
+  }
 }
 
 const RECIPIENT_DOWNLOAD_LINK_TTL_DAYS =
@@ -2211,7 +2247,7 @@ export async function getSigningPayloadForToken(
     database,
   );
   if (viewedEventId) {
-    notifySenderOfActivity("viewed", viewedEventId, context, database);
+    await notifySenderOfActivity("viewed", viewedEventId, context, database);
   }
 
   const signerNamesById = new Map(
@@ -2974,6 +3010,7 @@ async function submitSigningOnce(
       id: string;
       name: string;
       role: "approver" | "signer";
+      tokenHash: string;
       url: string;
     }[] = [];
 
@@ -3190,6 +3227,7 @@ async function submitSigningOnce(
             id: nextSigner.id,
             name: activatedNextSigner.name,
             role: activatedNextSigner.role,
+            tokenHash: link.tokenHash,
             url: link.url,
           });
         }
@@ -3221,18 +3259,27 @@ async function submitSigningOnce(
 
       for (const nextSignerDelivery of invitations) {
         try {
-          const delivery = await emailService.send(
-            buildSigningInvitationEmail({
+          const delivery = await sendSigningInvitation({
+            database,
+            emailService,
+            envelopeId: context.envelope.id,
+            signerId: nextSignerDelivery.id,
+            tokenHash: nextSignerDelivery.tokenHash,
+            message: buildSigningInvitationEmail({
               branding: await getBranding(),
               envelopeTitle: context.envelope.title,
               expiresAt: nextSignerDeadline,
+              invitation: await readInvitationCopy(
+                context.envelope.id,
+                database,
+              ),
               role: nextSignerDelivery.role,
               senderName: normalizeSenderName(context.sender),
               signerEmail: nextSignerDelivery.email,
               signerName: nextSignerDelivery.name,
               signingUrl: nextSignerDelivery.url,
             }),
-          );
+          });
 
           await recordEmailSent(
             {
@@ -3252,7 +3299,7 @@ async function submitSigningOnce(
         }
       }
 
-      notifySenderOfActivity(
+      await notifySenderOfActivity(
         approval ? "approved" : "signed",
         signedAuditEvent.id,
         context,

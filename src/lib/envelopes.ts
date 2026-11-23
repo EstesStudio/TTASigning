@@ -22,6 +22,8 @@ import {
   findChoiceFieldProblem,
 } from "./field-choices.ts";
 import { idSchema } from "./schemas/common.ts";
+import { readInvitationCopy } from "./invitation-copy.ts";
+import { type InvitationCopyInput } from "./schemas/invitation.ts";
 import {
   changeDeadlineResponseSchema,
   changeRemindersResponseSchema,
@@ -88,6 +90,11 @@ import {
   type EmailService,
 } from "./services/email.ts";
 import { withUserEmailLegalFooter } from "./services/email-legal-footer.ts";
+import {
+  readOriginalPdfAttachment,
+  sendEnvelopeNotices,
+  sendSigningInvitation,
+} from "./services/envelope-notice-email.ts";
 import { buildSigningInvitationEmail } from "./services/signing-invitation-email.ts";
 import {
   findTypedValueTooLongForField,
@@ -122,6 +129,7 @@ import {
   THUMBNAIL_CONTENT_TYPE,
 } from "./services/thumbnails.ts";
 import {
+  type FixedReminderSchedule,
   formatReminderAvailableAt,
   getManualNudgeAvailableAt,
   isManualNudgeAvailable,
@@ -160,6 +168,7 @@ type CreateDraftEnvelopeInput = {
 };
 
 type SendDraftEnvelopeInput = {
+  invitation?: InvitationCopyInput;
   /** The API key that sent it, recorded in the audit trail. */
   apiKeyId?: string | null;
   /**
@@ -171,6 +180,7 @@ type SendDraftEnvelopeInput = {
   expiresInDays?: number;
   /** Days between automatic reminders. Null or left out means none. */
   reminderIntervalDays?: number | null;
+  reminderSchedule?: FixedReminderSchedule | null;
   /**
    * Advanced or qualified: each signer signs with a certificate in their
    * own name through the install's signing provider. Simple by default.
@@ -235,6 +245,7 @@ type EnvelopeRow = {
   expiresAt: number | null;
   id: string;
   reminderIntervalDays: number | null;
+  reminderSchedule: FixedReminderSchedule | null;
   pageCount: number;
   part11: boolean;
   sentAt: number | null;
@@ -477,6 +488,7 @@ export type EnvelopeDetailData = {
   deadline: EnvelopeDetailDeadline | null;
   /** Days between automatic reminders while it is out. Null when off. */
   reminderIntervalDays: number | null;
+  reminderSchedule: FixedReminderSchedule | null;
   envelopeId: string;
   manualReminder: EnvelopeDetailManualReminderState | null;
   /** Sent in Part 11 mode: a void needs a reason. */
@@ -1230,6 +1242,7 @@ async function getEnvelopeByIdForUser(
         voided_at AS "voidedAt",
         expires_at AS "expiresAt",
         reminder_interval_days AS "reminderIntervalDays",
+        reminder_schedule AS "reminderSchedule",
         part11,
         signature_level AS "signatureLevel",
         signature_provider AS "signatureProvider",
@@ -2125,6 +2138,7 @@ async function listEnvelopes(
         voided_at AS "voidedAt",
         expires_at AS "expiresAt",
         reminder_interval_days AS "reminderIntervalDays",
+        reminder_schedule AS "reminderSchedule",
         part11,
         signature_level AS "signatureLevel",
         signature_provider AS "signatureProvider",
@@ -2345,6 +2359,8 @@ export async function getEnvelopeDetailDataForUser(
       envelope.status === "sent"
         ? (envelope.reminderIntervalDays ?? null)
         : null,
+    reminderSchedule:
+      envelope.status === "sent" ? (envelope.reminderSchedule ?? null) : null,
     manualReminder,
     part11: Boolean(envelope.part11),
     signatureTypeLabel: describeSignatureType(envelope),
@@ -3014,6 +3030,7 @@ export async function sendDraftEnvelope(
   const sentAuditAt = Math.max(sentAt, envelope.createdAt + 1);
   const expiresAt = deadlineFromDays(sentAt, input.expiresInDays);
   const issuedLinks = new Map<string, IssuedSigningLink>();
+  let invitation: Awaited<ReturnType<typeof readInvitationCopy>> | undefined;
 
   for (const signer of firstSigners) {
     issuedLinks.set(
@@ -3036,7 +3053,8 @@ export async function sendDraftEnvelope(
             updated_at = $2,
             expires_at = $5,
             expiry_notified_at = NULL,
-            reminder_interval_days = $6
+            reminder_interval_days = $6,
+            reminder_schedule = $7
           WHERE id = $3
             AND user_id = $4
             AND status = 'draft'
@@ -3047,7 +3065,8 @@ export async function sendDraftEnvelope(
           envelopeId,
           userId,
           expiresAt,
-          input.reminderIntervalDays ?? null,
+          input.reminderSchedule ? null : (input.reminderIntervalDays ?? null),
+          input.reminderSchedule ?? null,
         ],
       );
 
@@ -3056,6 +3075,28 @@ export async function sendDraftEnvelope(
           "This envelope has already been sent.",
           409,
         );
+      }
+
+      if (delivery === "email") {
+        if (
+          input.invitation?.subject !== undefined ||
+          input.invitation?.message !== undefined
+        ) {
+          await tx.query(
+            `UPDATE envelopes SET
+              invitation_subject = CASE WHEN $2 THEN $3 ELSE invitation_subject END,
+              invitation_message = CASE WHEN $4 THEN $5 ELSE invitation_message END
+              WHERE id = $1`,
+            [
+              envelopeId,
+              input.invitation.subject !== undefined,
+              input.invitation.subject ?? null,
+              input.invitation.message !== undefined,
+              input.invitation.message ?? null,
+            ],
+          );
+        }
+        invitation = await readInvitationCopy(envelopeId, tx);
       }
 
       // The signers and fields were read and checked before this
@@ -3103,6 +3144,7 @@ export async function sendDraftEnvelope(
             turn_started_at = NULL,
             last_notified_at = NULL,
             last_nudged_at = NULL,
+            last_automatic_reminder_day = NULL,
             signed_at = NULL,
             declined_at = NULL,
             decline_reason = NULL,
@@ -3207,7 +3249,9 @@ export async function sendDraftEnvelope(
             ...(delivery === "embedded" ? { delivery } : {}),
             // The send route refuses a send without this confirmation.
             expiresAt,
-            reminderIntervalDays: input.reminderIntervalDays ?? null,
+            ...(input.reminderSchedule
+              ? { reminderSchedule: input.reminderSchedule }
+              : { reminderIntervalDays: input.reminderIntervalDays ?? null }),
             permittedUseConfirmed: true,
             permittedUseVersion: PERMITTED_USE_VERSION,
             ...(part11 ? { part11: true } : {}),
@@ -3270,24 +3314,33 @@ export async function sendDraftEnvelope(
   const invitationMessageIds = new Map<string, string | undefined>();
   let branding: Branding;
 
+  const invite = (signer: typeof firstSigner) => {
+    const link = issuedLinks.get(signer.id)!;
+    return sendSigningInvitation({
+      database,
+      emailService,
+      envelopeId,
+      signerId: signer.id,
+      tokenHash: link.tokenHash,
+      message: buildSigningInvitationEmail({
+        branding,
+        envelopeTitle: envelope.title,
+        expiresAt,
+        invitation,
+        role: signer.role,
+        senderName: input.senderName,
+        signerEmail: signer.email,
+        signerName: signer.name,
+        signingUrl: link.url,
+      }),
+    });
+  };
+
   try {
     branding = await getBranding();
     invitationMessageIds.set(
       firstSigner.id,
-      (
-        await emailService.send(
-          buildSigningInvitationEmail({
-            branding,
-            envelopeTitle: envelope.title,
-            expiresAt,
-            role: firstSigner.role,
-            senderName: input.senderName,
-            signerEmail: firstSigner.email,
-            signerName: firstSigner.name,
-            signingUrl: issuedLinks.get(firstSigner.id)!.url,
-          }),
-        )
-      ).messageId,
+      (await invite(firstSigner)).messageId,
     );
   } catch (error) {
     await withTransaction(async (tx) => {
@@ -3299,6 +3352,7 @@ export async function sendDraftEnvelope(
             sent_at = NULL,
             expires_at = NULL,
             reminder_interval_days = NULL,
+            reminder_schedule = NULL,
             part11 = false,
             signature_level = 'simple',
             signature_provider = NULL,
@@ -3327,6 +3381,7 @@ export async function sendDraftEnvelope(
             turn_started_at = NULL,
             last_notified_at = NULL,
             last_nudged_at = NULL,
+            last_automatic_reminder_day = NULL,
             signed_at = NULL,
             declined_at = NULL,
             decline_reason = NULL,
@@ -3377,23 +3432,7 @@ export async function sendDraftEnvelope(
 
   for (const signer of firstSigners.slice(1)) {
     try {
-      invitationMessageIds.set(
-        signer.id,
-        (
-          await emailService.send(
-            buildSigningInvitationEmail({
-              branding,
-              envelopeTitle: envelope.title,
-              expiresAt,
-              role: signer.role,
-              senderName: input.senderName,
-              signerEmail: signer.email,
-              signerName: signer.name,
-              signingUrl: issuedLinks.get(signer.id)!.url,
-            }),
-          )
-        ).messageId,
-      );
+      invitationMessageIds.set(signer.id, (await invite(signer)).messageId);
     } catch (error) {
       console.error(
         `Failed to send the invitation for envelope ${envelopeId} to ${signer.email}:`,
@@ -3427,6 +3466,38 @@ export async function sendDraftEnvelope(
       error,
     );
   });
+
+  const notice = { database, emailService, envelope, eventKey: envelopeId };
+  if (process.env.SIGNUDOC_EMAIL_COPY_ACTIVITY === "1") {
+    await sendEnvelopeNotices({
+      ...notice,
+      recipients: checkedParties.copyRecipients,
+      template: "copy_recipient_sent",
+      message: `${input.senderName} sent "${envelope.title}" for signature.`,
+    });
+  }
+  if (process.env.SIGNUDOC_EMAIL_ORDERED_SIGNING_STARTED === "1") {
+    const firstStepIds = new Set(firstSigners.map(({ id }) => id));
+    await sendEnvelopeNotices({
+      ...notice,
+      recipients: signers.filter(({ id }) => !firstStepIds.has(id)),
+      template: "ordered_signing_started",
+      message: `Signing has started for "${envelope.title}". You will receive a separate invitation when it is your turn.`,
+    });
+  }
+  const senderAttachments =
+    process.env.SIGNUDOC_EMAIL_SENDER_SENT_ATTACHMENT === "1"
+      ? await readOriginalPdfAttachment(envelope)
+      : undefined;
+  if (senderAttachments) {
+    await sendEnvelopeNotices({
+      ...notice,
+      attachments: senderAttachments,
+      recipients: [{ email: input.senderEmail, name: input.senderName }],
+      template: "sender_sent_copy",
+      message: `You sent "${envelope.title}" for signature. The original PDF is attached.`,
+    });
+  }
 
   return sendEnvelopeResponseSchema.parse({
     envelopeId,
@@ -3825,18 +3896,25 @@ export async function correctSentEnvelopeSigner(
             : { resolveAddresses: () => Promise.resolve(emailAddresses) },
         );
       const invitationMessageId = (
-        await mailer.send(
-          buildSigningInvitationEmail({
+        await sendSigningInvitation({
+          database,
+          emailService: mailer,
+          envelopeId,
+          signerId,
+          tokenHash: issuedLink.tokenHash,
+          transaction: tx,
+          message: buildSigningInvitationEmail({
             branding,
             envelopeTitle: envelope.title,
             expiresAt: envelope.expiresAt,
+            invitation: await readInvitationCopy(envelopeId, tx),
             role: signer.role === "approver" ? "approver" : "signer",
             senderName: context.senderName,
             signerEmail: nextEmail,
             signerName: nextName,
             signingUrl: issuedLink.url,
           }),
-        )
+        })
       ).messageId;
 
       await recordAuditEvent(
@@ -3922,15 +4000,21 @@ export async function changeEnvelopeReminders(
   {
     database = getDb(),
     nowUnixTimestamp = Math.floor(Date.now() / 1000),
-  }: { database?: DbExecutor; nowUnixTimestamp?: number } = {},
+    reminderSchedule = null,
+  }: {
+    database?: DbExecutor;
+    nowUnixTimestamp?: number;
+    reminderSchedule?: FixedReminderSchedule | null;
+  } = {},
 ): Promise<ChangeRemindersResponse> {
+  const intervalDays = reminderSchedule ? null : reminderIntervalDays;
   const updated = await database.query(
     `
       UPDATE envelopes
-      SET reminder_interval_days = $1, updated_at = $2
+      SET reminder_interval_days = $1, updated_at = $2, reminder_schedule = $5
       WHERE id = $3 AND user_id = $4 AND status = 'sent'
     `,
-    [reminderIntervalDays, nowUnixTimestamp, envelopeId, userId],
+    [intervalDays, nowUnixTimestamp, envelopeId, userId, reminderSchedule],
   );
 
   if (updated.rowCount !== 1) {
@@ -3946,7 +4030,8 @@ export async function changeEnvelopeReminders(
 
   return changeRemindersResponseSchema.parse({
     envelopeId,
-    reminderIntervalDays,
+    reminderIntervalDays: intervalDays,
+    ...(reminderSchedule ? { reminderSchedule } : {}),
   });
 }
 
