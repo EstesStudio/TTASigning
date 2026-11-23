@@ -1,6 +1,6 @@
 # Google Drive filing
 
-An installation can copy the signed PDF and the sender's audit certificate for completed envelopes into one Google Drive folder. The authenticated [daily cleanup schedule](self-hosting.md#daily-cleanup) handles filing in the background. Eligibility is limited to the configured envelope owner and completion time.
+When the final participant completes an envelope, SignuDoc starts copying the signed PDF and the sender's audit certificate to the configured Google Drive folder. A Drive outage leaves the completed agreement available in SignuDoc. The authenticated [daily cleanup schedule](self-hosting.md#daily-cleanup) retries any unfinished copies. Both paths use the configured envelope owner and completion time to determine eligibility.
 
 ## Authorize the folder
 
@@ -19,6 +19,6 @@ An installation can copy the signed PDF and the sender's audit certificate for c
 | `SIGNUDOC_DRIVE_CLIENT_SECRET` | Matching OAuth client secret.                                                                                               |
 | `SIGNUDOC_DRIVE_REFRESH_TOKEN` | Refresh token issued after the owner grants offline access.                                                                 |
 
-Store the client secret and refresh token in deployment secrets. Set `CRON_SECRET` or `RETENTION_JOB_SECRET` for the scheduler. Once configured, complete a test envelope under the configured owner and verify that both PDFs appear in the selected folder after the job runs. A retry reuses the reserved Drive file IDs to avoid duplicate copies. [Google Drive file creation](https://developers.google.com/workspace/drive/api/guides/create-file)
+Store the client secret and refresh token in deployment secrets. Set `CRON_SECRET` or `RETENTION_JOB_SECRET` for the scheduler. Once configured, complete a test envelope under the configured owner and verify that both PDFs appear in the selected folder after the final participant finishes. A retry reuses the reserved Drive file IDs to avoid duplicate copies. [Google Drive file creation](https://developers.google.com/workspace/drive/api/guides/create-file)
 
 Drive copies inherit access from the destination folder. Copies in Drive have their own lifecycle, so apply your retention policy to the destination as well. Clear the filing configuration to stop future copies.

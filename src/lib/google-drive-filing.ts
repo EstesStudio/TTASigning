@@ -20,6 +20,7 @@ import { type EnvSource, readEnv } from "./utils/env.ts";
 
 const BATCH_SIZE = 20;
 const TIME_BUDGET_MS = 25_000;
+const COMPLETION_TIME_BUDGET_MS = 8_000;
 
 type FilingConfig = {
   clientId: string;
@@ -92,6 +93,7 @@ function readConfig(env: EnvSource): FilingConfig | null {
 }
 
 type ArtifactSource = {
+  filed: boolean;
   key: string | null;
   sha256: string | null;
   title: string;
@@ -135,15 +137,17 @@ async function readArtifact(
   }
 }
 
-/** Called by the authenticated retention job while it owns the schedule lock. */
+/** Files a just-completed envelope or sweeps pending work for the daily job. */
 export async function runGoogleDriveFiling({
   database,
+  envelopeId,
   env = process.env,
   storageService,
   clientFactory = createGoogleDriveClient,
   signal: suppliedSignal,
 }: {
   database: DbPool;
+  envelopeId?: string;
   env?: EnvSource;
   storageService?: StorageService;
   clientFactory?: typeof createGoogleDriveClient;
@@ -158,6 +162,7 @@ export async function runGoogleDriveFiling({
     stoppedEarly: false,
   };
   const eligibility = [config.startAt, config.ownerEmail];
+  const targeted = envelopeId !== undefined;
   const candidates = await queryMany<{ id: string; ownerId: string }>(
     database,
     `
@@ -165,16 +170,18 @@ export async function runGoogleDriveFiling({
     JOIN "user" u ON e.user_id = u.id
     LEFT JOIN google_drive_filings f ON f.envelope_id = e.id
     WHERE ${eligibleEnvelope}
+      ${targeted ? "AND e.id = $3" : ""}
       AND NOT (COALESCE(f.signed_filed, false) AND COALESCE(f.certificate_filed, false))
     ORDER BY f.last_attempt_at ASC NULLS FIRST, e.completed_at, e.id
     LIMIT ${BATCH_SIZE + 1}
   `,
-    eligibility,
+    targeted ? [...eligibility, envelopeId] : eligibility,
   );
   if (!candidates.length) return summary;
 
   const client = clientFactory(config);
   const signal = suppliedSignal ?? AbortSignal.timeout(TIME_BUDGET_MS);
+  signal.throwIfAborted();
   await client.verifyFolder(signal);
   const storage = storageService ?? createStorageService({ env });
 
@@ -198,6 +205,7 @@ export async function runGoogleDriveFiling({
           2,
           signal,
         );
+        signal.throwIfAborted();
         // Commit the IDs before contacting the upload API. A retry keeps the
         // same file IDs even if the result of a previous upload was lost.
         filing = await queryOne<FilingRow>(
@@ -227,11 +235,14 @@ export async function runGoogleDriveFiling({
         const signed = artifact === "signed";
         if (signed ? filing.signedFiled : filing.certificateFiled) continue;
         const fileId = signed ? filing.signedFileId : filing.certificateFileId;
+        const filedColumn = signed ? "signed_filed" : "certificate_filed";
         const sourceParams = [...eligibility, id, ownerId];
         const sourceQuery = `
           SELECT e.title, ${signed ? "e.signed_pdf_key" : "e.evidence_key"} AS key,
-            ${signed ? "e.signed_pdf_sha256" : "e.evidence_sha256"} AS sha256
+            ${signed ? "e.signed_pdf_sha256" : "e.evidence_sha256"} AS sha256,
+            f.${filedColumn} AS filed
           FROM envelopes e JOIN "user" u ON e.user_id = u.id
+          JOIN google_drive_filings f ON f.envelope_id = e.id
           WHERE ${eligibleEnvelope} AND e.id = $3 AND e.user_id = $4
         `;
         const source = await queryOne<ArtifactSource>(
@@ -239,6 +250,7 @@ export async function runGoogleDriveFiling({
           sourceQuery,
           sourceParams,
         );
+        if (source?.filed) continue;
         if (!source?.key || !source.sha256) {
           throw new Error(
             "The completed envelope or its verified artifact is unavailable.",
@@ -251,6 +263,8 @@ export async function runGoogleDriveFiling({
         signal.throwIfAborted();
 
         await withTransaction(async (tx) => {
+          signal.throwIfAborted();
+          if (targeted) await tx.query("SET LOCAL lock_timeout = '2s'");
           // Match the deletion lock order. The account lock also blocks a new
           // closure request's foreign-key check while these bytes are in flight.
           const owner = await queryOne<{ id: string }>(
@@ -271,6 +285,9 @@ export async function runGoogleDriveFiling({
             `${sourceQuery} FOR SHARE OF e`,
             sourceParams,
           );
+          // The daily job and completion can both reach this envelope. The
+          // owner lock serializes uploads, so use the journal as it is now.
+          if (current?.filed) return;
           if (
             !current ||
             current.key !== source.key ||
@@ -294,7 +311,7 @@ export async function runGoogleDriveFiling({
             signal,
           );
           await tx.query(
-            `UPDATE google_drive_filings SET ${signed ? "signed_filed" : "certificate_filed"} = true WHERE envelope_id = $1`,
+            `UPDATE google_drive_filings SET ${filedColumn} = true WHERE envelope_id = $1`,
             [id],
           );
         }, database);
@@ -303,7 +320,7 @@ export async function runGoogleDriveFiling({
     } catch (error) {
       // Provider and storage errors may contain sensitive context.
       console.error(
-        "[retention] Google Drive could not file a completed envelope:",
+        `${targeted ? "[signing]" : "[retention]"} Google Drive could not file a completed envelope:`,
         id,
         error instanceof GoogleDriveClientError
           ? error.message
@@ -317,4 +334,39 @@ export async function runGoogleDriveFiling({
   }
   summary.stoppedEarly ||= candidates.length > BATCH_SIZE;
   return summary;
+}
+
+export async function fileCompletedEnvelopeInDrive({
+  database,
+  envelopeId,
+  storageService,
+}: {
+  database: DbPool;
+  envelopeId: string;
+  storageService: StorageService;
+}): Promise<void> {
+  if (!readEnv(process.env, "SIGNUDOC_DRIVE_FOLDER_ID")) return;
+
+  // Cloud Run can suspend CPU when the signing response ends. Allow a short
+  // attempt during the request, then leave unfinished work to the daily job.
+  const signal = AbortSignal.timeout(COMPLETION_TIME_BUDGET_MS);
+
+  try {
+    await runGoogleDriveFiling({
+      database,
+      envelopeId,
+      signal,
+      storageService,
+    });
+  } catch (error) {
+    console.error(
+      "[signing] Google Drive filing did not finish:",
+      envelopeId,
+      error instanceof GoogleDriveClientError
+        ? error.message
+        : error instanceof Error
+          ? error.name
+          : "unknown",
+    );
+  }
 }

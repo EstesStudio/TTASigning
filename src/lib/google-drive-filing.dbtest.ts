@@ -144,7 +144,32 @@ test("only the configured verified sender's post-start completed envelopes file"
   assert.equal(uploads.length, 2);
 });
 
-test("a partial filing retries the unfinished artifact with its reserved Drive ID", async () => {
+test("a completion attempt files only that envelope even when older work is pending", async () => {
+  const owner = await makeOwner();
+  const pending = await makeEnvelope(owner.id);
+  const completed = await makeEnvelope(owner.id, { when: startSeconds + 1 });
+  const unfinished = await makeEnvelope(owner.id, { status: "sent" });
+  const other = await makeEnvelope((await makeOwner()).id);
+  const uploaded: string[] = [];
+  const options = {
+    database,
+    storageService,
+    env: driveEnv(owner.email),
+    clientFactory: () =>
+      driveClient(async ({ envelopeId }) => {
+        uploaded.push(envelopeId);
+      }),
+  };
+
+  for (const envelopeId of [unfinished, other, completed, completed]) {
+    await runGoogleDriveFiling({ ...options, envelopeId });
+  }
+  assert.deepEqual(uploaded, [completed, completed]);
+  await runGoogleDriveFiling(options);
+  assert.deepEqual(uploaded, [completed, completed, pending, pending]);
+});
+
+test("the daily job retries an unfinished immediate upload with its reserved Drive ID", async () => {
   const owner = await makeOwner();
   const id = await makeEnvelope(owner.id);
   const uploads: string[][] = [];
@@ -163,7 +188,10 @@ test("a partial filing retries the unfinished artifact with its reserved Drive I
     env: driveEnv(owner.email),
     clientFactory: () => client,
   };
-  assert.equal((await runGoogleDriveFiling(options))?.failures, 1);
+  assert.equal(
+    (await runGoogleDriveFiling({ ...options, envelopeId: id }))?.failures,
+    1,
+  );
   const changedFolder = {
     ...options,
     env: { ...options.env, SIGNUDOC_DRIVE_FOLDER_ID: "different-test-folder" },
@@ -176,6 +204,37 @@ test("a partial filing retries the unfinished artifact with its reserved Drive I
     ["signed", "certificate", "certificate"],
   );
   assert.equal(uploads[1]?.[1], uploads[2]?.[1]);
+});
+
+test("overlapping completion and daily attempts upload each artifact once", async () => {
+  const owner = await makeOwner();
+  const envelopeId = await makeEnvelope(owner.id);
+  const uploads: string[] = [];
+  const bothStarted = Promise.withResolvers<void>();
+  let attempts = 0;
+  const client = driveClient(async ({ artifact }) => {
+    uploads.push(artifact);
+  });
+  client.verifyFolder = async () => {
+    attempts += 1;
+    if (attempts === 2) bothStarted.resolve();
+    await bothStarted.promise;
+  };
+  const options = {
+    database,
+    storageService,
+    env: driveEnv(owner.email),
+    clientFactory: () => client,
+  };
+  const results = await Promise.all([
+    runGoogleDriveFiling({ ...options, envelopeId }),
+    runGoogleDriveFiling(options),
+  ]);
+  assert.deepEqual(
+    results.map((result) => result?.failures),
+    [0, 0],
+  );
+  assert.deepEqual(uploads, ["signed", "certificate"]);
 });
 
 test("missing config disables filing and an unverified artifact never uploads", async () => {

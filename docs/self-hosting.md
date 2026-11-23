@@ -324,7 +324,7 @@ To close the route, set a secret. A caller then has to send `Authorization: Bear
 - `CRON_SECRET` is the one to use on Vercel, because Vercel sends it on its own cron calls.
 - `RETENTION_JOB_SECRET` does the same for a scheduler of your own. On Vercel, a deployment that sets only this one turns Vercel's cron call away, so store the secret as `CRON_SECRET` there instead.
 
-The authenticated schedule can also file completed envelopes in a selected folder. See [Google Drive filing](google-drive-filing.md).
+Google Drive filing starts when an envelope completes. The authenticated schedule retries any unfinished uploads. See [Google Drive filing](google-drive-filing.md).
 
 ## Rate limits
 
