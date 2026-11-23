@@ -264,6 +264,7 @@ Your install carries your organization's name, and your organization is responsi
 
 - [Self-hosting guide](docs/self-hosting.md): deploying, first-run setup, what it costs, your own domain, updates, sign-in security and single sign-on, the EU, the seal, cleanup, rate limits, bot protection and every optional setting.
 - [API guide](docs/api.md): API keys, the `/api/v1` endpoints, webhooks and embedded signing.
+- [MCP server](docs/mcp.md): connect agents to prepare, inspect and download envelopes.
 - [Backup and restore](docs/backup-and-restore.md): daily backups to a second Blob store, and restoring one.
 - [SOC 2 pack](docs/soc2/README.md) and [Part 11 validation pack](docs/part11/README.md): starting documents for an audit or a validation.
 - [Deploying with an AI agent](docs/deploy-with-an-agent.md): every screen of the deploy, for an agent that uses your browser.

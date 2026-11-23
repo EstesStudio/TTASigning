@@ -1,4 +1,5 @@
 import { apiError } from "@/lib/api/http";
+import { getApiEnvelope } from "@/lib/api/envelopes";
 import { handleApi } from "@/lib/api/route";
 import { createDownloadResponse } from "@/lib/download-response";
 import { getSenderEnvelopeDownload } from "@/lib/downloads";
@@ -28,6 +29,17 @@ export async function GET(request: Request, context: Context) {
           "not_found",
           "Ask for files/signed or files/certificate.",
         );
+      }
+
+      const envelope = await getApiEnvelope(
+        actor.userId,
+        id,
+        undefined,
+        actor.scope === "prepare" ? { apiKeyId: actor.apiKeyId } : undefined,
+      );
+
+      if (!envelope) {
+        return apiError(404, "not_found", "Envelope not found.");
       }
 
       return createDownloadResponse(

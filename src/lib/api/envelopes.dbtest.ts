@@ -8,7 +8,7 @@ import { after, before, test } from "node:test";
 import { PDFDocument } from "pdf-lib";
 import type pg from "pg";
 
-import { createApiKey } from "../api-keys.ts";
+import { createApiKey, type ApiKeyScope } from "../api-keys.ts";
 import { openTestDatabase } from "../db/test-database.ts";
 import { EnvelopeMutationError } from "../envelopes.ts";
 import { recordAuditEvent } from "../services/audit.ts";
@@ -16,6 +16,7 @@ import {
   apiCreateEnvelopeSchema,
   createEnvelopeForApi,
   getApiEnvelope,
+  listApiEnvelopeEvents,
   listApiEnvelopes,
   type ApiActor,
 } from "./envelopes.ts";
@@ -85,22 +86,27 @@ after(async () => {
   await rm(workDir, { force: true, recursive: true });
 });
 
-async function createActor(): Promise<ApiActor> {
-  const userId = randomUUID();
-  const email = `${userId}@example.test`;
+async function createActor(
+  scope: ApiKeyScope = "write",
+  owner?: { email: string; userId: string },
+): Promise<ApiActor> {
+  const userId = owner?.userId ?? randomUUID();
+  const email = owner?.email ?? `${userId}@example.test`;
 
-  createdUsers.push(userId);
-  await database.query(
-    `
-      insert into public."user" (id, name, email, role, "emailVerified")
-      values ($1, 'Billing App', $2, 'admin', true)
-    `,
-    [userId, email],
-  );
+  if (!owner) {
+    createdUsers.push(userId);
+    await database.query(
+      `
+        insert into public."user" (id, name, email, role, "emailVerified")
+        values ($1, 'Billing App', $2, 'admin', true)
+      `,
+      [userId, email],
+    );
+  }
 
   const { summary } = await createApiKey(
     { email, userId },
-    { expiresInDays: null, name: "Billing app", scope: "write" },
+    { expiresInDays: null, name: "Billing app", scope },
     database,
   );
 
@@ -109,6 +115,7 @@ async function createActor(): Promise<ApiActor> {
     email,
     ipAddress: "203.0.113.7",
     name: "Billing App",
+    scope,
     userAgent: "billing-app/1.0",
     userId,
   };
@@ -406,6 +413,100 @@ test("an envelope is visible only to the key's own account", async () => {
     await getApiEnvelope(stranger.userId, envelope.id, database),
     null,
   );
+});
+
+test("prepare keys can only list, read, and inspect events for their own envelopes", async () => {
+  const firstKey = await createActor("prepare");
+  const secondKey = await createActor("prepare", firstKey);
+  const first = await createEnvelopeForApi(
+    firstKey,
+    request(),
+    source(),
+    database,
+  );
+  const second = await createEnvelopeForApi(
+    secondKey,
+    request(),
+    source(),
+    database,
+  );
+  const firstAccess = { apiKeyId: firstKey.apiKeyId };
+  const secondAccess = { apiKeyId: secondKey.apiKeyId };
+
+  assert.deepEqual(
+    (
+      await listApiEnvelopes(
+        firstKey.userId,
+        { limit: 25 },
+        database,
+        firstAccess,
+      )
+    )?.data.map(({ id }) => id),
+    [first.id],
+  );
+  assert.deepEqual(
+    (
+      await listApiEnvelopes(
+        secondKey.userId,
+        { limit: 25 },
+        database,
+        secondAccess,
+      )
+    )?.data.map(({ id }) => id),
+    [second.id],
+  );
+  assert.ok(
+    await getApiEnvelope(firstKey.userId, first.id, database, firstAccess),
+  );
+  assert.equal(
+    await getApiEnvelope(firstKey.userId, second.id, database, firstAccess),
+    null,
+  );
+  assert.ok(
+    await listApiEnvelopeEvents(
+      firstKey.userId,
+      first.id,
+      database,
+      firstAccess,
+    ),
+  );
+  assert.equal(
+    await listApiEnvelopeEvents(
+      firstKey.userId,
+      second.id,
+      database,
+      firstAccess,
+    ),
+    null,
+  );
+  assert.deepEqual(
+    (await listApiEnvelopes(firstKey.userId, { limit: 25 }, database))?.data
+      .map(({ id }) => id)
+      .sort(),
+    [first.id, second.id].sort(),
+  );
+});
+
+test("a prepare key cannot send during envelope creation", async () => {
+  const actor = await createActor("prepare");
+
+  await assert.rejects(
+    createEnvelopeForApi(
+      actor,
+      request({ send: { permittedUseConfirmed: true } }),
+      source(),
+      database,
+    ),
+    (error: unknown) =>
+      error instanceof EnvelopeMutationError && error.statusCode === 403,
+  );
+
+  const leftovers = await database.query<{ count: number }>(
+    `select count(*) from envelopes where user_id = $1 and api_key_id = $2`,
+    [actor.userId, actor.apiKeyId],
+  );
+
+  assert.equal(leftovers.rows[0]?.count, 0);
 });
 
 test("the list pages with a cursor, newest first, and filters by status", async () => {

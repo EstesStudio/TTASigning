@@ -136,6 +136,7 @@ async function createAdmin(): Promise<ApiActor> {
     email,
     ipAddress: null,
     name: "Ops Admin",
+    scope: "write",
     userAgent: null,
     userId,
   };

@@ -13,7 +13,12 @@ export async function GET(request: Request, context: Context) {
     "read",
     "api_envelope_events_failure",
     async ({ actor }) => {
-      const events = await listApiEnvelopeEvents(actor.userId, id);
+      const events = await listApiEnvelopeEvents(
+        actor.userId,
+        id,
+        undefined,
+        actor.scope === "prepare" ? { apiKeyId: actor.apiKeyId } : undefined,
+      );
 
       return events
         ? apiJson({ data: events, object: "list" })

@@ -53,7 +53,7 @@ export async function POST(request: Request, context: Context) {
 
   return handleApi(
     request,
-    "write",
+    "prepare",
     "api_template_use_failure",
     async (api) => {
       const raw = await readBodyWithin(request, MAX_JSON_BODY_BYTES);
@@ -78,7 +78,14 @@ export async function POST(request: Request, context: Context) {
       }
 
       const readBack = async (envelopeId: string) => {
-        const envelope = await getApiEnvelope(api.actor.userId, envelopeId);
+        const envelope = await getApiEnvelope(
+          api.actor.userId,
+          envelopeId,
+          undefined,
+          api.actor.scope === "prepare"
+            ? { apiKeyId: api.actor.apiKeyId }
+            : undefined,
+        );
 
         return envelope
           ? { body: envelope, status: 201 }

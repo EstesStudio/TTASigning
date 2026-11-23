@@ -167,6 +167,7 @@ async function createAdmin(role = "admin"): Promise<ApiActor> {
       email,
       ipAddress: null,
       name: "Ops",
+      scope: "write",
       userAgent: null,
       userId,
     };
@@ -183,6 +184,7 @@ async function createAdmin(role = "admin"): Promise<ApiActor> {
     email,
     ipAddress: null,
     name: "Ops Admin",
+    scope: "write",
     userAgent: null,
     userId,
   };

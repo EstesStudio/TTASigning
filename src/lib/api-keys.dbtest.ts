@@ -88,6 +88,28 @@ test("a new key works, acts as its creator, and only its hash is kept", async ()
   assert.ok((await listApiKeys(database)).some((row) => row.id === summary.id));
 });
 
+test("a prepare key is stored, authenticated, listed, and revocable", async () => {
+  const admin = await createUser();
+  const { key, summary } = await createApiKey(
+    admin,
+    { expiresInDays: null, name: "Envelope agent", scope: "prepare" },
+    database,
+  );
+
+  const principal = await authenticateApiKey(key, database);
+  const stored = await database.query<{ scope: string }>(
+    `select scope from api_keys where id = $1`,
+    [summary.id],
+  );
+
+  assert.equal(principal?.apiKey.scope, "prepare");
+  assert.equal(stored.rows[0]?.scope, "prepare");
+  assert.ok((await listApiKeys(database)).some((row) => row.id === summary.id));
+
+  await revokeApiKey(admin, summary.id, database);
+  assert.equal(await authenticateApiKey(key, database), null);
+});
+
 test("an unknown key and a key of the wrong shape are both refused", async () => {
   assert.equal(
     await authenticateApiKey(`sdk_${"A".repeat(43)}`, database),

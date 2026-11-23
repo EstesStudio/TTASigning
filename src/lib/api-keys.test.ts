@@ -58,11 +58,31 @@ test("write access includes read, read does not include write", () => {
   assert.equal(scopeAllows("read", "write"), false);
 });
 
+test("API key scopes follow the read, prepare, and write permission matrix", () => {
+  const scopes = ["read", "prepare", "write"] as const;
+  const expected = [
+    [true, false, false],
+    [true, true, false],
+    [true, true, true],
+  ];
+
+  for (const [grantedIndex, granted] of scopes.entries()) {
+    for (const [neededIndex, needed] of scopes.entries()) {
+      assert.equal(
+        scopeAllows(granted, needed),
+        expected[grantedIndex]?.[neededIndex],
+        `${granted} should ${expected[grantedIndex]?.[neededIndex] ? "allow" : "deny"} ${needed}`,
+      );
+    }
+  }
+});
+
 test("names, scopes and expiries are checked", () => {
   assert.equal(parseApiKeyName("  Billing   app "), "Billing app");
   assert.equal(parseApiKeyName(""), null);
   assert.equal(parseApiKeyName("x".repeat(81)), null);
   assert.equal(parseApiKeyScope("read"), "read");
+  assert.equal(parseApiKeyScope("prepare"), "prepare");
   assert.equal(parseApiKeyScope("admin"), null);
   assert.equal(parseApiKeyExpiry(90), 90);
   assert.equal(parseApiKeyExpiry("365"), 365);
