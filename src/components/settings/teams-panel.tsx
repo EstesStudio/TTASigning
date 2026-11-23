@@ -19,6 +19,9 @@ export function TeamsPanel() {
   const [pending, setPending] = useState(false);
   const [newName, setNewName] = useState("");
   const [memberEmails, setMemberEmails] = useState<Record<string, string>>({});
+  // Until the first list arrives, no change is sent: its answer could land
+  // before the list and then be overwritten by it, hiding the change.
+  const loading = teams === null && error === null;
 
   useEffect(() => {
     const controller = new AbortController();
@@ -53,7 +56,7 @@ export function TeamsPanel() {
     method: "DELETE" | "PATCH" | "POST",
     body?: unknown,
   ): Promise<boolean> {
-    if (pending) {
+    if (pending || loading) {
       return false;
     }
 
@@ -172,7 +175,7 @@ export function TeamsPanel() {
           </span>
           <input
             className="field-input"
-            disabled={pending}
+            disabled={pending || loading}
             maxLength={80}
             onChange={(event) => setNewName(event.target.value)}
             placeholder="Sales"
@@ -181,7 +184,7 @@ export function TeamsPanel() {
           />
         </label>
         <ShellButton
-          disabled={pending || newName.trim().length === 0}
+          disabled={pending || loading || newName.trim().length === 0}
           type="submit"
         >
           Add team

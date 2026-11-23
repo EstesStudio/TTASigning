@@ -21,6 +21,7 @@ import {
   getClientIpAddress,
   getRequestUserAgent,
 } from "@/lib/security/request";
+import { readLimitedBody } from "@/lib/utils/limited-body";
 
 // An approver approves the document. Rejecting goes through the decline
 // route, which records a rejection for an approver (signing.ts). The same
@@ -33,6 +34,26 @@ type ApproveRouteContext = {
 };
 
 const NO_STORE = { "cache-control": "private, no-store" };
+
+/** An approval is one small number; nothing needs more than this. */
+const MAX_APPROVAL_BODY_BYTES = 4 * 1024;
+
+/** The JSON body, or null when it is too large or not JSON. */
+async function readApprovalBody(request: Request): Promise<unknown> {
+  const body = await readLimitedBody(request, MAX_APPROVAL_BODY_BYTES).catch(
+    () => null,
+  );
+
+  if (!body) {
+    return null;
+  }
+
+  try {
+    return JSON.parse(new TextDecoder().decode(body)) as unknown;
+  } catch {
+    return null;
+  }
+}
 
 export async function POST(request: Request, context: ApproveRouteContext) {
   const { token } = await context.params;
@@ -52,7 +73,7 @@ export async function POST(request: Request, context: ApproveRouteContext) {
     return rateLimitResponse;
   }
 
-  const body = (await request.json().catch(() => null)) as unknown;
+  const body = await readApprovalBody(request);
 
   try {
     const payload = await approveSigningForToken(token, body, {
