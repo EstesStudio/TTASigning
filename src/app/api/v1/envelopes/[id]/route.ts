@@ -13,7 +13,12 @@ export async function GET(request: Request, context: Context) {
     "read",
     "api_envelope_read_failure",
     async ({ actor }) => {
-      const envelope = await getApiEnvelope(actor.userId, id);
+      const envelope = await getApiEnvelope(
+        actor.userId,
+        id,
+        undefined,
+        actor.scope === "prepare" ? { apiKeyId: actor.apiKeyId } : undefined,
+      );
 
       return envelope
         ? apiJson(envelope)

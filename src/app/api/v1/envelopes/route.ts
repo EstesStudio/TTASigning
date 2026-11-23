@@ -46,7 +46,12 @@ export async function GET(request: Request) {
         return apiError(400, "invalid_request", describeZodError(query.error));
       }
 
-      const page = await listApiEnvelopes(actor.userId, query.data);
+      const page = await listApiEnvelopes(
+        actor.userId,
+        query.data,
+        undefined,
+        actor.scope === "prepare" ? { apiKeyId: actor.apiKeyId } : undefined,
+      );
 
       if (!page) {
         return apiError(
@@ -70,7 +75,7 @@ type SourcePdf = { body: Uint8Array; contentType: string; filename: string };
 export async function POST(request: Request) {
   return handleApi(
     request,
-    "write",
+    "prepare",
     "api_envelope_create_failure",
     async (context) => {
       const contentType = request.headers.get("content-type") ?? "";
@@ -226,6 +231,10 @@ export async function POST(request: Request) {
           const envelope = await getApiEnvelope(
             context.actor.userId,
             envelopeId,
+            undefined,
+            context.actor.scope === "prepare"
+              ? { apiKeyId: context.actor.apiKeyId }
+              : undefined,
           );
 
           return envelope

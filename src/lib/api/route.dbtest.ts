@@ -69,7 +69,10 @@ after(async () => {
   }
 });
 
-async function createContext(idempotencyKey: string) {
+async function createContext(
+  idempotencyKey: string,
+  scope: "read" | "prepare" | "write" = "write",
+) {
   const id = randomUUID();
   const email = `${id}@example.test`;
 
@@ -82,9 +85,9 @@ async function createContext(idempotencyKey: string) {
     [id, `Person ${id.slice(0, 4)}`, email],
   );
 
-  const { summary } = await createApiKey(
+  const { key, summary } = await createApiKey(
     { email, userId: id },
-    { expiresInDays: null, name: "Route test", scope: "write" },
+    { expiresInDays: null, name: "Route test", scope },
     db(),
   );
 
@@ -96,9 +99,11 @@ async function createContext(idempotencyKey: string) {
       email,
       ipAddress: null,
       name: "Route test",
+      scope,
       userAgent: null,
       userId: id,
     },
+    key,
     rateLimit: { limit: 120, remaining: 119, resetSeconds: 60 },
     request: new Request("http://localhost:3000/api/v1/envelopes", {
       headers: { "idempotency-key": idempotencyKey },
@@ -106,6 +111,30 @@ async function createContext(idempotencyKey: string) {
     }),
   };
 }
+
+test("prepare keys can create drafts but cannot call write routes", async () => {
+  const prepare = await createContext(`prepare-${randomUUID()}`, "prepare");
+  const write = await createContext(`write-${randomUUID()}`, "write");
+  const invoke = (key: string, requiredScope: "prepare" | "write") =>
+    route.handleApi(
+      new Request("http://localhost:3000/api/v1/envelopes", {
+        headers: { authorization: `Bearer ${key}` },
+      }),
+      requiredScope,
+      "api_scope_test_failure",
+      async ({ actor }) => Response.json({ scope: actor.scope }),
+    );
+
+  const prepareResponse = await invoke(prepare.key, "prepare");
+  assert.equal(prepareResponse.status, 200);
+  assert.deepEqual(await prepareResponse.json(), { scope: "prepare" });
+
+  const blockedResponse = await invoke(prepare.key, "write");
+  assert.equal(blockedResponse.status, 403);
+
+  assert.equal((await invoke(write.key, "prepare")).status, 200);
+  assert.equal((await invoke(write.key, "write")).status, 200);
+});
 
 test("a request whose envelope could not be noted keeps its key, so a retry cannot make a second one", async () => {
   const key = `order-${randomUUID()}`;

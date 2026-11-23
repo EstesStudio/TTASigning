@@ -1,5 +1,6 @@
 import { z } from "zod";
 
+import type { ApiKeyScope } from "../api-keys.ts";
 import { getDb, type DbExecutor, type DbPool } from "../db/connection.ts";
 import {
   createDraftEnvelope,
@@ -153,6 +154,7 @@ export type ApiActor = {
   email: string;
   ipAddress: string | null;
   name: string;
+  scope: ApiKeyScope;
   userAgent: string | null;
   userId: string;
 };
@@ -176,6 +178,13 @@ export async function sendEnvelopeForApi(
   options: ApiSendOptions,
   database: DbPool = getDb(),
 ) {
+  if (actor.scope === "prepare") {
+    throw new EnvelopeMutationError(
+      "A prepare key cannot send envelopes. Review and send this draft in the dashboard.",
+      403,
+    );
+  }
+
   await sendDraftEnvelope(
     actor.userId,
     envelopeId,

@@ -237,11 +237,16 @@ export async function getApiEnvelope(
   userId: string,
   envelopeId: string,
   database: DbExecutor = getDb(),
+  access?: { apiKeyId?: string },
 ): Promise<ApiEnvelope | null> {
+  const values: unknown[] = [envelopeId, userId];
+  const keyClause = access?.apiKeyId
+    ? ` AND e.api_key_id = $${String(values.push(access.apiKeyId))}`
+    : "";
   const row = await queryOne<EnvelopeRow>(
     database,
-    `SELECT ${ENVELOPE_COLUMNS} FROM envelopes e WHERE e.id = $1 AND e.user_id = $2`,
-    [envelopeId, userId],
+    `SELECT ${ENVELOPE_COLUMNS} FROM envelopes e WHERE e.id = $1 AND e.user_id = $2${keyClause}`,
+    values,
   );
 
   if (!row) {
@@ -382,9 +387,15 @@ export async function listApiEnvelopes(
   userId: string,
   query: z.infer<typeof apiListQuerySchema>,
   database: DbExecutor = getDb(),
+  access?: { apiKeyId?: string },
 ): Promise<{ data: ApiEnvelope[]; nextCursor: string | null } | null> {
   const values: unknown[] = [userId];
   const clauses = ["e.user_id = $1"];
+
+  if (access?.apiKeyId) {
+    values.push(access.apiKeyId);
+    clauses.push(`e.api_key_id = $${String(values.length)}`);
+  }
 
   if (query.status) {
     values.push(query.status);
@@ -448,11 +459,16 @@ export async function listApiEnvelopeEvents(
   userId: string,
   envelopeId: string,
   database: DbExecutor = getDb(),
+  access?: { apiKeyId?: string },
 ) {
+  const values: unknown[] = [envelopeId, userId];
+  const keyClause = access?.apiKeyId
+    ? ` AND api_key_id = $${String(values.push(access.apiKeyId))}`
+    : "";
   const owner = await queryOne<{ id: string }>(
     database,
-    `SELECT id FROM envelopes WHERE id = $1 AND user_id = $2`,
-    [envelopeId, userId],
+    `SELECT id FROM envelopes WHERE id = $1 AND user_id = $2${keyClause}`,
+    values,
   );
 
   if (!owner) {

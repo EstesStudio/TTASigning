@@ -144,6 +144,7 @@ export async function handleApi(
       email: principal.user.email,
       ipAddress: getClientIpAddress(request.headers),
       name: principal.user.name,
+      scope: principal.apiKey.scope,
       userAgent: getRequestUserAgent(request.headers),
       userId: principal.user.id,
     },
