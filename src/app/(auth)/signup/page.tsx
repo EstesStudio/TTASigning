@@ -14,7 +14,7 @@ export default async function SignupPage() {
 
   return (
     <SignupShell
-      emailConnected={canSendEmail()}
+      emailConnected={await canSendEmail()}
       passwordSignIn={readPasswordSignInPolicy().enabled}
       sso={sso ? { name: sso.name } : null}
       signupAvailable={buildBranding(settings).signupAvailable}

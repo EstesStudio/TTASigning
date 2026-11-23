@@ -10,6 +10,18 @@ import { getEnv, isLocalDeployment, type EnvSource } from "../utils/env.ts";
 import { buildEmailAddresses, type EmailAddresses } from "./email-addresses.ts";
 import { CAPTURED_MESSAGE_ID_PREFIX } from "./captured-email.ts";
 import {
+  GRAPH_FIELD_VARIABLES,
+  resolveGraphConfig,
+  type GraphResolution,
+} from "../email-graph-settings.ts";
+import {
+  createGraphSender,
+  GRAPH_MAX_ATTACHMENT_BYTES,
+  sharedGraphSender,
+  type GraphFetch,
+  type GraphSender,
+} from "./email-graph.ts";
+import {
   assertServiceConfig,
   ServiceConfigurationError,
 } from "./service-config.ts";
@@ -22,7 +34,7 @@ const EMAIL_ENV_KEYS = ["RESEND_API_KEY"] as const;
 const DEFAULT_CAPTURE_DIR = ".data/outbox";
 const DEFAULT_CAPTURE_SENDER_ADDRESS = "dev@signudoc.localhost";
 
-export type EmailDriver = "capture" | "resend";
+export type EmailDriver = "capture" | "graph" | "resend";
 
 export type EmailAttachment = {
   content: Uint8Array;
@@ -37,12 +49,24 @@ export type EmailAttachment = {
  */
 export const MAX_ATTACHMENT_BYTES = 25 * 1024 * 1024;
 
+/** The most attachments can add up to with the driver this install uses. */
+export function maxAttachmentBytes(env: EnvSource = process.env): number {
+  try {
+    return resolveEmailDriver(env) === "graph"
+      ? GRAPH_MAX_ATTACHMENT_BYTES
+      : MAX_ATTACHMENT_BYTES;
+  } catch {
+    return MAX_ATTACHMENT_BYTES;
+  }
+}
+
 export function fitsAsAttachments(
   attachments: readonly EmailAttachment[],
+  env: EnvSource = process.env,
 ): boolean {
   return (
     attachments.reduce((total, item) => total + item.content.byteLength, 0) <=
-    MAX_ATTACHMENT_BYTES
+    maxAttachmentBytes(env)
   );
 }
 
@@ -69,6 +93,13 @@ export type EmailSendOptions = {
 
 type CreateEmailServiceOptions = {
   env?: EnvSource;
+  /** Replaced in tests, so that nothing talks to Microsoft. */
+  graphFetch?: GraphFetch;
+  /**
+   * Where the Microsoft 365 credentials come from: the environment, then
+   * Settings. Replaced in tests, where there is no database.
+   */
+  resolveGraph?: () => Promise<GraphResolution>;
   /** Replaced in tests, where there is no database to read settings from. */
   resolveAddresses?: () => Promise<EmailAddresses>;
   resendClient?: Resend;
@@ -193,12 +224,16 @@ export function resolveEmailDriver(env: EnvSource = process.env): EmailDriver {
     return "resend";
   }
 
-  if (configuredDriver === "capture" || configuredDriver === "resend") {
+  if (
+    configuredDriver === "capture" ||
+    configuredDriver === "graph" ||
+    configuredDriver === "resend"
+  ) {
     return configuredDriver;
   }
 
   throw new Error(
-    `Unknown EMAIL_DRIVER "${configuredDriver}". Use "resend" or "capture".`,
+    `Unknown EMAIL_DRIVER "${configuredDriver}". Use "resend", "graph" or "capture".`,
   );
 }
 
@@ -295,6 +330,8 @@ export async function resolveEmailAddresses(
 ): Promise<EmailAddresses> {
   const settings = await getSettings(env);
 
+  // With EMAIL_DRIVER=graph the sender is the MICROSOFT_GRAPH_SENDER
+  // mailbox, which resolveSettings has already put in place.
   return resolveEmailDriver(env) === "capture"
     ? buildEmailAddresses(settings, DEFAULT_CAPTURE_SENDER_ADDRESS)
     : buildEmailAddresses(settings);
@@ -316,19 +353,108 @@ export function isEmailNotConnectedError(error: unknown): boolean {
 }
 
 /**
+ * Microsoft 365 through Microsoft Graph. Graph has no batch send and no
+ * idempotency keys, so a batch is sent one message at a time.
+ */
+function createGraphEmailService(
+  env: EnvSource,
+  resolveAddresses: () => Promise<EmailAddresses>,
+  wait: (milliseconds: number) => Promise<void>,
+  graphFetch?: GraphFetch,
+  resolveGraph: () => Promise<GraphResolution> = () => resolveGraphConfig(env),
+): EmailService {
+  // The credentials may be in Settings, so they are looked up when a message
+  // is sent, not when the service is made. A setup that is not finished
+  // fails the send as a missing Resend key does (isEmailNotConnectedError).
+  let testSender: { key: string; sender: GraphSender } | null = null;
+
+  async function resolveSender() {
+    const { config, missing } = await resolveGraph();
+
+    if (!config) {
+      throw new ServiceConfigurationError(
+        "email",
+        missing.map((field) => GRAPH_FIELD_VARIABLES[field]),
+      );
+    }
+
+    if (!graphFetch) {
+      return sharedGraphSender(config, wait);
+    }
+
+    // Tests: one sender per service, kept while its configuration holds.
+    const key = JSON.stringify(config);
+
+    if (testSender?.key !== key) {
+      testSender = {
+        key,
+        sender: createGraphSender({ config, fetch: graphFetch, wait }),
+      };
+    }
+
+    return testSender.sender;
+  }
+
+  async function deliver(
+    message: TransactionalEmailMessage,
+  ): Promise<EmailDeliveryResult> {
+    const sender = await resolveSender();
+    const config = await resolveAddresses();
+
+    await sender.send({
+      attachments: message.attachments,
+      from: config.senderAddress,
+      htmlBody: message.htmlBody,
+      replyTo: message.replyTo ?? config.supportAddress ?? undefined,
+      subject: message.subject,
+      textBody: message.textBody,
+      to: message.to,
+    });
+
+    // sendMail answers 202 with no body: Exchange gives no message id.
+    return { accepted: [message.to], rejected: [] };
+  }
+
+  return {
+    send: (message) => deliver(message),
+    async sendBatch(messages) {
+      if (messages.some((message) => message.attachments?.length)) {
+        throw new Error("Messages with attachments must be sent one by one.");
+      }
+
+      const results: EmailDeliveryResult[] = [];
+
+      for (const message of messages) {
+        results.push(await deliver(message));
+      }
+
+      return results;
+    },
+  };
+}
+
+/**
  * Whether this install has an email provider to send with. Without one,
  * a flow that would tell someone to check their inbox says that email is
  * not set up instead (issue #95).
  */
-export function canSendEmail(env: EnvSource = process.env): boolean {
+export async function canSendEmail(
+  env: EnvSource = process.env,
+  resolveGraph: () => Promise<GraphResolution> = () => resolveGraphConfig(env),
+): Promise<boolean> {
   try {
     createEmailService({ env });
-    return true;
   } catch {
     // No provider key, or a driver this deployment cannot use: either way
     // nothing would be sent.
     return false;
   }
+
+  // Microsoft 365's credentials may be in Settings, which only a lookup
+  // can tell.
+  return resolveEmailDriver(env) === "graph"
+    ? (await resolveGraph()).config !== null
+    : true;
 }
 
 /**
@@ -353,12 +479,24 @@ export function createLazyEmailService(
 
 export function createEmailService({
   env = process.env,
+  graphFetch,
   resolveAddresses = () => resolveEmailAddresses(env),
+  resolveGraph,
   resendClient,
   wait = waitFor,
 }: CreateEmailServiceOptions = {}): EmailService {
   if (!resendClient && resolveEmailDriver(env) === "capture") {
     return createCaptureEmailService(env, resolveAddresses);
+  }
+
+  if (!resendClient && resolveEmailDriver(env) === "graph") {
+    return createGraphEmailService(
+      env,
+      resolveAddresses,
+      wait,
+      graphFetch,
+      resolveGraph,
+    );
   }
 
   if (!resendClient) {

@@ -8,6 +8,10 @@ import {
 } from "./services/email-addresses.ts";
 import { resolveEmailDriver } from "./services/email.ts";
 import {
+  GRAPH_FIELD_VARIABLES,
+  resolveGraphConfig,
+} from "./email-graph-settings.ts";
+import {
   getSettings,
   markEmailReady,
   type ResolvedSettings,
@@ -38,6 +42,21 @@ export type EmailDnsRecord = {
 export type EmailStatus =
   /** Development: messages are written to disk, not sent. */
   | { state: "capture" }
+  /**
+   * EMAIL_DRIVER=graph, but some of its settings are not set, neither as
+   * variables nor in Settings. `missing` names the variables.
+   */
+  | {
+      state: "graph_missing_config";
+      missing: string[];
+      /** A client secret is stored but BETTER_AUTH_SECRET no longer opens it. */
+      secretUnreadable: boolean;
+    }
+  /**
+   * Sending through Microsoft 365. There is no domain to check: Exchange
+   * already sends for it. Ready once a test email has gone out.
+   */
+  | { state: "graph"; ready: boolean; senderAddress: string }
   /**
    * No Resend API key, so nothing can be sent. On Vercel the steps to fix it
    * are Vercel's, which the page spells out.
@@ -386,6 +405,36 @@ async function inspectEmail({
       domainId: null,
       markReady: noop,
       status: { state: "capture" },
+    };
+  }
+
+  if (!domainsClient && resolveEmailDriver(env) === "graph") {
+    const graph = await resolveGraphConfig(env);
+
+    if (!graph.config) {
+      return {
+        client: null,
+        domainId: null,
+        markReady: noop,
+        status: {
+          missing: graph.missing.map((field) => GRAPH_FIELD_VARIABLES[field]),
+          secretUnreadable: graph.secretUnreadable,
+          state: "graph_missing_config",
+        },
+      };
+    }
+
+    const resolvedSettings = settings ?? (await getSettings(env));
+
+    return {
+      client: null,
+      domainId: null,
+      markReady: noop,
+      status: {
+        ready: resolvedSettings.emailReadyAt !== null,
+        senderAddress: graph.config.sender,
+        state: "graph",
+      },
     };
   }
 

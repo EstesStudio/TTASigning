@@ -8,6 +8,20 @@ release says when it does.
 
 ## [Unreleased]
 
+### Email
+
+- Email can be sent through Microsoft 365 instead of Resend: set
+  `EMAIL_DRIVER=graph` and the `MICROSOFT_GRAPH_*` variables. The app sends
+  from one mailbox through Microsoft Graph, with no domain to verify. See
+  "Send email through Microsoft 365" in docs/self-hosting.md.
+- With `EMAIL_DRIVER=graph`, the tenant ID, client ID, client secret and
+  mailbox can be entered in Settings, Organization, Email setup instead of
+  set as variables. The client secret is stored encrypted with a key derived
+  from `BETTER_AUTH_SECRET`; a variable still wins over what is saved. The
+  page shows the Exchange PowerShell that limits the app to that mailbox,
+  with the IDs filled in, and "Verify connection" warns when the app was
+  granted Mail.Send for the whole tenant in Entra (issue #76).
+
 ## [0.9.0] - 2026-11-22
 
 People can now work as a team, seeing the envelopes their teammates send,
