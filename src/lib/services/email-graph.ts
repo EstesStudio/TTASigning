@@ -1,3 +1,5 @@
+import { createHash } from "node:crypto";
+
 import { readEnv, type EnvSource } from "../utils/env.ts";
 import { extractEmailAddress } from "./email-addresses.ts";
 
@@ -50,7 +52,39 @@ export type GraphConfig = {
   tenantId: string;
 };
 
-/** The configuration, or null when any of the four variables is missing. */
+/** The four values a Graph setup needs, from wherever they were set. */
+export type GraphCredentials = {
+  clientId: string;
+  clientSecret: string;
+  sender: string;
+  tenantId: string;
+};
+
+/** A complete configuration from the four values, with the hosts to use. */
+export function buildGraphConfig(
+  credentials: GraphCredentials,
+  env: EnvSource,
+): GraphConfig {
+  return {
+    // Only national clouds need these two; see docs/self-hosting.md.
+    authorityHost: (
+      readEnv(env, "MICROSOFT_GRAPH_AUTHORITY_HOST") ?? DEFAULT_AUTHORITY_HOST
+    ).replace(/\/+$/, ""),
+    clientId: credentials.clientId,
+    clientSecret: credentials.clientSecret,
+    graphHost: (
+      readEnv(env, "MICROSOFT_GRAPH_HOST") ?? DEFAULT_GRAPH_HOST
+    ).replace(/\/+$/, ""),
+    sender: extractEmailAddress(credentials.sender),
+    tenantId: credentials.tenantId,
+  };
+}
+
+/**
+ * The configuration from the environment alone, or null when any of the
+ * four variables is missing. Values entered in Settings are added by
+ * resolveGraphConfig in email-graph-settings.ts.
+ */
 export function readGraphConfig(env: EnvSource): GraphConfig | null {
   const tenantId = readEnv(env, "MICROSOFT_GRAPH_TENANT_ID");
   const clientId = readEnv(env, "MICROSOFT_GRAPH_CLIENT_ID");
@@ -61,19 +95,7 @@ export function readGraphConfig(env: EnvSource): GraphConfig | null {
     return null;
   }
 
-  return {
-    // Only national clouds need these two; see docs/self-hosting.md.
-    authorityHost: (
-      readEnv(env, "MICROSOFT_GRAPH_AUTHORITY_HOST") ?? DEFAULT_AUTHORITY_HOST
-    ).replace(/\/+$/, ""),
-    clientId,
-    clientSecret,
-    graphHost: (
-      readEnv(env, "MICROSOFT_GRAPH_HOST") ?? DEFAULT_GRAPH_HOST
-    ).replace(/\/+$/, ""),
-    sender: extractEmailAddress(sender),
-    tenantId,
-  };
+  return buildGraphConfig({ clientId, clientSecret, sender, tenantId }, env);
 }
 
 export type GraphAttachment = {
@@ -203,6 +225,8 @@ type GraphSenderOptions = {
 };
 
 export type GraphSender = {
+  /** A token for the app, from the cache while it is still good. */
+  accessToken(): Promise<string>;
   send(message: GraphMessage): Promise<void>;
 };
 
@@ -263,11 +287,16 @@ export function createGraphSender({
   }
 
   return {
+    accessToken: getToken,
     async send(message) {
       const url = `${config.graphHost}/v1.0/users/${encodeURIComponent(config.sender)}/sendMail`;
       const body = JSON.stringify(buildGraphPayload(message));
+      // Counted apart, so a token refused after a throttled try is still
+      // replaced once.
+      let refreshedToken = false;
+      let throttledTries = 0;
 
-      for (let attempt = 0; ; attempt += 1) {
+      for (;;) {
         const response = await fetchImpl(url, {
           body,
           headers: {
@@ -285,7 +314,8 @@ export function createGraphSender({
         const text = await response.text();
 
         // A token revoked or rotated early: get a new one and try once more.
-        if (response.status === 401 && attempt === 0) {
+        if (response.status === 401 && !refreshedToken) {
+          refreshedToken = true;
           token = null;
           continue;
         }
@@ -294,8 +324,9 @@ export function createGraphSender({
         // would be lost if it were not tried again.
         if (
           (response.status === 429 || response.status === 503) &&
-          attempt < RATE_LIMIT_RETRIES
+          throttledTries < RATE_LIMIT_RETRIES
         ) {
+          throttledTries += 1;
           await wait(retryAfterMs(response.headers.get("retry-after")));
           continue;
         }
@@ -307,4 +338,68 @@ export function createGraphSender({
       }
     },
   };
+}
+
+type CachedGraphSender = { key: string; sender: GraphSender };
+
+declare global {
+  var __signudocGraphSenders: Map<string, CachedGraphSender> | undefined;
+}
+
+// One sender per configuration for the whole process, so its token is
+// reused by every email service made with that configuration, instead of
+// each envelope's sends asking Microsoft for a new one.
+const graphSenders = (globalThis.__signudocGraphSenders ??= new Map());
+
+function graphSenderKey(config: GraphConfig): string {
+  return createHash("sha256").update(JSON.stringify(config)).digest("hex");
+}
+
+/**
+ * The process's sender for this configuration. A configuration that
+ * changes (a new client secret, another mailbox) gets a sender of its own,
+ * and the old one is dropped.
+ */
+export function sharedGraphSender(
+  config: GraphConfig,
+  wait: (milliseconds: number) => Promise<void>,
+): GraphSender {
+  const slot = `${config.authorityHost}|${config.tenantId}|${config.clientId}`;
+  const key = graphSenderKey(config);
+  const cached = graphSenders.get(slot);
+
+  if (cached?.key === key) {
+    return cached.sender;
+  }
+
+  const sender = createGraphSender({ config, wait });
+
+  graphSenders.set(slot, { key, sender });
+
+  return sender;
+}
+
+/**
+ * The application permissions in an app-only token's `roles` claim. Mail.Send
+ * there means it was granted in Entra for the whole tenant: an Exchange role
+ * assignment scoped to one mailbox does not appear in the token.
+ */
+export function readTokenRoles(accessToken: string): string[] {
+  const payload = accessToken.split(".")[1];
+
+  if (!payload) {
+    return [];
+  }
+
+  try {
+    const claims = JSON.parse(
+      Buffer.from(payload, "base64url").toString("utf8"),
+    ) as { roles?: unknown };
+
+    return Array.isArray(claims.roles)
+      ? claims.roles.filter((role): role is string => typeof role === "string")
+      : [];
+  } catch {
+    return [];
+  }
 }

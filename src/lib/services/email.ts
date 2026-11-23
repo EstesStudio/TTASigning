@@ -14,6 +14,7 @@ import {
   GRAPH_ENV_KEYS,
   GRAPH_MAX_ATTACHMENT_BYTES,
   readGraphConfig,
+  sharedGraphSender,
   type GraphFetch,
 } from "./email-graph.ts";
 import {
@@ -354,11 +355,12 @@ function createGraphEmailService(
 ): EmailService {
   assertServiceConfig("email", GRAPH_ENV_KEYS, env);
 
-  const sender = createGraphSender({
-    config: readGraphConfig(env)!,
-    fetch: graphFetch,
-    wait,
-  });
+  const config = readGraphConfig(env)!;
+  // Shared across services made with this configuration, so the token is
+  // reused instead of asked for again for every envelope.
+  const sender = graphFetch
+    ? createGraphSender({ config, fetch: graphFetch, wait })
+    : sharedGraphSender(config, wait);
 
   async function deliver(
     message: TransactionalEmailMessage,

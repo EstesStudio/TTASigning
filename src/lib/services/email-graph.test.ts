@@ -5,6 +5,8 @@ import {
   buildGraphPayload,
   createGraphSender,
   readGraphConfig,
+  readTokenRoles,
+  sharedGraphSender,
   type GraphConfig,
   type GraphFetch,
 } from "./email-graph.ts";
@@ -371,6 +373,50 @@ test("EMAIL_DRIVER=graph without its settings names the missing ones", () => {
       }),
     { message: /MICROSOFT_GRAPH_CLIENT_SECRET/ },
   );
+});
+
+test("a token refused after a throttled try is still replaced once", async () => {
+  const { fetch, requests } = scriptedFetch([
+    TOKEN,
+    { headers: { "retry-after": "1" }, status: 429 },
+    { status: 401 },
+    {
+      body: JSON.stringify({ access_token: "token-2", expires_in: 3600 }),
+      status: 200,
+    },
+    ACCEPTED,
+  ]);
+  const sender = createGraphSender({
+    config: CONFIG,
+    fetch,
+    wait: async () => undefined,
+  });
+
+  await sender.send(MESSAGE);
+
+  assert.equal(requests.length, 5);
+  assert.equal(requests[4]?.headers.authorization, "Bearer token-2");
+});
+
+test("services made with the same configuration share one sender and its token", () => {
+  const wait = async () => undefined;
+  const first = sharedGraphSender(CONFIG, wait);
+
+  assert.equal(sharedGraphSender({ ...CONFIG }, wait), first);
+  // A new secret is a new configuration: its token is asked for afresh.
+  assert.notEqual(
+    sharedGraphSender({ ...CONFIG, clientSecret: "rotated" }, wait),
+    first,
+  );
+});
+
+test("the roles claim of an app-only token is read", () => {
+  const payload = Buffer.from(
+    JSON.stringify({ roles: ["Mail.Send", 3] }),
+  ).toString("base64url");
+
+  assert.deepEqual(readTokenRoles(`x.${payload}.y`), ["Mail.Send"]);
+  assert.deepEqual(readTokenRoles("not-a-jwt"), []);
 });
 
 test("Graph takes smaller attachments than Resend", () => {
