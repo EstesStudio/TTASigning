@@ -383,7 +383,7 @@ An organization whose mail is already in Microsoft 365 can send from one of its 
 
    `Test-ServicePrincipalAuthorization -Identity <client-id> -Resource sign@yourcompany.com` should then show the role as in scope. Changes can take up to an hour to apply.
 
-4. **Set the variables** where the app runs, and restart it:
+4. **Enter the credentials.** Set `EMAIL_DRIVER=graph` where the app runs and restart it. Then either fill in Settings, Organization, Email setup, Microsoft 365 (tenant ID, client ID, client secret and mailbox), or set the variables below. A variable wins over what is saved in Settings, field by field, and its field is shown locked there.
 
    | Variable                        | Value                                            |
    | ------------------------------- | ------------------------------------------------ |
@@ -393,9 +393,9 @@ An organization whose mail is already in Microsoft 365 can send from one of its 
    | `MICROSOFT_GRAPH_CLIENT_SECRET` | The client secret.                               |
    | `MICROSOFT_GRAPH_SENDER`        | The mailbox, for example `sign@yourcompany.com`. |
 
-   The mailbox is then the sender, and "Send email from" in Settings shows it and cannot be changed there. The organization name is still used as the display name.
+   The mailbox is the sender: with `MICROSOFT_GRAPH_SENDER` set, "Send email from" in Settings shows it and cannot be changed there. The organization name is still used as the display name. A client secret saved in Settings is stored encrypted with a key derived from `BETTER_AUTH_SECRET`; if that secret changes, enter the client secret again. Settings also shows the PowerShell of step 3 with your IDs filled in, ready to copy.
 
-5. **Send yourself a test email** from Settings, Organization. A refusal comes back in Microsoft's words: `ErrorAccessDenied` usually means the role assignment of step 3 is missing or has not applied yet.
+5. **Verify the connection** from Settings, Organization. The app signs in, warns if its token carries Mail.Send (granted in Entra for the whole tenant, which lets it send as anyone: remove it and keep only the Exchange role assignment), and sends you a test email. A refusal comes back in Microsoft's words: `ErrorAccessDenied` usually means the role assignment of step 3 is missing or has not applied yet.
 
 Graph takes at most 4 MB in one message, so signed copies larger than about 3 MB are sent as download links rather than attachments. Client secrets expire (after two years at most): put a reminder in your calendar to rotate it. National clouds set `MICROSOFT_GRAPH_AUTHORITY_HOST` and `MICROSOFT_GRAPH_HOST`, for example `https://login.microsoftonline.us` and `https://graph.microsoft.us`.
 

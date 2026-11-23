@@ -7,6 +7,7 @@ import { FieldShell, ShellButton } from "@/components/shared/form-shell";
 import { ApiKeysPanel } from "@/components/settings/api-keys-panel";
 import { BrandingPanel } from "@/components/settings/branding-panel";
 import { EmbeddingPanel } from "@/components/settings/embedding-panel";
+import { Microsoft365Panel } from "@/components/settings/microsoft-365-panel";
 import { Part11Panel } from "@/components/settings/part11-panel";
 import { PeoplePanel } from "@/components/settings/people-panel";
 import { SecurityPanel } from "@/components/settings/security-panel";
@@ -770,6 +771,10 @@ function EmailSetupPanel() {
         <DnsRecordsTable domain={status.domain} records={status.records} />
       ) : null}
 
+      {status?.state === "graph" || status?.state === "graph_missing_config" ? (
+        <Microsoft365Panel onStatus={setStatus} />
+      ) : null}
+
       <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap">
         {status?.state === "domain_missing" ? (
           <ShellButton
@@ -849,14 +854,18 @@ function describeEmailStatus(status: EmailStatus): {
     case "graph_missing_config":
       return {
         lines: [
-          "EMAIL_DRIVER is set to graph, so email goes out through Microsoft 365, but some of its settings are missing. Nothing can be sent until they are set.",
+          status.secretUnreadable
+            ? "EMAIL_DRIVER is set to graph, so email goes out through Microsoft 365, but the saved client secret can no longer be read because BETTER_AUTH_SECRET has changed. Nothing can be sent until it is entered again."
+            : "EMAIL_DRIVER is set to graph, so email goes out through Microsoft 365, but some of its settings are missing. Nothing can be sent until they are set.",
         ],
         ready: false,
         steps: [
           {
-            text: `Set ${status.missing.join(", ")} where this site runs. The self-hosting guide explains where each value comes from.`,
+            text: "Enter the missing Microsoft 365 settings below and save them.",
           },
-          { text: "Restart the app, then reload this page." },
+          {
+            text: `Or set ${status.missing.join(", ")} where this site runs, restart the app, and reload this page. The self-hosting guide explains where each value comes from.`,
+          },
         ],
         title: "Microsoft 365 is not fully configured",
       };

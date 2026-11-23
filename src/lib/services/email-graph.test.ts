@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 
+import { combineGraphSettings } from "../email-graph-settings.ts";
 import {
   buildGraphPayload,
   createGraphSender,
@@ -365,12 +366,27 @@ test("EMAIL_DRIVER=graph sends through Graph from the resolved sender", async ()
   ]);
 });
 
-test("EMAIL_DRIVER=graph without its settings names the missing ones", () => {
-  assert.throws(
-    () =>
-      createEmailService({
-        env: { ...ENV, MICROSOFT_GRAPH_CLIENT_SECRET: undefined },
-      }),
+test("EMAIL_DRIVER=graph without its settings names the missing ones", async () => {
+  const env = { ...ENV, MICROSOFT_GRAPH_CLIENT_SECRET: undefined };
+  // Settings could still hold the secret, so the service is made, and the
+  // send fails once nothing has given it one.
+  const service = createEmailService({
+    env,
+    resolveGraph: async () =>
+      combineGraphSettings(
+        { clientId: null, clientSecret: null, tenantId: null },
+        { senderAddress: "sign@acme.test", senderAddressFromEnv: true },
+        env,
+      ),
+  });
+
+  await assert.rejects(
+    service.send({
+      subject: "Hi",
+      template: "test_email",
+      textBody: "Hi",
+      to: "someone@example.test",
+    }),
     { message: /MICROSOFT_GRAPH_CLIENT_SECRET/ },
   );
 });

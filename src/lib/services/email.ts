@@ -10,12 +10,16 @@ import { getEnv, isLocalDeployment, type EnvSource } from "../utils/env.ts";
 import { buildEmailAddresses, type EmailAddresses } from "./email-addresses.ts";
 import { CAPTURED_MESSAGE_ID_PREFIX } from "./captured-email.ts";
 import {
+  GRAPH_FIELD_VARIABLES,
+  resolveGraphConfig,
+  type GraphResolution,
+} from "../email-graph-settings.ts";
+import {
   createGraphSender,
-  GRAPH_ENV_KEYS,
   GRAPH_MAX_ATTACHMENT_BYTES,
-  readGraphConfig,
   sharedGraphSender,
   type GraphFetch,
+  type GraphSender,
 } from "./email-graph.ts";
 import {
   assertServiceConfig,
@@ -91,6 +95,11 @@ type CreateEmailServiceOptions = {
   env?: EnvSource;
   /** Replaced in tests, so that nothing talks to Microsoft. */
   graphFetch?: GraphFetch;
+  /**
+   * Where the Microsoft 365 credentials come from: the environment, then
+   * Settings. Replaced in tests, where there is no database.
+   */
+  resolveGraph?: () => Promise<GraphResolution>;
   /** Replaced in tests, where there is no database to read settings from. */
   resolveAddresses?: () => Promise<EmailAddresses>;
   resendClient?: Resend;
@@ -352,19 +361,44 @@ function createGraphEmailService(
   resolveAddresses: () => Promise<EmailAddresses>,
   wait: (milliseconds: number) => Promise<void>,
   graphFetch?: GraphFetch,
+  resolveGraph: () => Promise<GraphResolution> = () => resolveGraphConfig(env),
 ): EmailService {
-  assertServiceConfig("email", GRAPH_ENV_KEYS, env);
+  // The credentials may be in Settings, so they are looked up when a message
+  // is sent, not when the service is made. A setup that is not finished
+  // fails the send as a missing Resend key does (isEmailNotConnectedError).
+  let testSender: { key: string; sender: GraphSender } | null = null;
 
-  const config = readGraphConfig(env)!;
-  // Shared across services made with this configuration, so the token is
-  // reused instead of asked for again for every envelope.
-  const sender = graphFetch
-    ? createGraphSender({ config, fetch: graphFetch, wait })
-    : sharedGraphSender(config, wait);
+  async function resolveSender() {
+    const { config, missing } = await resolveGraph();
+
+    if (!config) {
+      throw new ServiceConfigurationError(
+        "email",
+        missing.map((field) => GRAPH_FIELD_VARIABLES[field]),
+      );
+    }
+
+    if (!graphFetch) {
+      return sharedGraphSender(config, wait);
+    }
+
+    // Tests: one sender per service, kept while its configuration holds.
+    const key = JSON.stringify(config);
+
+    if (testSender?.key !== key) {
+      testSender = {
+        key,
+        sender: createGraphSender({ config, fetch: graphFetch, wait }),
+      };
+    }
+
+    return testSender.sender;
+  }
 
   async function deliver(
     message: TransactionalEmailMessage,
   ): Promise<EmailDeliveryResult> {
+    const sender = await resolveSender();
     const config = await resolveAddresses();
 
     await sender.send({
@@ -404,15 +438,23 @@ function createGraphEmailService(
  * a flow that would tell someone to check their inbox says that email is
  * not set up instead (issue #95).
  */
-export function canSendEmail(env: EnvSource = process.env): boolean {
+export async function canSendEmail(
+  env: EnvSource = process.env,
+  resolveGraph: () => Promise<GraphResolution> = () => resolveGraphConfig(env),
+): Promise<boolean> {
   try {
     createEmailService({ env });
-    return true;
   } catch {
     // No provider key, or a driver this deployment cannot use: either way
     // nothing would be sent.
     return false;
   }
+
+  // Microsoft 365's credentials may be in Settings, which only a lookup
+  // can tell.
+  return resolveEmailDriver(env) === "graph"
+    ? (await resolveGraph()).config !== null
+    : true;
 }
 
 /**
@@ -439,6 +481,7 @@ export function createEmailService({
   env = process.env,
   graphFetch,
   resolveAddresses = () => resolveEmailAddresses(env),
+  resolveGraph,
   resendClient,
   wait = waitFor,
 }: CreateEmailServiceOptions = {}): EmailService {
@@ -447,7 +490,13 @@ export function createEmailService({
   }
 
   if (!resendClient && resolveEmailDriver(env) === "graph") {
-    return createGraphEmailService(env, resolveAddresses, wait, graphFetch);
+    return createGraphEmailService(
+      env,
+      resolveAddresses,
+      wait,
+      graphFetch,
+      resolveGraph,
+    );
   }
 
   if (!resendClient) {

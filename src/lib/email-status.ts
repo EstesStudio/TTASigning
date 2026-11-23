@@ -7,7 +7,10 @@ import {
   isResendTestSender,
 } from "./services/email-addresses.ts";
 import { resolveEmailDriver } from "./services/email.ts";
-import { GRAPH_ENV_KEYS, readGraphConfig } from "./services/email-graph.ts";
+import {
+  GRAPH_FIELD_VARIABLES,
+  resolveGraphConfig,
+} from "./email-graph-settings.ts";
 import {
   getSettings,
   markEmailReady,
@@ -39,8 +42,16 @@ export type EmailDnsRecord = {
 export type EmailStatus =
   /** Development: messages are written to disk, not sent. */
   | { state: "capture" }
-  /** EMAIL_DRIVER=graph, but some of its variables are not set. */
-  | { state: "graph_missing_config"; missing: string[] }
+  /**
+   * EMAIL_DRIVER=graph, but some of its settings are not set, neither as
+   * variables nor in Settings. `missing` names the variables.
+   */
+  | {
+      state: "graph_missing_config";
+      missing: string[];
+      /** A client secret is stored but BETTER_AUTH_SECRET no longer opens it. */
+      secretUnreadable: boolean;
+    }
   /**
    * Sending through Microsoft 365. There is no domain to check: Exchange
    * already sends for it. Ready once a test email has gone out.
@@ -398,15 +409,16 @@ async function inspectEmail({
   }
 
   if (!domainsClient && resolveEmailDriver(env) === "graph") {
-    const graph = readGraphConfig(env);
+    const graph = await resolveGraphConfig(env);
 
-    if (!graph) {
+    if (!graph.config) {
       return {
         client: null,
         domainId: null,
         markReady: noop,
         status: {
-          missing: GRAPH_ENV_KEYS.filter((key) => !readEnv(env, key)),
+          missing: graph.missing.map((field) => GRAPH_FIELD_VARIABLES[field]),
+          secretUnreadable: graph.secretUnreadable,
           state: "graph_missing_config",
         },
       };
@@ -420,7 +432,7 @@ async function inspectEmail({
       markReady: noop,
       status: {
         ready: resolvedSettings.emailReadyAt !== null,
-        senderAddress: graph.sender,
+        senderAddress: graph.config.sender,
         state: "graph",
       },
     };
