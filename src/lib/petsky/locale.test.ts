@@ -3,6 +3,7 @@ import { afterEach, test } from "node:test";
 
 import { appLocale, intlLocale, tr } from "./locale.ts";
 import { PT_BR } from "./pt-br.ts";
+import { PT_BR_ADMIN } from "./pt-br-admin.ts";
 
 const original = process.env.NEXT_PUBLIC_APP_LOCALE;
 
@@ -45,7 +46,10 @@ test("every translation uses exactly the placeholders of its English key", () =>
   const placeholders = (text: string) =>
     [...text.matchAll(/\{(\w+)\}/g)].map((match) => match[1]).sort();
 
-  for (const [english, portuguese] of Object.entries(PT_BR)) {
+  for (const [english, portuguese] of Object.entries({
+    ...PT_BR,
+    ...PT_BR_ADMIN,
+  })) {
     assert.deepEqual(
       placeholders(portuguese),
       placeholders(english),
