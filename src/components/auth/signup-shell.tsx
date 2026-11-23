@@ -11,6 +11,7 @@ import {
 import { SsoButton, type SsoOption } from "@/components/auth/sso-button";
 import { FieldShell, ShellButton } from "@/components/shared/form-shell";
 import { authClient } from "@/lib/auth/client";
+import { tr } from "@/lib/petsky/locale";
 import {
   describePasswordRefusal,
   newPasswordLengthError,
@@ -18,7 +19,9 @@ import {
 } from "@/lib/password-messages";
 import { signUpSchema } from "@/lib/schemas/auth";
 
-const defaultSuccessMessage = "Check your email to verify your sender account.";
+const defaultSuccessMessage = tr(
+  "Check your email to verify your sender account.",
+);
 
 type AuthErrorLike = {
   code?: string;
@@ -117,9 +120,9 @@ function SignupFormCard({
     <section className="panel w-full max-w-[460px] p-8 sm:p-10">
       <div className="space-y-7">
         <div className="space-y-2">
-          <p className="section-eyebrow">Create account</p>
+          <p className="section-eyebrow">{tr("Create account")}</p>
           <h1 className="text-[clamp(1.875rem,4.5vw,2.375rem)] font-extrabold leading-[1.08] tracking-[-0.035em] text-(--fg)">
-            Create your account
+            {tr("Create your account")}
           </h1>
           {signupRule ? (
             <p className="pt-1 text-sm leading-6 text-muted-foreground">
@@ -150,7 +153,7 @@ function SignupFormCard({
 
         {sso && passwordSignIn ? (
           <p className="text-center text-xs font-semibold uppercase tracking-[0.12em] text-(--secondary)">
-            or
+            {tr("or")}
           </p>
         ) : null}
 
@@ -160,10 +163,10 @@ function SignupFormCard({
               autoComplete="name"
               disabled={formLocked}
               error={errors.fullName}
-              label="Full name"
+              label={tr("Full name")}
               name="signup-full-name"
               onChange={onFullNameChange}
-              placeholder="Jane Smith"
+              placeholder={tr("Jane Smith")}
               readOnly={formLocked}
               value={values.fullName}
             />
@@ -171,7 +174,7 @@ function SignupFormCard({
               autoComplete="email"
               disabled={formLocked}
               error={errors.email}
-              label="Email"
+              label={tr("Email")}
               name="signup-email"
               onChange={onEmailChange}
               placeholder="jane@acmecorp.com"
@@ -183,11 +186,11 @@ function SignupFormCard({
               autoComplete="new-password"
               disabled={formLocked}
               error={errors.password}
-              helper="Must be at least 15 characters"
-              label="Password"
+              helper={tr("Must be at least 15 characters")}
+              label={tr("Password")}
               name="signup-password"
               onChange={onPasswordChange}
-              placeholder="Enter a password"
+              placeholder={tr("Enter a password")}
               readOnly={formLocked}
               type="password"
               value={values.password}
@@ -196,7 +199,7 @@ function SignupFormCard({
             {showSuccess ? (
               <div className="flex flex-col gap-3">
                 <ShellButton className="w-full" href="/login" variant="primary">
-                  Go to log in
+                  {tr("Go to log in")}
                 </ShellButton>
                 {onResendVerification ? (
                   <ShellButton
@@ -208,8 +211,8 @@ function SignupFormCard({
                     variant="secondary"
                   >
                     {isResendingVerification
-                      ? "Sending..."
-                      : "Resend verification email"}
+                      ? tr("Sending...")
+                      : tr("Resend verification email")}
                   </ShellButton>
                 ) : null}
               </div>
@@ -221,19 +224,19 @@ function SignupFormCard({
                 type="submit"
                 variant="primary"
               >
-                {isSubmitting ? "Creating account..." : "Sign up"}
+                {isSubmitting ? tr("Creating account...") : tr("Sign up")}
               </ShellButton>
             )}
           </form>
         ) : null}
 
         <div className="border-t border-(--border) pt-5 text-sm text-(--secondary)">
-          Already have an account?{" "}
+          {tr("Already have an account?")}{" "}
           <Link
             className="font-bold text-(--accent-ink) underline-offset-4 hover:underline"
             href="/login"
           >
-            Log in
+            {tr("Log in")}
           </Link>
         </div>
       </div>
@@ -265,18 +268,18 @@ function SignupClosedCard() {
     <section className="panel w-full max-w-[460px] p-8 sm:p-10">
       <div className="space-y-7">
         <div className="space-y-2">
-          <p className="section-eyebrow">Create account</p>
+          <p className="section-eyebrow">{tr("Create account")}</p>
           <h1 className="text-[clamp(1.875rem,4.5vw,2.375rem)] font-extrabold leading-[1.08] tracking-[-0.035em] text-(--fg)">
-            Sign-up is closed
+            {tr("Sign-up is closed")}
           </h1>
           <p className="pt-1 text-sm leading-6 text-muted-foreground">
-            New accounts are not being accepted on this site. If you were sent a
-            document to sign, use the link in that email. You do not need an
-            account.
+            {tr(
+              "New accounts are not being accepted on this site. If you were sent a document to sign, use the link in that email. You do not need an account.",
+            )}
           </p>
         </div>
         <ShellButton className="w-full" href="/login" variant="primary">
-          Go to log in
+          {tr("Go to log in")}
         </ShellButton>
       </div>
     </section>
@@ -343,13 +346,13 @@ function LiveSignupShell({
       });
 
       if (!response.ok) {
-        setBannerMessage("We couldn't resend the verification email.");
+        setBannerMessage(tr("We couldn't resend the verification email."));
         return;
       }
 
-      setSuccessMessage("Verification email sent. Check your inbox.");
+      setSuccessMessage(tr("Verification email sent. Check your inbox."));
     } catch {
-      setBannerMessage("We couldn't resend the verification email.");
+      setBannerMessage(tr("We couldn't resend the verification email."));
     } finally {
       setIsResendingVerification(false);
     }
@@ -377,11 +380,11 @@ function LiveSignupShell({
         const field = issue.path[0];
 
         if (field === "email") {
-          nextErrors.email = "Enter a valid email address";
+          nextErrors.email = tr("Enter a valid email address");
         }
 
         if (field === "fullName") {
-          nextErrors.fullName = "Enter your full name";
+          nextErrors.fullName = tr("Enter your full name");
         }
 
         if (field === "password") {
@@ -418,21 +421,21 @@ function LiveSignupShell({
 
       if (SIGNUP_RULE_ERROR_CODES.has(result.error.code ?? "")) {
         setBannerMessage(
-          result.error.message ?? "New accounts are not being accepted.",
+          result.error.message ?? tr("New accounts are not being accepted."),
         );
       } else if (
         normalizedErrorMessage.includes("user already exists") ||
         normalizedErrorMessage.includes("use another email")
       ) {
         setErrors({
-          email: "This email is already registered",
+          email: tr("This email is already registered"),
         });
       } else if (describePasswordRefusal(result.error)) {
         setErrors({
           password: describePasswordRefusal(result.error)!,
         });
       } else {
-        setBannerMessage("Something went wrong. Please try again.");
+        setBannerMessage(tr("Something went wrong. Please try again."));
       }
 
       setIsSubmitting(false);

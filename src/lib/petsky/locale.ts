@@ -1,4 +1,5 @@
 import { PT_BR } from "./pt-br.ts";
+import { PT_BR_ADMIN } from "./pt-br-admin.ts";
 
 /**
  * PetskySign: the language of what signers see. SignuDoc is written in
@@ -38,7 +39,8 @@ export type TrParams = Record<string, string | number>;
  * in `{name}` placeholders from `params`. Unknown text comes back as it is.
  */
 export function tr(text: string, params?: TrParams): string {
-  const template = appLocale() === "pt-BR" ? (PT_BR[text] ?? text) : text;
+  const template =
+    appLocale() === "pt-BR" ? (PT_BR[text] ?? PT_BR_ADMIN[text] ?? text) : text;
 
   if (!params) {
     return template;

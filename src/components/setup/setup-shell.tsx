@@ -14,6 +14,7 @@ import { FieldShell, ShellButton } from "@/components/shared/form-shell";
 import { Input } from "@/components/ui/input";
 import { authClient } from "@/lib/auth/client";
 import { cn } from "@/lib/cn";
+import { tr } from "@/lib/petsky/locale";
 import {
   buildSenderAddress,
   DEFAULT_SENDER_LOCAL_PART,
@@ -56,7 +57,9 @@ type SetupResponse = {
   redirectTo?: string;
 } | null;
 
-const GENERIC_ERROR_MESSAGE = "Setup could not be completed. Please try again.";
+const GENERIC_ERROR_MESSAGE = tr(
+  "Setup could not be completed. Please try again.",
+);
 
 const emptyValues: SetupValues = {
   email: "",
@@ -81,7 +84,7 @@ export function SetupShell({
       <header>
         <div className="page-width flex items-center justify-between gap-4 py-4">
           <Brand href="/setup" />
-          <span className="pill pill-accent">Setup</span>
+          <span className="pill pill-accent">{tr("Setup")}</span>
         </div>
       </header>
 
@@ -115,22 +118,25 @@ function SetupContent({
 }: SetupShellProps) {
   if (view.view === "no_database") {
     return (
-      <SetupNotice title="Connect a database">
+      <SetupNotice title={tr("Connect a database")}>
         <p>
-          This site does not have a database yet, so there is nowhere to keep
-          accounts or documents.
+          {tr(
+            "This site does not have a database yet, so there is nowhere to keep accounts or documents.",
+          )}
         </p>
         {onVercel ? (
           <p>
-            In Vercel, open this project&apos;s Storage tab, add a Neon Postgres
-            database and connect it to the project. Then deploy again and reload
-            this page.
+            {tr(
+              "In Vercel, open this project's Storage tab, add a Neon Postgres database and connect it to the project. Then deploy again and reload this page.",
+            )}
           </p>
         ) : (
           <p>
-            Set the DATABASE_URL environment variable to a Postgres database,
-            run <code>npm run db:migrate</code>, restart the app and reload this
-            page.
+            {tr(
+              "Set the DATABASE_URL environment variable to a Postgres database, run",
+            )}{" "}
+            <code>npm run db:migrate</code>
+            {tr(", restart the app and reload this page.")}
           </p>
         )}
       </SetupNotice>
@@ -139,20 +145,22 @@ function SetupContent({
 
   if (view.view === "unmigrated") {
     return (
-      <SetupNotice title="The database is not ready">
+      <SetupNotice title={tr("The database is not ready")}>
         <p>
-          The database is connected, but its tables have not been created or are
-          from an older version.
+          {tr(
+            "The database is connected, but its tables have not been created or are from an older version.",
+          )}
         </p>
         {onVercel ? (
           <p>
-            Deploy this project again. Tables are created during a production
-            deployment. Then reload this page.
+            {tr(
+              "Deploy this project again. Tables are created during a production deployment. Then reload this page.",
+            )}
           </p>
         ) : (
           <p>
-            Run <code>npm run db:migrate</code>, restart the app and reload this
-            page.
+            {tr("Run")} <code>npm run db:migrate</code>
+            {tr(", restart the app and reload this page.")}
           </p>
         )}
       </SetupNotice>
@@ -162,15 +170,16 @@ function SetupContent({
   if (view.view === "claim") {
     if (!view.tokenConfigured) {
       return (
-        <SetupNotice title="Choose an administrator">
+        <SetupNotice title={tr("Choose an administrator")}>
           <p>
-            This site already has accounts but no administrator. To choose one,
-            set the SETUP_TOKEN environment variable to a secret of your own,
-            deploy again, and come back to this page.
+            {tr(
+              "This site already has accounts but no administrator. To choose one, set the SETUP_TOKEN environment variable to a secret of your own, deploy again, and come back to this page.",
+            )}
           </p>
           <p>
-            The token is asked for here, so that only someone who controls the
-            deployment can become the administrator.
+            {tr(
+              "The token is asked for here, so that only someone who controls the deployment can become the administrator.",
+            )}
           </p>
         </SetupNotice>
       );
@@ -178,14 +187,14 @@ function SetupContent({
 
     if (!view.signedInEmail) {
       return (
-        <SetupNotice title="Choose an administrator">
+        <SetupNotice title={tr("Choose an administrator")}>
           <p>
-            This site already has accounts but no administrator. Sign in with
-            the account that should become the administrator, then open this
-            page again.
+            {tr(
+              "This site already has accounts but no administrator. Sign in with the account that should become the administrator, then open this page again.",
+            )}
           </p>
           <ShellButton className="w-full" href="/login" variant="primary">
-            Go to log in
+            {tr("Go to log in")}
           </ShellButton>
         </SetupNotice>
       );
@@ -240,10 +249,15 @@ function describeSignupStart(email: string, hosted: boolean): string | null {
   const policy = suggestSignupPolicy(email);
 
   if (policy.signupMode === "domains") {
-    return `Other people with an @${policy.allowedEmailDomains[0]} address will be able to create accounts. You can change this in Settings.`;
+    return tr(
+      "Other people with an @{domain} address will be able to create accounts. You can change this in Settings.",
+      { domain: policy.allowedEmailDomains[0] },
+    );
   }
 
-  return "Only you will have an account to begin with. You can let other people in from Settings.";
+  return tr(
+    "Only you will have an account to begin with. You can let other people in from Settings.",
+  );
 }
 
 type SenderErrors = Partial<Record<keyof SenderAddressParts, string>>;
@@ -357,7 +371,7 @@ function SetupForm({
 
     if (builtSender.error) {
       setSenderErrors({ [builtSender.error.field]: builtSender.error.message });
-      setBannerMessage("Check the address this site sends email from.");
+      setBannerMessage(tr("Check the address this site sends email from."));
       return;
     }
 
@@ -409,12 +423,17 @@ function SetupForm({
     <div className="space-y-7">
       <div className="space-y-2">
         <h1 className="text-[clamp(1.875rem,4.5vw,2.375rem)] font-extrabold leading-[1.08] tracking-[-0.035em] text-(--fg)">
-          {isCreate ? "Set up your site" : "Choose an administrator"}
+          {isCreate ? tr("Set up your site") : tr("Choose an administrator")}
         </h1>
         <p className="pt-1 text-sm leading-6 text-muted-foreground">
           {isCreate
-            ? "You are the first person here. The account you create now is the administrator: it can change these settings later and decide who else may sign up."
-            : `You are signed in as ${view.signedInEmail ?? ""}. This account will become the administrator, who decides who may sign up and how email is sent.`}
+            ? tr(
+                "You are the first person here. The account you create now is the administrator: it can change these settings later and decide who else may sign up.",
+              )
+            : tr(
+                "You are signed in as {email}. This account will become the administrator, who decides who may sign up and how email is sent.",
+                { email: view.signedInEmail ?? "" },
+              )}
         </p>
       </div>
 
@@ -429,11 +448,11 @@ function SetupForm({
           autoComplete="organization"
           disabled={isSubmitting}
           error={errors.organizationName}
-          helper="Shown in the header and in every email this site sends."
-          label="Organization name"
+          helper={tr("Shown in the header and in every email this site sends.")}
+          label={tr("Organization name")}
           name="setup-organization-name"
           onChange={handleChange("organizationName")}
-          placeholder="Acme Corp"
+          placeholder={tr("Acme Corp")}
           readOnly={false}
           value={values.organizationName}
         />
@@ -443,9 +462,11 @@ function SetupForm({
             autoComplete="off"
             disabled={isSubmitting}
             error={errors.supportAddress}
-            helper="Signers and people with an account are told to write here for help, and replies to this site's emails come here. You can change it in Settings."
+            helper={tr(
+              "Signers and people with an account are told to write here for help, and replies to this site's emails come here. You can change it in Settings.",
+            )}
             ignorePasswordManagers
-            label="Support email"
+            label={tr("Support email")}
             name="setup-support-address"
             onChange={handleChange("supportAddress")}
             placeholder="help@acmecorp.com"
@@ -461,10 +482,10 @@ function SetupForm({
               autoComplete="name"
               disabled={isSubmitting}
               error={errors.fullName}
-              label="Your name"
+              label={tr("Your name")}
               name="setup-full-name"
               onChange={handleChange("fullName")}
-              placeholder="Jane Smith"
+              placeholder={tr("Jane Smith")}
               readOnly={false}
               value={values.fullName}
             />
@@ -475,7 +496,7 @@ function SetupForm({
               disabled={isSubmitting}
               error={errors.email}
               helper={signupStart ?? undefined}
-              label="Your email"
+              label={tr("Your email")}
               name="setup-email"
               onChange={handleChange("email")}
               placeholder="jane@acmecorp.com"
@@ -487,8 +508,10 @@ function SetupForm({
               autoComplete="new-password"
               disabled={isSubmitting}
               error={errors.password}
-              helper="15 to 128 characters. Let your password manager make one."
-              label="Password"
+              helper={tr(
+                "15 to 128 characters. Let your password manager make one.",
+              )}
+              label={tr("Password")}
               // No maxLength: the browser would cut a longer password short
               // without a word, and the account would get a password other
               // than the one typed. Setup refuses one over 128 instead.
@@ -496,7 +519,7 @@ function SetupForm({
               name="setup-password"
               passwordRules="minlength: 20; maxlength: 64; required: lower; required: upper; required: digit; allowed: [-_.!@#$%^&*];"
               onChange={handleChange("password")}
-              placeholder="Enter a password"
+              placeholder={tr("Enter a password")}
               readOnly={false}
               type="password"
               value={values.password}
@@ -527,11 +550,13 @@ function SetupForm({
             autoComplete="off"
             disabled={isSubmitting}
             error={errors.setupToken}
-            helper="The value of the SETUP_TOKEN environment variable on this deployment."
+            helper={tr(
+              "The value of the SETUP_TOKEN environment variable on this deployment.",
+            )}
             // Not a password of the account being made, so a password
             // manager should neither fill nor save it.
             ignorePasswordManagers
-            label="Setup token"
+            label={tr("Setup token")}
             name="setup-token"
             onChange={handleChange("setupToken")}
             readOnly={false}
@@ -548,23 +573,23 @@ function SetupForm({
           variant="primary"
         >
           {isSubmitting
-            ? "Setting up..."
+            ? tr("Setting up...")
             : isCreate
-              ? "Finish setup"
-              : "Become the administrator"}
+              ? tr("Finish setup")
+              : tr("Become the administrator")}
         </ShellButton>
       </form>
 
       {!isCreate ? (
         <p className="border-t border-(--border) pt-5 text-sm text-(--secondary)">
-          Not the right account?{" "}
+          {tr("Not the right account?")}{" "}
           <button
             className="cursor-pointer font-bold text-(--accent-ink) underline-offset-4 hover:underline disabled:cursor-default disabled:opacity-60"
             disabled={isSwitchingAccount}
             onClick={handleSwitchAccount}
             type="button"
           >
-            Log in as someone else
+            {tr("Log in as someone else")}
           </button>
         </p>
       ) : null}
@@ -614,16 +639,17 @@ function SenderFields({
   return (
     <fieldset className="space-y-4 rounded-2xl border border-(--border) p-4 sm:p-5">
       <legend className="px-1 text-sm font-bold text-(--fg)">
-        Send email from
+        {tr("Send email from")}
       </legend>
       <p className={senderHelperClass}>
-        Optional. Email is sent through Resend from a domain your organization
-        owns. Leave the domain empty to decide later in Settings.
+        {tr(
+          "Optional. Email is sent through Resend from a domain your organization owns. Leave the domain empty to decide later in Settings.",
+        )}
       </p>
 
       <div className="space-y-2 text-sm">
         <label className={senderLabelClass} htmlFor="setup-sender-domain">
-          Your domain
+          {tr("Your domain")}
         </label>
         <Input
           aria-describedby="setup-sender-domain-description"
@@ -646,16 +672,22 @@ function SenderFields({
         >
           {rootError ??
             (source === "integration"
-              ? "The domain the Resend integration was set up with on Vercel."
+              ? tr(
+                  "The domain the Resend integration was set up with on Vercel.",
+                )
               : source === "guess"
-                ? "Filled in from this site's address and the emails above. Change it if your organization uses another domain."
-                : "The domain your organization's email uses, such as acmecorp.com.")}
+                ? tr(
+                    "Filled in from this site's address and the emails above. Change it if your organization uses another domain.",
+                  )
+                : tr(
+                    "The domain your organization's email uses, such as acmecorp.com.",
+                  ))}
         </p>
       </div>
 
       <div className="space-y-2 text-sm">
         <label className={senderLabelClass} htmlFor="setup-sender-subdomain">
-          Subdomain
+          {tr("Subdomain")}
         </label>
         <div className="flex items-center gap-2">
           <Input
@@ -670,7 +702,7 @@ function SenderFields({
             id="setup-sender-subdomain"
             name="setup-sender-subdomain"
             onChange={onChange("subdomain")}
-            placeholder="none"
+            placeholder={tr("none")}
             spellCheck={false}
             value={parts.subdomain}
             {...passwordManagerIgnore}
@@ -685,14 +717,26 @@ function SenderFields({
         >
           {errors.subdomain ??
             (subdomain
-              ? `Recommended. Mail comes from ${sendingDomain ?? `${subdomain}.acmecorp.com`}, so its DNS records and sending reputation stay apart from your everyday email. Clear it to send from ${rootDomain || "the domain"} itself.`
-              : `Mail will come from ${rootDomain || "the domain"} itself. A subdomain such as ${DEFAULT_SENDING_SUBDOMAIN} keeps it apart from your everyday email.`)}
+              ? tr(
+                  "Recommended. Mail comes from {sendingDomain}, so its DNS records and sending reputation stay apart from your everyday email. Clear it to send from {rootDomain} itself.",
+                  {
+                    rootDomain: rootDomain || tr("the domain"),
+                    sendingDomain: sendingDomain ?? `${subdomain}.acmecorp.com`,
+                  },
+                )
+              : tr(
+                  "Mail will come from {rootDomain} itself. A subdomain such as {subdomain} keeps it apart from your everyday email.",
+                  {
+                    rootDomain: rootDomain || tr("the domain"),
+                    subdomain: DEFAULT_SENDING_SUBDOMAIN,
+                  },
+                ))}
         </p>
       </div>
 
       <div className="space-y-2 text-sm">
         <label className={senderLabelClass} htmlFor="setup-sender-local-part">
-          Address
+          {tr("Address")}
         </label>
         <div className="flex items-center gap-2">
           <Input
@@ -720,17 +764,20 @@ function SenderFields({
           id="setup-sender-local-part-description"
         >
           {errors.localPart ??
-            "Nobody needs to read this mailbox: replies go to the support email."}
+            tr(
+              "Nobody needs to read this mailbox: replies go to the support email.",
+            )}
         </p>
       </div>
 
       {built.address ? (
         <p className="rounded-xl bg-(--surface) px-4 py-3 text-xs leading-5 text-(--secondary)">
-          Emails will come from{" "}
+          {tr("Emails will come from")}{" "}
           <strong className="font-semibold text-(--fg)">{built.address}</strong>
-          . If Resend is connected, setup adds {built.sendingDomain} to it, and
-          the next screen lists the DNS records to add where your domain is
-          managed.
+          {tr(
+            ". If Resend is connected, setup adds {domain} to it, and the next screen lists the DNS records to add where your domain is managed.",
+            { domain: built.sendingDomain },
+          )}
         </p>
       ) : null}
     </fieldset>

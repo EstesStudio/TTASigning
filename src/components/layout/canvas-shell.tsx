@@ -3,6 +3,7 @@ import type { ReactNode } from "react";
 
 import { ChevronLeftIcon } from "@/components/layout/nav-items";
 import { Button } from "@/components/ui/button";
+import { tr } from "@/lib/petsky/locale";
 
 type CanvasShellProps = {
   backHref: string;
@@ -29,7 +30,9 @@ export function CanvasShell({
   stepLabel,
   title,
 }: CanvasShellProps) {
-  const nextButtonLabel = nextLoading ? "Loading..." : (nextLabel ?? "Next");
+  const nextButtonLabel = nextLoading
+    ? tr("Loading...")
+    : (nextLabel ?? tr("Next"));
 
   return (
     <div className="min-h-screen bg-(--page)">

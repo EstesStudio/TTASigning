@@ -1336,7 +1336,7 @@ export async function renderEnvelopeCertificatePdf(
   pdfDocument.setTitle(
     tr("Audit certificate: {title}", { title: input.envelope.title }),
   );
-  pdfDocument.setProducer("SignuDoc");
+  pdfDocument.setProducer("Petsky");
 
   return seal(pdfDocument, "certificate");
 }

@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 
 import type { Branding } from "./branding.ts";
+import { tr } from "./petsky/locale.ts";
 import { ServiceConfigurationError } from "./services/service-config.ts";
 import { getBranding, isFreshInstall } from "./settings.ts";
 
@@ -26,7 +27,9 @@ export async function getInstallMetadata(): Promise<Metadata> {
   }
 
   return {
-    description: `Send and sign documents with ${branding.productName}.`,
+    description: tr("Send and sign documents with {productName}.", {
+      productName: branding.productName,
+    }),
     title: branding.productName,
   };
 }

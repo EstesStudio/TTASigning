@@ -8,6 +8,7 @@ import { Brand } from "@/components/layout/brand";
 import { useBranding } from "@/components/layout/branding-provider";
 import { PublicLegalFooter } from "@/components/layout/public-legal-links";
 import { PublicSessionMenu } from "@/components/layout/public-session-menu";
+import { tr } from "@/lib/petsky/locale";
 
 type AuthShellProps = {
   children: ReactNode;
@@ -22,13 +23,13 @@ function getAuthNavAction(pathname: string): AuthNavAction {
   if (pathname === "/signup") {
     return {
       href: "/login",
-      label: "Log in",
+      label: tr("Log in"),
     };
   }
 
   return {
     href: "/signup",
-    label: "Sign up",
+    label: tr("Sign up"),
   };
 }
 
@@ -45,7 +46,7 @@ export function AuthShell({ children }: AuthShellProps) {
         <div className="page-width flex items-center justify-between gap-4 py-4">
           <Brand href="/" />
           <nav
-            aria-label="Public navigation"
+            aria-label={tr("Public navigation")}
             className="flex items-center gap-3"
           >
             <PublicSessionMenu>
