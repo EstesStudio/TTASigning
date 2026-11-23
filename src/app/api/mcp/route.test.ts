@@ -96,7 +96,10 @@ test("the stateless endpoint supports tools/list through the official HTTP clien
 
   try {
     await client.connect(transport);
-    assert.deepEqual(await client.listTools(), { tools: [] });
+    assert.deepEqual(
+      (await client.listTools()).tools.map(({ name }) => name).sort(),
+      ["create_envelope_draft", "request_pdf_upload"],
+    );
   } finally {
     await client.close();
   }

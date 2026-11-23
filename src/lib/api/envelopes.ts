@@ -57,7 +57,7 @@ const refSchema = z
     "Use letters, digits, '.', '_', ':' or '-' in a ref.",
   );
 
-const metadataSchema = z
+export const apiMetadataSchema = z
   .record(z.string(), z.unknown())
   .refine(
     (value) =>
@@ -79,7 +79,7 @@ export const apiSendOptionsSchema = z.object({
   signatureLevel: z.enum(["simple", "advanced", "qualified"]).optional(),
 });
 
-const apiSignerSchema = z.object({
+export const apiSignerSchema = z.object({
   accessCode: z.string().trim().min(4).max(64).optional(),
   email: emailSchema,
   name: nameSchema,
@@ -92,7 +92,12 @@ const apiSignerSchema = z.object({
   step: z.number().int().positive().max(MAX_SIGNERS_CEILING).optional(),
 });
 
-const apiFieldSchema = z.object({
+export const apiCopyRecipientSchema = z.object({
+  email: emailSchema,
+  name: nameSchema,
+});
+
+export const apiFieldSchema = z.object({
   groupId: z.string().trim().min(1).max(64).optional(),
   height: z.number().finite().gt(0).max(1),
   label: z.string().trim().max(120).optional(),
@@ -109,11 +114,11 @@ const apiFieldSchema = z.object({
 export const apiCreateEnvelopeSchema = z
   .object({
     copyRecipients: z
-      .array(z.object({ email: emailSchema, name: nameSchema }))
+      .array(apiCopyRecipientSchema)
       .max(MAX_COPY_RECIPIENTS_PER_ENVELOPE)
       .optional(),
     fields: z.array(apiFieldSchema).min(1).max(MAX_API_FIELDS),
-    metadata: metadataSchema.optional(),
+    metadata: apiMetadataSchema.optional(),
     send: apiSendOptionsSchema.optional(),
     // The install's own limit, MAX_SIGNERS_PER_ENVELOPE, is checked when
     // the signers are saved, as in the web app.
