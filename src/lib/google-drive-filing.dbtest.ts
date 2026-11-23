@@ -204,3 +204,93 @@ test("missing config disables filing and an unverified artifact never uploads", 
   );
   assert.equal(uploads, 0);
 });
+
+test(
+  "the filing deadline cancels a stalled storage read before upload",
+  { timeout: 5000 },
+  async () => {
+    const owner = await makeOwner();
+    await makeEnvelope(owner.id);
+    const abort = new AbortController();
+    const started = Promise.withResolvers<void>();
+    const stalled = Promise.withResolvers<void>();
+    let canceled = false;
+    let uploads = 0;
+    const stream = new ReadableStream<Uint8Array>(
+      {
+        pull() {
+          started.resolve();
+          return stalled.promise;
+        },
+        cancel() {
+          canceled = true;
+          stalled.resolve();
+        },
+      },
+      { highWaterMark: 0 },
+    );
+    const run = runGoogleDriveFiling({
+      database,
+      env: driveEnv(owner.email),
+      storageService: {
+        ...storageService,
+        async getObjectStream(key) {
+          return { key, bucketName: "test", stream };
+        },
+      },
+      clientFactory: () =>
+        driveClient(async () => {
+          uploads++;
+        }),
+      signal: abort.signal,
+    });
+
+    await started.promise;
+    abort.abort();
+
+    assert.deepEqual(await run, { filed: 0, failures: 1, stoppedEarly: true });
+    assert.equal(canceled, true);
+    assert.equal(uploads, 0);
+  },
+);
+
+test("Drive filing honors an account closure requested while storage is being read", async () => {
+  const owner = await makeOwner();
+  await makeEnvelope(owner.id);
+  let closureRecorded = false;
+  let uploads = 0;
+  const result = await runGoogleDriveFiling({
+    database,
+    env: driveEnv(owner.email),
+    storageService: {
+      ...storageService,
+      async getObjectStream(key) {
+        const connection = await database.connect();
+        try {
+          await connection.query("BEGIN");
+          await connection.query("SET LOCAL lock_timeout = '1s'");
+          await connection.query(
+            `INSERT INTO account_closure_requests
+             (user_id, requested_at, export_expires_at, purge_after_at, updated_at)
+             VALUES ($1, $2, $2, $2, $2)`,
+            [owner.id, startSeconds],
+          );
+          await connection.query("COMMIT");
+          closureRecorded = true;
+        } finally {
+          await connection.query("ROLLBACK");
+          connection.release();
+        }
+        return storageService.getObjectStream(key);
+      },
+    },
+    clientFactory: () =>
+      driveClient(async () => {
+        uploads++;
+      }),
+  });
+
+  assert.deepEqual(result, { filed: 0, failures: 1, stoppedEarly: false });
+  assert.equal(closureRecorded, true);
+  assert.equal(uploads, 0);
+});

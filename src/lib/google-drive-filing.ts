@@ -1,4 +1,5 @@
 import { createHash } from "node:crypto";
+import { addAbortListener } from "node:events";
 
 import {
   type DbPool,
@@ -96,17 +97,57 @@ type ArtifactSource = {
   title: string;
 };
 
+async function readArtifact(
+  storage: StorageService,
+  key: string,
+  signal: AbortSignal,
+): Promise<Uint8Array> {
+  signal.throwIfAborted();
+  const opening = storage.getObjectStream(key);
+  const aborted = Promise.withResolvers<never>();
+  let reader: ReadableStreamDefaultReader<Uint8Array> | undefined;
+  const abortListener = addAbortListener(signal, () => {
+    aborted.reject(signal.reason);
+    // Storage drivers may still be opening the object. Cancel the stream if
+    // it eventually arrives, without holding up this run.
+    const cancellation = reader
+      ? reader.cancel(signal.reason)
+      : opening.then(({ stream }) => stream.cancel(signal.reason));
+    void cancellation.catch(() => undefined);
+  });
+
+  try {
+    const { stream } = await Promise.race([opening, aborted.promise]);
+    signal.throwIfAborted();
+    reader = stream.getReader();
+    const chunks: Uint8Array[] = [];
+    // Canceling the reader releases its pending read even when the provider
+    // has yet to finish delivering the body.
+    for (;;) {
+      const { done, value } = await reader.read();
+      signal.throwIfAborted();
+      if (done) return Buffer.concat(chunks);
+      chunks.push(value);
+    }
+  } finally {
+    abortListener[Symbol.dispose]();
+    reader?.releaseLock();
+  }
+}
+
 /** Called by the authenticated retention job while it owns the schedule lock. */
 export async function runGoogleDriveFiling({
   database,
   env = process.env,
   storageService,
   clientFactory = createGoogleDriveClient,
+  signal: suppliedSignal,
 }: {
   database: DbPool;
   env?: EnvSource;
   storageService?: StorageService;
   clientFactory?: typeof createGoogleDriveClient;
+  signal?: AbortSignal;
 }): Promise<DriveFilingSummary | undefined> {
   const config = readConfig(env);
   if (!config) return undefined;
@@ -133,7 +174,7 @@ export async function runGoogleDriveFiling({
   if (!candidates.length) return summary;
 
   const client = clientFactory(config);
-  const signal = AbortSignal.timeout(TIME_BUDGET_MS);
+  const signal = suppliedSignal ?? AbortSignal.timeout(TIME_BUDGET_MS);
   await client.verifyFolder(signal);
   const storage = storageService ?? createStorageService({ env });
 
@@ -186,6 +227,29 @@ export async function runGoogleDriveFiling({
         const signed = artifact === "signed";
         if (signed ? filing.signedFiled : filing.certificateFiled) continue;
         const fileId = signed ? filing.signedFileId : filing.certificateFileId;
+        const sourceParams = [...eligibility, id, ownerId];
+        const sourceQuery = `
+          SELECT e.title, ${signed ? "e.signed_pdf_key" : "e.evidence_key"} AS key,
+            ${signed ? "e.signed_pdf_sha256" : "e.evidence_sha256"} AS sha256
+          FROM envelopes e JOIN "user" u ON e.user_id = u.id
+          WHERE ${eligibleEnvelope} AND e.id = $3 AND e.user_id = $4
+        `;
+        const source = await queryOne<ArtifactSource>(
+          database,
+          sourceQuery,
+          sourceParams,
+        );
+        if (!source?.key || !source.sha256) {
+          throw new Error(
+            "The completed envelope or its verified artifact is unavailable.",
+          );
+        }
+        const body = await readArtifact(storage, source.key, signal);
+        if (createHash("sha256").update(body).digest("hex") !== source.sha256) {
+          throw new Error("The stored artifact checksum did not match.");
+        }
+        signal.throwIfAborted();
+
         await withTransaction(async (tx) => {
           // Match the deletion lock order. The account lock also blocks a new
           // closure request's foreign-key check while these bytes are in flight.
@@ -202,30 +266,23 @@ export async function runGoogleDriveFiling({
               "The configured signer account is no longer eligible.",
             );
 
-          const source = await queryOne<ArtifactSource>(
+          const current = await queryOne<ArtifactSource>(
             tx,
-            `
-            SELECT e.title, ${signed ? "e.signed_pdf_key" : "e.evidence_key"} AS key,
-              ${signed ? "e.signed_pdf_sha256" : "e.evidence_sha256"} AS sha256
-            FROM envelopes e JOIN "user" u ON e.user_id = u.id
-            WHERE ${eligibleEnvelope} AND e.id = $3 AND e.user_id = $4
-            FOR SHARE OF e
-          `,
-            [...eligibility, id, ownerId],
+            `${sourceQuery} FOR SHARE OF e`,
+            sourceParams,
           );
-          if (!source?.key || !source.sha256) {
+          if (
+            !current ||
+            current.key !== source.key ||
+            current.sha256 !== source.sha256
+          ) {
             throw new Error(
-              "The completed envelope or its verified artifact is unavailable.",
+              "The completed envelope or its artifact changed during the read.",
             );
           }
-          const { body } = await storage.getObject(source.key);
-          if (
-            createHash("sha256").update(body).digest("hex") !== source.sha256
-          ) {
-            throw new Error("The stored artifact checksum did not match.");
-          }
+          signal.throwIfAborted();
           const name =
-            sanitizeFileNameSegment(source.title) || `envelope-${id}`;
+            sanitizeFileNameSegment(current.title) || `envelope-${id}`;
           await client.uploadPdf(
             {
               artifact,
@@ -255,6 +312,7 @@ export async function runGoogleDriveFiling({
             : "unknown",
       );
       summary.failures += 1;
+      summary.stoppedEarly ||= signal.aborted;
     }
   }
   summary.stoppedEarly ||= candidates.length > BATCH_SIZE;

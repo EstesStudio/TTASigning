@@ -273,12 +273,13 @@ export function retentionSweepFailed(summary: RetentionSweepSummary): boolean {
   );
 }
 
-/** True when any part of a finished run left work undone. */
+/** True when any part of a finished run failed. Bounded filing defers its backlog. */
 export function retentionJobFailed(
   outcome: Extract<RetentionJobOutcome, { status: "ran" }>,
 ): boolean {
   return (
     retentionSweepFailed(outcome.summary) ||
+    (outcome.driveFiling?.failures ?? 0) > 0 ||
     outcome.deletions === null ||
     outcome.deletions.failures.length > 0 ||
     outcome.deletions.noticeFailures.length > 0 ||
