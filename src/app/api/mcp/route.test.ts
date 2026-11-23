@@ -98,7 +98,14 @@ test("the stateless endpoint supports tools/list through the official HTTP clien
     await client.connect(transport);
     assert.deepEqual(
       (await client.listTools()).tools.map(({ name }) => name).sort(),
-      ["create_envelope_draft", "request_pdf_upload"],
+      [
+        "create_envelope_draft",
+        "download_envelope_file",
+        "get_envelope",
+        "list_envelope_events",
+        "list_envelopes",
+        "request_pdf_upload",
+      ],
     );
   } finally {
     await client.close();

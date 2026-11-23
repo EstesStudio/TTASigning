@@ -3,6 +3,7 @@ import packageJson from "../../../package.json" with { type: "json" };
 
 import type { ApiContext } from "../api/route.ts";
 import { registerDraftTools } from "./draft-tools.ts";
+import { registerReadTools } from "./read-tools.ts";
 
 export const MCP_SERVER_VERSION = packageJson.version;
 
@@ -19,5 +20,6 @@ export function createSignuDocMcpServer(context: ApiContext): McpServer {
     },
   );
   registerDraftTools(server, context);
+  registerReadTools(server, context);
   return server;
 }
