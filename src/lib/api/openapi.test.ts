@@ -89,3 +89,14 @@ test("the OpenAPI description gives this install's signer limit", () => {
   );
   assert.equal(fromTemplate.maxItems, 40);
 });
+
+test("the OpenAPI key scope documents draft-only prepare access", () => {
+  const document = buildOpenApiDocument("https://sign.example.com/api/v1");
+  const key =
+    document.paths["/me"].get.responses["200"].content["application/json"]
+      .schema.properties.key;
+
+  assert.deepEqual(key.properties.scope.enum, ["read", "prepare", "write"]);
+  assert.match(key.properties.scope.description, /unsent drafts/i);
+  assert.match(key.properties.scope.description, /own envelopes/i);
+});

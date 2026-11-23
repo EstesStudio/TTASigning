@@ -180,7 +180,7 @@ These cover the people with an account (senders and administrators). Signers who
 
 ### API keys
 
-Another app can create and send envelopes through the [SignuDoc API](api.md). An administrator makes a key for it under Settings, Organization, API keys. The key is shown once and only its hash is stored. It acts as the administrator who made it, skips two-step sign-in (it is for servers, not people), and stops working when it is revoked, expires, or its administrator stops being one. Making and revoking keys is in the site audit trail.
+Another app can create and send envelopes through the [SignuDoc API](api.md). An administrator makes a key for it under Settings, Organization, API keys. The key is shown once and only its hash is stored. It acts as the administrator who made it, skips two-step sign-in (it is for servers, not people), and stops working when it is revoked, expires, or its administrator stops being one. Making and revoking keys is in the site audit trail. To let an agent prepare unsent drafts and inspect only the envelopes created with its own key, use the **Prepare drafts** scope and the [MCP setup guide](mcp.md); the agent cannot send them.
 
 ### Webhooks
 

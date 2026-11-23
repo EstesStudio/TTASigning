@@ -16,7 +16,8 @@ An administrator makes a key under **Settings, Organization, API keys**:
 
 1. Give it a name that says which app uses it, such as "Billing app".
 2. Choose **Read and write** (create, send and void envelopes, and read
-   them) or **Read only**.
+   them), **Read only**, or **Prepare drafts** (create unsent drafts and read
+   only envelopes made with that key).
 3. Choose when it expires: in 30 days, 90 days, a year, or never.
 4. Copy the key. It starts with `sdk_` and is shown only this once; SignuDoc
    keeps only a hash of it.
@@ -61,6 +62,10 @@ What to know about keys:
   patterns can be given `sdk_[A-Za-z0-9_-]{43}`.
 - Each administrator can have up to 25 keys that have not been revoked or
   expired.
+- A **Prepare drafts** key cannot send, void, remind, sign, or change a sent
+  envelope. The same restriction applies through the REST API. An owner must
+  review and send drafts from the dashboard. See the [MCP setup guide](mcp.md)
+  to connect an agent.
 - Making and revoking keys is recorded in the site audit trail (Settings,
   Organization, Sign-in security), and each key shows when it was last used.
 

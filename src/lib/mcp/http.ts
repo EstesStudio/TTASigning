@@ -2,6 +2,7 @@ import {
   createMcpHandler,
   hostHeaderValidationResponse,
   originValidationResponse,
+  type McpServer,
 } from "@modelcontextprotocol/server";
 
 import { readBearerToken, type ApiKeyScope } from "../api-keys.ts";
@@ -88,6 +89,7 @@ export async function handleMcpRequest(
   request: Request,
   context: ApiContext,
   appUrl: string,
+  createServer: (context: ApiContext) => McpServer = createSignuDocMcpServer,
 ): Promise<Response> {
   const rejected = validateMcpRequest(request, context.actor.scope, appUrl);
 
@@ -95,7 +97,7 @@ export async function handleMcpRequest(
     return rejected;
   }
 
-  const handler = createMcpHandler(() => createSignuDocMcpServer(context));
+  const handler = createMcpHandler(() => createServer(context));
 
   return handler.fetch(request);
 }

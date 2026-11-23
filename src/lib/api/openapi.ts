@@ -420,7 +420,7 @@ export function buildOpenApiDocument(
     },
     info: {
       description:
-        "Create, send and track envelopes on a SignuDoc install. See docs/api.md in the SignuDoc repository.",
+        "Create, send and track envelopes on a SignuDoc install. The prepare API-key scope can create unsent drafts and read only its own envelopes. See docs/api.md and docs/mcp.md in the SignuDoc repository.",
       title: "SignuDoc API",
       version: "1",
     },
@@ -728,7 +728,12 @@ export function buildOpenApiDocument(
                         properties: {
                           id: { type: "string" },
                           name: { type: "string" },
-                          scope: { enum: ["read", "write"], type: "string" },
+                          scope: {
+                            description:
+                              "read inspects envelopes; prepare creates unsent drafts and reads only its own envelopes; write can create, send, and void envelopes.",
+                            enum: ["read", "prepare", "write"],
+                            type: "string",
+                          },
                         },
                         type: "object",
                       },
