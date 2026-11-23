@@ -134,4 +134,27 @@ test("the envelope page gives its times in the reader's own time zone", async ({
       }
     }
   });
+
+  await test.step("when the reader's zone changes, the times follow once the window is back in front", async () => {
+    const first = timelineTimes(page).first();
+    const moment = await first.getAttribute("datetime");
+
+    // A laptop carried to Kiritimati with the page left open: the browser
+    // now reports another zone, and the reader comes back to the window.
+    await page.evaluate(() => {
+      const resolvedOptions = Intl.DateTimeFormat.prototype.resolvedOptions;
+
+      Intl.DateTimeFormat.prototype.resolvedOptions = function () {
+        return {
+          ...resolvedOptions.call(this),
+          timeZone: "Pacific/Kiritimati",
+        };
+      };
+      window.dispatchEvent(new Event("focus"));
+    });
+
+    await expect(first).toHaveText(/ GMT\+14$/);
+    await expect(first).toHaveAttribute("datetime", moment!);
+    await expect(deadline(page)).toHaveText(/ GMT\+14$/);
+  });
 });

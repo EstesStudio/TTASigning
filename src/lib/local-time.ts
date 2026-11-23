@@ -36,6 +36,28 @@ const FORMAT_OPTIONS: Record<LocalTimeFormat, Intl.DateTimeFormatOptions> = {
   },
 };
 
+// One formatter for each format and zone in use: a page writes many times
+// the same way, and making a formatter costs far more than using one.
+const formatters = new Map<string, Intl.DateTimeFormat>();
+
+function formatterFor(
+  format: LocalTimeFormat,
+  timeZone: string,
+): Intl.DateTimeFormat {
+  const key = `${format} ${timeZone}`;
+  let formatter = formatters.get(key);
+
+  if (!formatter) {
+    formatter = new Intl.DateTimeFormat("en-US", {
+      ...FORMAT_OPTIONS[format],
+      timeZone,
+    });
+    formatters.set(key, formatter);
+  }
+
+  return formatter;
+}
+
 /**
  * A moment, in Unix seconds, written out in a time zone such as
  * "America/Detroit". A format with a time of day names the zone, so the same
@@ -47,9 +69,9 @@ export function formatLocalTime(
   timeZone: string,
 ): string {
   return (
-    new Intl.DateTimeFormat("en-US", { ...FORMAT_OPTIONS[format], timeZone })
+    formatterFor(format, timeZone)
       .format(new Date(unixTimestamp * 1000))
       // Some versions put a narrow no-break space before "PM".
-      .replace(/[  ]/g, " ")
+      .replace(/[\u202f\u00a0]/g, " ")
   );
 }
