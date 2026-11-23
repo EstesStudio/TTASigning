@@ -4,7 +4,7 @@ import { Plus_Jakarta_Sans } from "next/font/google";
 import { TooltipProvider } from "@/components/ui/tooltip";
 
 import "./globals.css";
-import { appLocale } from "@/lib/petsky/locale";
+import { appLocale, tr } from "@/lib/petsky/locale";
 
 const plusJakartaSans = Plus_Jakarta_Sans({
   display: "swap",
@@ -15,8 +15,7 @@ const plusJakartaSans = Plus_Jakarta_Sans({
 
 export const metadata: Metadata = {
   title: "Petsky",
-  description:
-    "Free e-signature software for small businesses. Upload, send, sign — no enterprise circus required.",
+  description: tr("Electronic signature for Petsky contracts."),
   icons: {
     icon: "/icon.svg",
   },

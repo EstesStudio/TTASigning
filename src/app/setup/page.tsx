@@ -8,6 +8,7 @@ import {
   type SetupShellView,
 } from "@/components/setup/setup-shell";
 import { getAuthSession } from "@/lib/auth/server";
+import { tr } from "@/lib/petsky/locale";
 import { buildBranding } from "@/lib/branding";
 import { ServiceConfigurationError } from "@/lib/services/service-config";
 import {
@@ -29,8 +30,8 @@ function readSiteHost(): string | null {
 }
 
 export const metadata: Metadata = {
-  description: "Create the administrator account for this site.",
-  title: "Set up",
+  description: tr("Create the administrator account for this site."),
+  title: tr("Set up"),
 };
 
 async function loadView(): Promise<{

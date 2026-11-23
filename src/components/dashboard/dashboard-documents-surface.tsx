@@ -3,6 +3,7 @@ import Link from "next/link";
 import type { ChangeEventHandler } from "react";
 
 import { cn } from "@/lib/cn";
+import { tr } from "@/lib/petsky/locale";
 import type { DashboardEnvelopeListItem } from "@/lib/envelopes";
 import {
   DocumentThumbnail,
@@ -38,8 +39,9 @@ export const dashboardStatusFilterMap: Record<
   Voided: "voided",
 };
 
-const documentsDescription =
-  "Track drafts, sent envelopes, and completed agreements in one place.";
+const documentsDescription = tr(
+  "Track drafts, sent envelopes, and completed agreements in one place.",
+);
 
 const statusLabelMap: Record<EnvelopeStatus, string> = {
   completed: "Completed",
@@ -99,7 +101,7 @@ export function DashboardDocumentsHeader({
         className="size-[1.125rem]"
         strokeWidth={2.4}
       />
-      New envelope
+      {tr("New envelope")}
     </>
   );
 
@@ -113,7 +115,7 @@ export function DashboardDocumentsHeader({
         )
       }
       description={documentsDescription}
-      title="Documents"
+      title={tr("Documents")}
     />
   );
 }
@@ -136,7 +138,7 @@ export function DashboardDocumentsPanel({
     <section className="space-y-4" data-animate="enter" data-animate-delay="1">
       <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
         <div
-          aria-label="Filter documents"
+          aria-label={tr("Filter documents")}
           className="segmented self-start"
           role="group"
         >
@@ -150,7 +152,7 @@ export function DashboardDocumentsPanel({
                   data-active={isActive}
                   key={filter}
                 >
-                  {filter}
+                  {tr(filter)}
                 </span>
               );
             }
@@ -163,7 +165,7 @@ export function DashboardDocumentsPanel({
                 onClick={() => onFilterChange?.(filter)}
                 type="button"
               >
-                {filter}
+                {tr(filter)}
               </button>
             );
           })}
@@ -172,10 +174,10 @@ export function DashboardDocumentsPanel({
         <label className="flex min-h-[2.625rem] w-full items-center gap-2.5 rounded-xl bg-white px-3.5 text-(--tertiary) transition focus-within:ring-3 focus-within:ring-ring/50 lg:w-[19rem]">
           <SearchIcon aria-hidden="true" className="size-4 shrink-0" />
           <input
-            aria-label="Search by title or email..."
+            aria-label={tr("Search by title or email...")}
             className="min-w-0 flex-1 bg-transparent py-2 text-sm text-(--fg) outline-none placeholder:text-(--placeholder)"
             onChange={interactive ? onSearchChange : undefined}
-            placeholder="Search by title or email..."
+            placeholder={tr("Search by title or email...")}
             readOnly={!interactive}
             tabIndex={interactive ? undefined : -1}
             type="search"
@@ -196,7 +198,10 @@ export function DashboardDocumentsPanel({
 
       {!isError && hasSeededEnvelopes ? (
         <p className="px-1 text-[0.8125rem] text-(--tertiary)">
-          Showing {filteredEnvelopes.length} of {envelopes.length} envelopes
+          {tr("Showing {shown} of {total} envelopes", {
+            shown: filteredEnvelopes.length,
+            total: envelopes.length,
+          })}
         </p>
       ) : null}
     </section>
@@ -210,14 +215,14 @@ function ErrorBanner({ interactive, onRetry }: ErrorBannerProps) {
       role="alert"
     >
       <p className="text-sm font-semibold text-(--danger)">
-        We couldn&apos;t load your documents. Please try again.
+        {tr("We couldn't load your documents. Please try again.")}
       </p>
       {interactive ? (
         <ShellButton onClick={onRetry} variant="secondary">
-          Retry
+          {tr("Retry")}
         </ShellButton>
       ) : (
-        <StaticShellButton variant="secondary">Retry</StaticShellButton>
+        <StaticShellButton variant="secondary">{tr("Retry")}</StaticShellButton>
       )}
     </div>
   );
@@ -273,9 +278,11 @@ function EnvelopeCard({
 
       <span className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1.5 px-1 pb-0.5">
         <span
-          aria-label={`Status: ${
-            envelope.expired ? "Expired" : statusLabelMap[envelope.status]
-          }`}
+          aria-label={tr("Status: {status}", {
+            status: tr(
+              envelope.expired ? "Expired" : statusLabelMap[envelope.status],
+            ),
+          })}
           className={cn(
             "pill",
             envelope.expired
@@ -286,7 +293,7 @@ function EnvelopeCard({
           {envelope.statusLabel}
         </span>
         <span className="text-xs text-(--tertiary)">
-          <span className="sr-only">Created </span>
+          <span className="sr-only">{tr("Created")} </span>
           {envelope.createdAtLabel}
         </span>
       </span>
@@ -319,7 +326,7 @@ function UploadCard({ interactive }: { interactive: boolean }) {
       <span className="inline-flex size-11 items-center justify-center rounded-[0.875rem] bg-(--accent-soft) text-(--accent)">
         <PlusIcon aria-hidden="true" className="size-5" strokeWidth={2.4} />
       </span>
-      Upload a PDF
+      {tr("Upload a PDF")}
     </>
   );
   const className =
@@ -347,19 +354,19 @@ function NoResultsState({ interactive, onReset }: NoResultsStateProps) {
     <div className="panel px-6 py-12 text-center">
       <div className="mx-auto max-w-md space-y-3">
         <h2 className="text-xl font-extrabold tracking-[-0.02em] text-(--fg)">
-          No documents match your search
+          {tr("No documents match your search")}
         </h2>
         <p className="text-sm leading-6 text-(--secondary)">
-          Try a different title, signer email, or status filter.
+          {tr("Try a different title, signer email, or status filter.")}
         </p>
         <div className="flex justify-center pt-2">
           {interactive ? (
             <ShellButton onClick={onReset} variant="secondary">
-              Reset filters
+              {tr("Reset filters")}
             </ShellButton>
           ) : (
             <StaticShellButton variant="secondary">
-              Reset filters
+              {tr("Reset filters")}
             </StaticShellButton>
           )}
         </div>

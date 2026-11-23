@@ -12,6 +12,7 @@ import {
 } from "@/components/auth/sso-button";
 import { FieldShell, ShellButton } from "@/components/shared/form-shell";
 import { authClient } from "@/lib/auth/client";
+import { tr } from "@/lib/petsky/locale";
 import {
   describePasswordRefusal,
   newPasswordLengthError,
@@ -26,8 +27,9 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 
-const verificationRequiredMessage =
-  "Verify your email before logging in. Check your inbox for a fresh link.";
+const verificationRequiredMessage = tr(
+  "Verify your email before logging in. Check your inbox for a fresh link.",
+);
 
 type AuthErrorLike = {
   code?: string;
@@ -136,7 +138,7 @@ function LiveLoginShell({
   const [errors, setErrors] = useState<LoginFormErrors>({});
   const [bannerMessage, setBannerMessage] = useState<string | null>(
     resetError === "INVALID_TOKEN"
-      ? "This reset link is invalid or has expired."
+      ? tr("This reset link is invalid or has expired.")
       : ssoError
         ? describeSsoError(ssoError)
         : null,
@@ -222,11 +224,11 @@ function LiveLoginShell({
         const field = issue.path[0];
 
         if (field === "email") {
-          nextErrors.email = "Enter a valid email address";
+          nextErrors.email = tr("Enter a valid email address");
         }
 
         if (field === "password") {
-          nextErrors.password = "Enter your password";
+          nextErrors.password = tr("Enter your password");
         }
       }
 
@@ -258,7 +260,7 @@ function LiveLoginShell({
       ) {
         setBannerMessage(
           result.error.message ??
-            "Too many wrong passwords. Try again in 15 minutes.",
+            tr("Too many wrong passwords. Try again in 15 minutes."),
         );
       } else if (normalizedErrorMessage.includes("email not verified")) {
         setBannerMessage(verificationRequiredMessage);
@@ -272,8 +274,8 @@ function LiveLoginShell({
       } else {
         setBannerMessage(
           normalizedErrorMessage.includes("invalid email or password")
-            ? "Invalid email or password. Please try again."
-            : "Something went wrong. Please try again.",
+            ? tr("Invalid email or password. Please try again.")
+            : tr("Something went wrong. Please try again."),
         );
       }
       setIsSubmitting(false);
@@ -313,7 +315,7 @@ function LiveLoginShell({
         ...currentForgotPassword,
         bannerMessage: null,
         errors: {
-          email: "Enter a valid email address",
+          email: tr("Enter a valid email address"),
         },
         successMessage: null,
         values: trimmedValues,
@@ -338,13 +340,13 @@ function LiveLoginShell({
     setForgotPassword((currentForgotPassword) => ({
       ...currentForgotPassword,
       bannerMessage: result.error
-        ? "We couldn't send the reset link. Please try again."
+        ? tr("We couldn't send the reset link. Please try again.")
         : null,
       errors: {},
       isSubmitting: false,
       successMessage: result.error
         ? null
-        : "Check your email for a reset link.",
+        : tr("Check your email for a reset link."),
     }));
   }
 
@@ -370,13 +372,13 @@ function LiveLoginShell({
       });
 
       if (!response.ok) {
-        setBannerMessage("We couldn't resend the verification email.");
+        setBannerMessage(tr("We couldn't resend the verification email."));
         return;
       }
 
-      setBannerMessage("Verification email sent. Check your inbox.");
+      setBannerMessage(tr("Verification email sent. Check your inbox."));
     } catch {
-      setBannerMessage("We couldn't resend the verification email.");
+      setBannerMessage(tr("We couldn't resend the verification email."));
     } finally {
       setIsResendingVerification(false);
     }
@@ -407,9 +409,9 @@ function LiveLoginShell({
       <section className="panel w-full max-w-[460px] p-8 sm:p-10">
         <div className="space-y-7">
           <div className="space-y-2">
-            <p className="section-eyebrow">Log in</p>
+            <p className="section-eyebrow">{tr("Log in")}</p>
             <h1 className="text-[clamp(1.875rem,4.5vw,2.375rem)] font-extrabold leading-[1.08] tracking-[-0.035em] text-(--fg)">
-              Welcome back
+              {tr("Welcome back")}
             </h1>
           </div>
 
@@ -429,7 +431,7 @@ function LiveLoginShell({
 
           {sso && showPasswordForm ? (
             <p className="text-center text-xs font-semibold uppercase tracking-[0.12em] text-(--secondary)">
-              or
+              {tr("or")}
             </p>
           ) : null}
 
@@ -440,7 +442,7 @@ function LiveLoginShell({
                   autoComplete="email"
                   disabled={formLocked}
                   error={errors.email}
-                  label="Email"
+                  label={tr("Email")}
                   name="login-email"
                   onChange={handleChange("email")}
                   placeholder="jane@acmecorp.com"
@@ -452,7 +454,7 @@ function LiveLoginShell({
                   autoComplete="current-password"
                   disabled={formLocked}
                   error={errors.password}
-                  label="Password"
+                  label={tr("Password")}
                   name="login-password"
                   onChange={handleChange("password")}
                   readOnly={formLocked}
@@ -465,7 +467,7 @@ function LiveLoginShell({
                   loading={isSubmitting}
                   type="submit"
                 >
-                  {isSubmitting ? "Logging in..." : "Log in"}
+                  {isSubmitting ? tr("Logging in...") : tr("Log in")}
                 </ShellButton>
                 {showResendVerification ? (
                   <ShellButton
@@ -477,8 +479,8 @@ function LiveLoginShell({
                     variant="secondary"
                   >
                     {isResendingVerification
-                      ? "Sending..."
-                      : "Resend verification email"}
+                      ? tr("Sending...")
+                      : tr("Resend verification email")}
                   </ShellButton>
                 ) : null}
               </form>
@@ -489,7 +491,7 @@ function LiveLoginShell({
               onClick={() => setShowPasswordForm(true)}
               type="button"
             >
-              Sign in with a password instead
+              {tr("Sign in with a password instead")}
             </button>
           ) : null}
 
@@ -500,17 +502,17 @@ function LiveLoginShell({
                 onClick={openForgotPasswordModal}
                 type="button"
               >
-                Forgot your password?
+                {tr("Forgot your password?")}
               </button>
             ) : null}
             {signupAvailable ? (
               <p>
-                Don&apos;t have an account?{" "}
+                {tr("Don't have an account?")}{" "}
                 <Link
                   className="font-bold text-(--accent-ink) underline-offset-4 hover:underline"
                   href="/signup"
                 >
-                  Sign up
+                  {tr("Sign up")}
                 </Link>
               </p>
             ) : null}
@@ -568,10 +570,11 @@ function ForgotPasswordDialog({
       <DialogContent className="max-w-[560px] sm:p-8" showCloseButton={false}>
         <div className="space-y-6">
           <DialogHeader className="space-y-3">
-            <DialogTitle>Reset your password</DialogTitle>
+            <DialogTitle>{tr("Reset your password")}</DialogTitle>
             <DialogDescription className="max-w-[40ch]">
-              Enter the email address associated with your account and
-              we&apos;ll send you a reset link.
+              {tr(
+                "Enter the email address associated with your account and we'll send you a reset link.",
+              )}
             </DialogDescription>
           </DialogHeader>
 
@@ -592,7 +595,7 @@ function ForgotPasswordDialog({
               autoComplete="email"
               disabled={isSubmitting}
               error={emailError}
-              label="Email"
+              label={tr("Email")}
               name="forgot-password-email"
               onChange={onEmailChange}
               placeholder="jane@acmecorp.com"
@@ -608,14 +611,14 @@ function ForgotPasswordDialog({
                 type="button"
                 variant="secondary"
               >
-                Cancel
+                {tr("Cancel")}
               </ShellButton>
               <ShellButton
                 disabled={isSubmitting}
                 loading={isSubmitting}
                 type="submit"
               >
-                {isSubmitting ? "Sending..." : "Send reset link"}
+                {isSubmitting ? tr("Sending...") : tr("Send reset link")}
               </ShellButton>
             </div>
           </form>
@@ -666,16 +669,16 @@ function ResetPasswordCard({ resetToken }: { resetToken: string }) {
 
       setError(
         normalizedErrorMessage.includes("invalid token")
-          ? "This reset link is invalid or has expired."
+          ? tr("This reset link is invalid or has expired.")
           : (describePasswordRefusal(result.error) ??
-              "Something went wrong. Please try again."),
+              tr("Something went wrong. Please try again.")),
       );
       setIsSubmitting(false);
       return;
     }
 
     setSuccessMessage(
-      "Your password has been reset. Log in with your new password.",
+      tr("Your password has been reset. Log in with your new password."),
     );
     setIsSubmitting(false);
   }
@@ -686,9 +689,9 @@ function ResetPasswordCard({ resetToken }: { resetToken: string }) {
     <section className="panel w-full max-w-[440px] p-8 sm:p-10">
       <div className="space-y-8">
         <div className="space-y-2">
-          <p className="section-eyebrow">Reset password</p>
+          <p className="section-eyebrow">{tr("Reset password")}</p>
           <h1 className="text-[clamp(1.875rem,4.5vw,2.375rem)] font-extrabold leading-[1.08] tracking-[-0.035em] text-(--fg)">
-            Create a new password
+            {tr("Create a new password")}
           </h1>
         </div>
 
@@ -709,8 +712,8 @@ function ResetPasswordCard({ resetToken }: { resetToken: string }) {
             autoComplete="new-password"
             disabled={formLocked}
             error={error ?? undefined}
-            helper="Must be at least 15 characters"
-            label="New password"
+            helper={tr("Must be at least 15 characters")}
+            label={tr("New password")}
             name="reset-password"
             onChange={(event) => {
               setPassword(event.target.value);
@@ -727,7 +730,7 @@ function ResetPasswordCard({ resetToken }: { resetToken: string }) {
             loading={isSubmitting}
             type="submit"
           >
-            {isSubmitting ? "Updating password..." : "Update password"}
+            {isSubmitting ? tr("Updating password...") : tr("Update password")}
           </ShellButton>
         </form>
       </div>
@@ -757,12 +760,12 @@ function SecondStepCard({ onRestart, onSignedIn }: SecondStepCardProps) {
     const trimmed = code.replace(/\s+/g, "");
 
     if (!useBackupCode && !/^\d{6}$/.test(trimmed)) {
-      setError("Enter the 6-digit code your authenticator app shows.");
+      setError(tr("Enter the 6-digit code your authenticator app shows."));
       return;
     }
 
     if (useBackupCode && trimmed.length === 0) {
-      setError("Enter one of your backup codes.");
+      setError(tr("Enter one of your backup codes."));
       return;
     }
 
@@ -794,28 +797,32 @@ function SecondStepCard({ onRestart, onSignedIn }: SecondStepCardProps) {
       switch (payload?.code) {
         case "INVALID_CODE":
           setError(
-            "That code is not right. Check the time on your phone and try the newest code.",
+            tr(
+              "That code is not right. Check the time on your phone and try the newest code.",
+            ),
           );
           break;
         case "INVALID_BACKUP_CODE":
-          setError("That backup code is not right, or it was used before.");
+          setError(tr("That backup code is not right, or it was used before."));
           break;
         case "ACCOUNT_TEMPORARILY_LOCKED":
           setError(
-            "Too many wrong codes. Two-step sign-in is locked for 15 minutes.",
+            tr(
+              "Too many wrong codes. Two-step sign-in is locked for 15 minutes.",
+            ),
           );
           break;
         case "TOO_MANY_ATTEMPTS_REQUEST_NEW_CODE":
-          onRestart("Too many wrong codes. Log in again to get a new try.");
+          onRestart(tr("Too many wrong codes. Log in again to get a new try."));
           return;
         case "INVALID_TWO_FACTOR_COOKIE":
-          onRestart("That took too long. Log in again.");
+          onRestart(tr("That took too long. Log in again."));
           return;
         default:
-          setError("Something went wrong. Please try again.");
+          setError(tr("Something went wrong. Please try again."));
       }
     } catch {
-      setError("Something went wrong. Please try again.");
+      setError(tr("Something went wrong. Please try again."));
     } finally {
       setIsSubmitting(false);
     }
@@ -825,14 +832,16 @@ function SecondStepCard({ onRestart, onSignedIn }: SecondStepCardProps) {
     <section className="panel w-full max-w-[460px] p-8 sm:p-10">
       <div className="space-y-7">
         <div className="space-y-2">
-          <p className="section-eyebrow">Two-step sign-in</p>
+          <p className="section-eyebrow">{tr("Two-step sign-in")}</p>
           <h1 className="text-[clamp(1.875rem,4.5vw,2.375rem)] font-extrabold leading-[1.08] tracking-[-0.035em] text-(--fg)">
-            {useBackupCode ? "Enter a backup code" : "Enter your code"}
+            {useBackupCode ? tr("Enter a backup code") : tr("Enter your code")}
           </h1>
           <p className="text-sm leading-6 text-(--secondary)">
             {useBackupCode
-              ? "Each backup code works once."
-              : "Open your authenticator app and enter the 6-digit code it shows."}
+              ? tr("Each backup code works once.")
+              : tr(
+                  "Open your authenticator app and enter the 6-digit code it shows.",
+                )}
           </p>
         </div>
 
@@ -846,7 +855,7 @@ function SecondStepCard({ onRestart, onSignedIn }: SecondStepCardProps) {
           <FieldShell
             autoComplete="one-time-code"
             disabled={isSubmitting}
-            label={useBackupCode ? "Backup code" : "6-digit code"}
+            label={useBackupCode ? tr("Backup code") : tr("6-digit code")}
             name="second-step-code"
             onChange={(event) => {
               setCode(event.target.value);
@@ -861,7 +870,7 @@ function SecondStepCard({ onRestart, onSignedIn }: SecondStepCardProps) {
             loading={isSubmitting}
             type="submit"
           >
-            {isSubmitting ? "Checking..." : "Continue"}
+            {isSubmitting ? tr("Checking...") : tr("Continue")}
           </ShellButton>
         </form>
 
@@ -876,8 +885,8 @@ function SecondStepCard({ onRestart, onSignedIn }: SecondStepCardProps) {
             type="button"
           >
             {useBackupCode
-              ? "Use a code from your app instead"
-              : "Lost your phone? Use a backup code"}
+              ? tr("Use a code from your app instead")
+              : tr("Lost your phone? Use a backup code")}
           </button>
         </div>
       </div>

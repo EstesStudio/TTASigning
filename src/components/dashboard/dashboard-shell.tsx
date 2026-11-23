@@ -13,6 +13,7 @@ import {
 } from "@/components/dashboard/dashboard-documents-surface";
 import { DocumentThumbnail } from "@/components/shared/document-thumbnail";
 import { ShellButton } from "@/components/shared/form-shell";
+import { tr } from "@/lib/petsky/locale";
 
 type DashboardShellProps = {
   envelopes?: readonly DashboardEnvelopeListItem[];
@@ -100,10 +101,10 @@ function EmptyDashboardState() {
         </span>
         <div className="space-y-2">
           <h2 className="text-2xl font-extrabold tracking-[-0.03em] text-(--fg)">
-            No documents yet
+            {tr("No documents yet")}
           </h2>
           <p className="text-[0.9375rem] leading-6 text-(--secondary)">
-            Upload a PDF and send it for signatures in minutes.
+            {tr("Upload a PDF and send it for signatures in minutes.")}
           </p>
         </div>
         <ShellButton href="/envelopes/new">
@@ -112,7 +113,7 @@ function EmptyDashboardState() {
             className="size-[1.125rem]"
             strokeWidth={2.4}
           />
-          New envelope
+          {tr("New envelope")}
         </ShellButton>
       </div>
     </section>
