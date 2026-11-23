@@ -21,7 +21,7 @@ import { recordSystemAuditEvent } from "./services/system-audit.ts";
 
 export const API_KEY_PREFIX = "sdk_";
 export const MAX_API_KEYS_PER_USER = 25;
-export const API_KEY_SCOPES = ["read", "write"] as const;
+export const API_KEY_SCOPES = ["read", "prepare", "write"] as const;
 export const API_KEY_EXPIRY_DAYS = [30, 90, 365] as const;
 
 /** How much of a key is kept in the clear to tell keys apart. */
@@ -136,11 +136,21 @@ export function readBearerToken(headers: Headers): string | null {
 }
 
 export function parseApiKeyScope(value: unknown): ApiKeyScope | null {
-  return value === "read" || value === "write" ? value : null;
+  return value === "read" || value === "prepare" || value === "write"
+    ? value
+    : null;
 }
 
 export function scopeAllows(granted: ApiKeyScope, needed: ApiKeyScope) {
-  return granted === "write" || needed === "read";
+  if (granted === "write") {
+    return true;
+  }
+
+  if (granted === "prepare") {
+    return needed !== "write";
+  }
+
+  return needed === "read";
 }
 
 export function parseApiKeyName(value: unknown): string | null {

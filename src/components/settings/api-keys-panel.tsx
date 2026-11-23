@@ -49,7 +49,7 @@ export function ApiKeysPanel() {
   // that making or revoking a key does not hide it, with a way to retry.
   const [listError, setListError] = useState<string | null>(null);
   const [name, setName] = useState("");
-  const [scope, setScope] = useState<"read" | "write">("write");
+  const [scope, setScope] = useState<"read" | "prepare" | "write">("write");
   const [expiry, setExpiry] = useState("365");
   const [isCreating, setIsCreating] = useState(false);
   const [newKey, setNewKey] = useState<{ key: string; name: string } | null>(
@@ -249,12 +249,17 @@ export function ApiKeysPanel() {
             className="field-input"
             disabled={isCreating}
             name="api-key-scope"
-            onChange={(event) =>
-              setScope(event.target.value === "read" ? "read" : "write")
-            }
+            onChange={(event) => {
+              const value = event.target.value;
+
+              setScope(
+                value === "read" || value === "prepare" ? value : "write",
+              );
+            }}
             value={scope}
           >
             <option value="write">Read and write</option>
+            <option value="prepare">Prepare drafts</option>
             <option value="read">Read only</option>
           </select>
         </label>
@@ -361,7 +366,11 @@ export function ApiKeysPanel() {
                   </p>
                   <span className={`pill ${state.tone}`}>{state.label}</span>
                   <span className="pill pill-neutral">
-                    {key.scope === "write" ? "Read and write" : "Read only"}
+                    {key.scope === "write"
+                      ? "Read and write"
+                      : key.scope === "prepare"
+                        ? "Prepare drafts"
+                        : "Read only"}
                   </span>
                 </div>
                 <p className="font-mono text-sm text-(--secondary)">
