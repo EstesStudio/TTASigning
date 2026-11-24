@@ -4,6 +4,7 @@ import {
   queryOne,
   withTransaction,
 } from "./db/connection.ts";
+import { canAccessEnvelopeFolderCondition } from "./envelope-access.ts";
 import { formatDeadline } from "./envelope-deadline.ts";
 import { sendAutomaticEnvelopeReminder } from "./reminders.ts";
 import { recordAuditEvent } from "./services/audit.ts";
@@ -59,6 +60,7 @@ type ExpiredEnvelopeRow = {
   id: string;
   ownerEmail: string;
   ownerName: string | null;
+  ownerId: string;
   /** "Name (email)" of each signer it was waiting on, or null. */
   waitingOn: string | null;
   title: string;
@@ -77,6 +79,7 @@ async function listExpiredEnvelopesToNotify(
         e.expires_at AS "expiresAt",
         u.email AS "ownerEmail",
         u.name AS "ownerName",
+        e.user_id AS "ownerId",
         -- Everyone it was waiting on, in signing order: one signer, or a
         -- whole step of signers who sign at the same time.
         (
@@ -94,6 +97,7 @@ async function listExpiredEnvelopesToNotify(
         AND e.expires_at IS NOT NULL
         AND e.expires_at <= $1
         AND e.expiry_notified_at IS NULL
+        AND ${canAccessEnvelopeFolderCondition("e.user_id", "e")}
       ORDER BY e.expires_at ASC, e.id ASC
       LIMIT ${BATCH_SIZE}
     `,
@@ -120,8 +124,10 @@ async function isExpiryNoticeDue(
         AND status = 'sent'
         AND expires_at = $2
         AND expiry_notified_at IS NULL
+        AND user_id = $3
+        AND ${canAccessEnvelopeFolderCondition("$3")}
     `,
-    [envelope.id, envelope.expiresAt],
+    [envelope.id, envelope.expiresAt, envelope.ownerId],
   );
 
   return due !== null;
