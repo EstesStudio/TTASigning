@@ -278,7 +278,7 @@ test("checking the SMTP connection reports the server's answer, never the passwo
   const accepted = await checkSmtpConnection({
     connect: (options) => {
       connected.push(options);
-      return { verify: async () => true as const };
+      return { close: () => undefined, verify: async () => true as const };
     },
     env,
     storedSmtp: async () => NO_STORED_SMTP_SETTINGS,
@@ -293,6 +293,7 @@ test("checking the SMTP connection reports the server's answer, never the passwo
 
   const refused = await checkSmtpConnection({
     connect: () => ({
+      close: () => undefined,
       verify: async () => {
         throw new Error("Invalid login: 535 Bad credentials for pa55-word");
       },
@@ -310,7 +311,7 @@ test("checking the SMTP connection reports the server's answer, never the passwo
   const unset = await checkSmtpConnection({
     connect: () => {
       tried = true;
-      return { verify: async () => true as const };
+      return { close: () => undefined, verify: async () => true as const };
     },
     env: { EMAIL_DRIVER: "smtp" },
     storedSmtp: async () => NO_STORED_SMTP_SETTINGS,
@@ -321,6 +322,36 @@ test("checking the SMTP connection reports the server's answer, never the passwo
     ok: false,
   });
   assert.equal(tried, false);
+});
+
+test("a server that stalls after connecting is given up on at the check's deadline", async () => {
+  let closed = false;
+  const started = Date.now();
+  const result = await checkSmtpConnection({
+    connect: () => ({
+      close: () => {
+        closed = true;
+      },
+      verify: () => new Promise<true>(() => undefined),
+    }),
+    deadlineMs: 50,
+    env: {
+      EMAIL_DRIVER: "smtp",
+      SMTP_HOST: "smtp.example.test",
+      SMTP_PASSWORD: "pa55-word",
+      SMTP_PORT: "587",
+      SMTP_USER: "sign@example.test",
+    },
+    storedSmtp: async () => NO_STORED_SMTP_SETTINGS,
+  });
+
+  assert.equal(result.ok, false);
+  assert.match(
+    result.message,
+    /smtp\.example\.test:587 did not finish the check within/,
+  );
+  assert.ok(Date.now() - started < 5_000);
+  assert.equal(closed, true);
 });
 
 test("SMTP uses TLS on port 465 and requires STARTTLS on other ports", () => {

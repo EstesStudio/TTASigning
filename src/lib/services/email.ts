@@ -430,15 +430,18 @@ export async function resolveSmtpOptions(
 export type SmtpConnectionCheck = { message: string; ok: boolean };
 
 /** The part of a nodemailer transport a connection check uses. */
-export type SmtpVerifier = Pick<Transporter, "verify">;
+export type SmtpVerifier = Pick<Transporter, "close" | "verify">;
 
 // A check runs while the administrator waits, so a server that does not
-// answer is given up on long before nodemailer's own two minutes.
+// answer is given up on long before nodemailer's own two minutes. These
+// limits apply to each step; the deadline applies to the whole check.
 const CHECK_TIMEOUTS = {
   connectionTimeout: 10_000,
   greetingTimeout: 10_000,
   socketTimeout: 15_000,
 };
+
+const CHECK_DEADLINE_MS = 10_000;
 
 /**
  * Connects to the SMTP server and logs in without sending anything, so an
@@ -446,9 +449,14 @@ const CHECK_TIMEOUTS = {
  * email. A failure comes back with the server's own words, without the
  * password. Only a test email that gets through marks email as working:
  * a server can accept the login and still refuse the sender address.
+ *
+ * The administrator gets an answer within ten seconds. Closing the
+ * transport does not stop a check nodemailer has started, so a connection
+ * still open then ends at the socket limit above.
  */
 export async function checkSmtpConnection({
   connect = (options) => nodemailer.createTransport(options),
+  deadlineMs = CHECK_DEADLINE_MS,
   env = process.env,
   storedSmtp,
 }: {
@@ -456,6 +464,8 @@ export async function checkSmtpConnection({
   connect?: (
     options: ReturnType<typeof readSmtpSettings> & typeof CHECK_TIMEOUTS,
   ) => SmtpVerifier;
+  /** Shortened in tests. */
+  deadlineMs?: number;
   env?: EnvSource;
   storedSmtp?: () => Promise<StoredSmtpSettings>;
 } = {}): Promise<SmtpConnectionCheck> {
@@ -475,9 +485,19 @@ export async function checkSmtpConnection({
   }
 
   const server = `${options.host}:${String(options.port)}`;
+  const transport = connect({ ...options, ...CHECK_TIMEOUTS });
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  const deadline = new Promise<"timed_out">((resolve) => {
+    timer = setTimeout(resolve, deadlineMs, "timed_out");
+  });
 
   try {
-    await connect({ ...options, ...CHECK_TIMEOUTS }).verify();
+    if ((await Promise.race([transport.verify(), deadline])) === "timed_out") {
+      return {
+        message: `${server} did not finish the check within ${String(deadlineMs / 1000)} seconds.`,
+        ok: false,
+      };
+    }
 
     return {
       message: `${server} accepted the connection and the login.`,
@@ -491,6 +511,9 @@ export async function checkSmtpConnection({
       message: `Could not connect and log in to ${server}: ${answer.replaceAll(options.auth.pass, "[password]")}`,
       ok: false,
     };
+  } finally {
+    clearTimeout(timer);
+    transport.close();
   }
 }
 
