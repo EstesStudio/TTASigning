@@ -8,10 +8,6 @@
 --   from BETTER_AUTH_SECRET (see smtp-settings.ts), never the password
 --   itself. After that secret changes it can no longer be read, and has to
 --   be entered again.
--- * smtp_tested_fingerprint: an HMAC of the SMTP settings the last test
---   email that got through was sent with, keyed from BETTER_AUTH_SECRET.
---   "Email works" only counts for SMTP while the settings in use still give
---   the same value.
 
 alter table public.app_settings
   add column if not exists smtp_host text
@@ -21,5 +17,4 @@ alter table public.app_settings
   add column if not exists smtp_secure boolean,
   add column if not exists smtp_user text
     check (smtp_user is null or char_length(smtp_user) between 1 and 320),
-  add column if not exists smtp_password text,
-  add column if not exists smtp_tested_fingerprint text;
+  add column if not exists smtp_password text;
