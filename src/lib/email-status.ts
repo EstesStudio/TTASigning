@@ -13,8 +13,10 @@ import {
   type ResolvedSettings,
 } from "./settings.ts";
 import {
+  readSmtpTestedFingerprint,
   readStoredSmtpSettings,
   smtpEnvFor,
+  smtpFingerprint,
   type StoredSmtpSettings,
 } from "./smtp-settings.ts";
 import { getEnv, hasEnv, readEnv, type EnvSource } from "./utils/env.ts";
@@ -72,7 +74,8 @@ export type EmailStatus =
    * EMAIL_DRIVER=smtp: mail goes through the operator's own server, so there
    * is no domain to check here. configured is false until a host, a user
    * and a password are set, senderAddress is null until one is chosen, and
-   * tested is true once a test email has got through.
+   * tested is true once a test email has got through with the SMTP settings
+   * in use now.
    */
   | {
       state: "smtp";
@@ -119,6 +122,8 @@ type EmailStatusOptions = {
   /** Replaced in tests, where there is no database to write the result to. */
   recordReady?: (ready: boolean) => Promise<void>;
   settings?: ResolvedSettings;
+  /** Replaced in tests, where there is no database to read SMTP settings from. */
+  smtpTestedFingerprint?: () => Promise<string | null>;
   /** Replaced in tests, where there is no database to read SMTP settings from. */
   storedSmtp?: () => Promise<StoredSmtpSettings>;
 };
@@ -397,6 +402,7 @@ async function inspectEmail({
   env = process.env,
   recordReady,
   settings,
+  smtpTestedFingerprint = () => readSmtpTestedFingerprint(),
   storedSmtp = () => readStoredSmtpSettings(),
 }: EmailStatusOptions): Promise<Inspection> {
   const noop = async () => undefined;
@@ -424,12 +430,21 @@ async function inspectEmail({
       ? extractEmailAddress(configuredSender)
       : null;
     const hasSender = Boolean(smtpSender && getAddressDomain(smtpSender));
-    const smtpEnv = smtpEnvFor(env, await storedSmtp());
+    const stored = await storedSmtp();
+    const smtpEnv = smtpEnvFor(env, stored);
     const configured = SMTP_ENV_KEYS.every((key) => hasEnv(key, smtpEnv));
 
     if (!configured || !hasSender) {
       await smtpMarkReady(false);
     }
+
+    // The mark may have been earned with other settings, or with Resend
+    // before EMAIL_DRIVER changed. It counts only for the settings in use.
+    const tested =
+      configured &&
+      hasSender &&
+      smtpSettings.emailReadyAt !== null &&
+      (await smtpTestedFingerprint()) === smtpFingerprint(env, stored);
 
     return {
       client: null,
@@ -440,7 +455,7 @@ async function inspectEmail({
         host: readEnv(smtpEnv, "SMTP_HOST") ?? null,
         senderAddress: hasSender ? smtpSender : null,
         state: "smtp",
-        tested: configured && hasSender && smtpSettings.emailReadyAt !== null,
+        tested,
       },
     };
   }

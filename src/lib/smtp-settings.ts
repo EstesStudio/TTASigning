@@ -1,3 +1,4 @@
+import { createHmac } from "node:crypto";
 import { isIP } from "node:net";
 
 import { z } from "zod";
@@ -13,7 +14,11 @@ import {
   encryptPrivateKey,
   secretKeyFor,
 } from "./services/seal-identity.ts";
-import { invalidateSettingsCache, isMissingSchemaError } from "./settings.ts";
+import {
+  invalidateSettingsCache,
+  isMissingSchemaError,
+  type CheckedSender,
+} from "./settings.ts";
 import { readEnv, type EnvSource } from "./utils/env.ts";
 
 // The SMTP server an administrator can enter under Settings, Organization,
@@ -27,6 +32,7 @@ import { readEnv, type EnvSource } from "./utils/env.ts";
 // no longer be read and has to be entered again.
 
 const SECRET_CONTEXT = "signudoc-email-smtp";
+const FINGERPRINT_CONTEXT = "signudoc-email-smtp-tested";
 
 export const SMTP_VARIABLES = {
   host: "SMTP_HOST",
@@ -384,6 +390,94 @@ export async function saveSmtpSettings(
         updated_at = excluded.updated_at
     `,
     [next.host, next.port, next.secure, next.user, next.sealedPassword, now],
+  );
+
+  afterCommit(database, invalidateSettingsCache);
+}
+
+/**
+ * Stands for the SMTP settings in use: the server, port, encryption, user
+ * name and password that smtpEnvFor gives. It is keyed with a secret derived
+ * from BETTER_AUTH_SECRET, so the database holds nothing a password can be
+ * guessed against offline.
+ */
+export function smtpFingerprint(
+  env: EnvSource,
+  stored: StoredSmtpSettings,
+): string {
+  const smtpEnv = smtpEnvFor(env, stored);
+
+  return createHmac("sha256", secretKeyFor(FINGERPRINT_CONTEXT, env))
+    .update(
+      JSON.stringify(
+        SMTP_FIELDS.map((field) => smtpEnv[SMTP_VARIABLES[field]] ?? null),
+      ),
+    )
+    .digest("base64url");
+}
+
+/** The fingerprint of the settings the last test email got through with. */
+export async function readSmtpTestedFingerprint(
+  database: DbExecutor = getDb(),
+): Promise<string | null> {
+  try {
+    const row = await queryOne<{ smtp_tested_fingerprint: string | null }>(
+      database,
+      `select smtp_tested_fingerprint from public.app_settings where id`,
+    );
+
+    return row?.smtp_tested_fingerprint ?? null;
+  } catch (error) {
+    if (isMissingSchemaError(error)) {
+      return null;
+    }
+
+    throw error;
+  }
+}
+
+/**
+ * Records that a test email got through with the SMTP settings it was sent
+ * with, and from the sender address that was checked. Runs in a transaction.
+ *
+ * The test can take a while. If an administrator saves other settings in
+ * the meantime, the result belongs to the old ones and is dropped. The row
+ * is locked first, so a save either lands before the comparison or waits
+ * for it and then clears the mark.
+ */
+export async function markSmtpEmailTested(
+  testedWith: StoredSmtpSettings,
+  checked: CheckedSender,
+  env: EnvSource,
+  database: DbExecutor,
+): Promise<void> {
+  await database.query(
+    `select id from public.app_settings where id for update`,
+  );
+
+  const fingerprint = smtpFingerprint(env, testedWith);
+
+  if (
+    smtpFingerprint(env, await readStoredSmtpSettings(database)) !== fingerprint
+  ) {
+    return;
+  }
+
+  const now = Math.floor(Date.now() / 1000);
+
+  await database.query(
+    `
+      update public.app_settings
+      set email_ready_at = $1, smtp_tested_fingerprint = $2, updated_at = $1
+      where id
+        and ($3::boolean or sender_address is not distinct from $4)
+    `,
+    [
+      now,
+      fingerprint,
+      checked.senderAddressFromEnv,
+      checked.senderAddressFromEnv ? null : checked.senderAddress,
+    ],
   );
 
   afterCommit(database, invalidateSettingsCache);

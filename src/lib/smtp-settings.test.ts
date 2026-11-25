@@ -1,13 +1,17 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 
+import type { DbExecutor } from "./db/connection.ts";
 import {
   applySmtpSettingsUpdate,
+  markSmtpEmailTested,
   NO_STORED_SMTP_SETTINGS,
   parseSmtpSettingsUpdate,
   SmtpSettingsError,
   smtpEnvFor,
+  smtpFingerprint,
   toSmtpSettingsView,
+  type StoredSmtpSettings,
 } from "./smtp-settings.ts";
 
 const env = { BETTER_AUTH_SECRET: "a".repeat(64) };
@@ -206,4 +210,81 @@ test("a password from the environment is never sent to a server saved in the app
     ),
     {},
   );
+});
+
+/**
+ * Stands in for the database: answers reads with the SMTP settings saved
+ * now and keeps what the mark was asked to write.
+ */
+function fakeDatabase(current: StoredSmtpSettings) {
+  const marks: unknown[][] = [];
+  const database = {
+    query: (text: string, values: unknown[] = []) => {
+      if (text.includes("update public.app_settings")) {
+        marks.push(values);
+
+        return Promise.resolve({ rowCount: 1, rows: [] });
+      }
+
+      return Promise.resolve({
+        rowCount: 1,
+        rows: [
+          {
+            id: true,
+            smtp_host: current.host,
+            smtp_password: current.sealedPassword,
+            smtp_port: current.port,
+            smtp_secure: current.secure,
+            smtp_user: current.user,
+          },
+        ],
+      });
+    },
+  } as unknown as DbExecutor;
+
+  return { database, marks };
+}
+
+test("a test email sent before new SMTP settings were saved does not mark them tested", async () => {
+  const testedWith = saved();
+  const sender = {
+    senderAddress: "sign@acme.com",
+    senderAddressFromEnv: false,
+  };
+  const savedSince = applySmtpSettingsUpdate(
+    testedWith,
+    { host: "mail.acme.com", password: "hunter2-smtp" },
+    env,
+  ).next;
+
+  const stale = fakeDatabase(savedSince);
+  await markSmtpEmailTested(testedWith, sender, env, stale.database);
+  assert.deepEqual(stale.marks, []);
+
+  // The same password typed again is sealed afresh, and is still the same
+  // settings.
+  const retyped = applySmtpSettingsUpdate(
+    testedWith,
+    { password: "hunter2-smtp" },
+    env,
+  ).next;
+  const current = fakeDatabase(retyped);
+  await markSmtpEmailTested(testedWith, sender, env, current.database);
+  assert.equal(current.marks.length, 1);
+  assert.equal(current.marks[0]?.[1], smtpFingerprint(env, retyped));
+});
+
+test("the SMTP fingerprint follows the environment and BETTER_AUTH_SECRET, and hides the password", () => {
+  const testedWith = saved();
+  const fingerprint = smtpFingerprint(env, testedWith);
+
+  assert.notEqual(
+    smtpFingerprint({ ...env, SMTP_PORT: "2525" }, testedWith),
+    fingerprint,
+  );
+  assert.notEqual(
+    smtpFingerprint({ BETTER_AUTH_SECRET: "b".repeat(64) }, testedWith),
+    fingerprint,
+  );
+  assert.ok(!fingerprint.includes("hunter2"));
 });

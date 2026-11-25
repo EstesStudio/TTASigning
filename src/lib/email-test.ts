@@ -1,11 +1,17 @@
+import { withTransaction } from "./db/connection.ts";
 import { isResendTestSender } from "./services/email-addresses.ts";
 import {
   createEmailService,
   resolveEmailAddresses,
+  resolveEmailDriver,
   type EmailService,
 } from "./services/email.ts";
 import { withUserEmailLegalFooter } from "./services/email-legal-footer.ts";
 import { getBranding, getSettings, markEmailReady } from "./settings.ts";
+import {
+  markSmtpEmailTested,
+  readStoredSmtpSettings,
+} from "./smtp-settings.ts";
 import { type EnvSource } from "./utils/env.ts";
 import { escapeHtml } from "./utils/html.ts";
 
@@ -48,12 +54,23 @@ export async function sendTestEmail({
       env,
     );
 
-    // Which sender this test is about to prove, noted before it is sent:
-    // an administrator may save a different one while it is on its way.
+    // Which sender, and for SMTP which server, this test is about to prove,
+    // noted before it is sent: an administrator may save different ones
+    // while it is on its way.
     const testedSettings = await getSettings(env);
     const { senderAddress: testedSender } = await resolveEmailAddresses(env);
+    const testedSmtp =
+      resolveEmailDriver(env) === "smtp"
+        ? await readStoredSmtpSettings()
+        : null;
 
-    await (emailService ?? createEmailService({ env })).send({
+    await (
+      emailService ??
+      createEmailService({
+        env,
+        ...(testedSmtp ? { storedSmtp: async () => testedSmtp } : {}),
+      })
+    ).send({
       htmlBody: content.htmlBody,
       subject: `Test email from ${productName}`,
       template: "test_email",
@@ -66,7 +83,11 @@ export async function sendTestEmail({
     // say so. The shared test address proves nothing: it only ever reaches
     // the owner of the Resend account.
     if (!isResendTestSender(testedSender)) {
-      await markEmailReady(true, testedSettings);
+      await (testedSmtp
+        ? withTransaction((tx) =>
+            markSmtpEmailTested(testedSmtp, testedSettings, env, tx),
+          )
+        : markEmailReady(true, testedSettings));
     }
 
     return { sent: true, to };

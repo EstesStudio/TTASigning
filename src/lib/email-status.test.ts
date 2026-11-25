@@ -10,7 +10,11 @@ import {
   type ResendDomainsClient,
 } from "./email-status.ts";
 import { resolveSettings, type AppSettings } from "./settings.ts";
-import { NO_STORED_SMTP_SETTINGS } from "./smtp-settings.ts";
+import {
+  applySmtpSettingsUpdate,
+  NO_STORED_SMTP_SETTINGS,
+  smtpFingerprint,
+} from "./smtp-settings.ts";
 
 const stored: AppSettings = {
   allowedEmailDomains: ["acme.com"],
@@ -605,6 +609,8 @@ test("an SMTP install reports its own state, without asking Resend", async () =>
         { ...stored, emailReadyAt: 1_800_000_000 },
         smtpEnv,
       ),
+      smtpTestedFingerprint: async () =>
+        smtpFingerprint(smtpEnv, NO_STORED_SMTP_SETTINGS),
       storedSmtp,
     }),
     {
@@ -661,4 +667,56 @@ test("an SMTP install with no login yet is not ready, and says which server it h
     tested: false,
   });
   assert.deepEqual(marks, [false]);
+});
+
+test("an SMTP install counts as tested only with the settings the test email got through with", async () => {
+  const smtpEnv = { BETTER_AUTH_SECRET: "a".repeat(64), EMAIL_DRIVER: "smtp" };
+  const login = { password: "hunter2-smtp" };
+  const testedWith = applySmtpSettingsUpdate(
+    NO_STORED_SMTP_SETTINGS,
+    { ...login, host: "smtp.acme.com", port: 587, user: "sign@acme.com" },
+    smtpEnv,
+  ).next;
+  const testedFingerprint = smtpFingerprint(smtpEnv, testedWith);
+  const isTested = async (
+    current: typeof testedWith,
+    fingerprint: string | null,
+  ) => {
+    const status = await getEmailStatus({
+      env: smtpEnv,
+      recordReady: async () => undefined,
+      settings: resolveSettings(
+        { ...stored, emailReadyAt: 1_800_000_000 },
+        smtpEnv,
+      ),
+      smtpTestedFingerprint: async () => fingerprint,
+      storedSmtp: async () => current,
+    });
+
+    return status.state === "smtp" && status.tested;
+  };
+
+  assert.equal(await isTested(testedWith, testedFingerprint), true);
+  // A mark earned with Resend, before EMAIL_DRIVER became smtp.
+  assert.equal(await isTested(testedWith, null), false);
+
+  for (const change of [
+    { host: "mail.acme.com" },
+    { port: 465 },
+    { secure: true },
+    { user: "other@acme.com" },
+    { password: "another-password" },
+  ]) {
+    const changed = applySmtpSettingsUpdate(
+      testedWith,
+      { ...login, ...change },
+      smtpEnv,
+    ).next;
+
+    assert.equal(
+      await isTested(changed, testedFingerprint),
+      false,
+      JSON.stringify(change),
+    );
+  }
 });
