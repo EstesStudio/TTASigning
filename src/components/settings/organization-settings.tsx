@@ -11,6 +11,7 @@ import { Part11Panel } from "@/components/settings/part11-panel";
 import { PeoplePanel } from "@/components/settings/people-panel";
 import { SecurityPanel } from "@/components/settings/security-panel";
 import { SignerDataPanel } from "@/components/settings/signer-data-panel";
+import { SmtpServerForm } from "@/components/settings/smtp-server-form";
 import { TeamsPanel } from "@/components/settings/teams-panel";
 import { WebhooksPanel } from "@/components/settings/webhooks-panel";
 import {
@@ -65,12 +66,13 @@ type SettingsResponse = {
 } | null;
 
 type EmailResponse = {
+  connection?: { message: string; ok: boolean };
   error?: string;
   status?: EmailStatus;
   test?: { sent: true; to: string } | { sent: false; message: string };
 } | null;
 
-type EmailAction = "add_domain" | "recheck" | "send_test";
+type EmailAction = "add_domain" | "check_connection" | "recheck" | "send_test";
 
 const signupModeOptions: Array<{
   description: string;
@@ -639,7 +641,7 @@ function EmailSetupPanel() {
   const [status, setStatus] = useState<EmailStatus | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [pendingAction, setPendingAction] = useState<EmailAction | null>(null);
-  const [testResult, setTestResult] = useState<Feedback>(null);
+  const [actionResult, setActionResult] = useState<Feedback>(null);
 
   useEffect(() => {
     const controller = new AbortController();
@@ -669,7 +671,7 @@ function EmailSetupPanel() {
     }
 
     setPendingAction(action);
-    setTestResult(null);
+    setActionResult(null);
 
     try {
       const response = await fetch("/api/admin/email", {
@@ -687,7 +689,7 @@ function EmailSetupPanel() {
       }
 
       if (payload?.test) {
-        setTestResult(
+        setActionResult(
           payload.test.sent
             ? {
                 message: `Test email sent to ${payload.test.to}. Check that inbox.`,
@@ -695,6 +697,11 @@ function EmailSetupPanel() {
               }
             : { message: payload.test.message, tone: "error" },
         );
+      } else if (payload?.connection) {
+        setActionResult({
+          message: payload.connection.message,
+          tone: payload.connection.ok ? "success" : "error",
+        });
       } else if (!response.ok) {
         setLoadError(payload?.error ?? GENERIC_ERROR_MESSAGE);
       }
@@ -709,7 +716,9 @@ function EmailSetupPanel() {
   const canSendTest =
     status !== null &&
     status.state !== "missing_key" &&
-    status.state !== "capture";
+    status.state !== "capture" &&
+    (status.state !== "smtp" ||
+      (status.configured && status.senderAddress !== null));
 
   return (
     <div className="space-y-5 border-t border-(--border) pt-8" id="email-setup">
@@ -769,6 +778,15 @@ function EmailSetupPanel() {
         <DnsRecordsTable domain={status.domain} records={status.records} />
       ) : null}
 
+      {status?.state === "smtp" ? (
+        <SmtpServerForm
+          onSaved={(saved) => {
+            setActionResult(null);
+            setStatus(saved);
+          }}
+        />
+      ) : null}
+
       <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap">
         {status?.state === "domain_missing" ? (
           <ShellButton
@@ -788,6 +806,18 @@ function EmailSetupPanel() {
             onClick={() => void runAction("recheck")}
           >
             {pendingAction === "recheck" ? "Checking..." : "Check DNS records"}
+          </ShellButton>
+        ) : null}
+        {status?.state === "smtp" && status.configured ? (
+          <ShellButton
+            disabled={pendingAction !== null}
+            loading={pendingAction === "check_connection"}
+            onClick={() => void runAction("check_connection")}
+            variant="secondary"
+          >
+            {pendingAction === "check_connection"
+              ? "Checking..."
+              : "Check connection"}
           </ShellButton>
         ) : null}
         {canSendTest ? (
@@ -811,14 +841,14 @@ function EmailSetupPanel() {
         ) : null}
       </div>
 
-      {testResult ? (
+      {actionResult ? (
         <p
           className={`notice ${
-            testResult.tone === "success" ? "notice-success" : "notice-danger"
+            actionResult.tone === "success" ? "notice-success" : "notice-danger"
           }`}
-          role={testResult.tone === "error" ? "alert" : "status"}
+          role={actionResult.tone === "error" ? "alert" : "status"}
         >
-          {testResult.message}
+          {actionResult.message}
         </p>
       ) : null}
     </div>
@@ -940,10 +970,30 @@ function describeEmailStatus(status: EmailStatus): {
         title: "Email is working",
       };
     case "smtp":
-      return status.senderAddress
+      if (!status.configured) {
+        return {
+          lines: [
+            "Enter your SMTP server, user name and password below, or set SMTP_HOST, SMTP_USER and SMTP_PASSWORD in the environment.",
+          ],
+          ready: false,
+          title: "Enter your SMTP server",
+        };
+      }
+
+      if (!status.senderAddress) {
+        return {
+          lines: [
+            'Enter the address emails should come from in "Send email from" above and save. It must be an address your SMTP server is allowed to send as.',
+          ],
+          ready: false,
+          title: "Choose the address emails come from",
+        };
+      }
+
+      return status.tested
         ? {
             lines: [
-              `Emails are sent from ${status.senderAddress} through your SMTP server${status.host ? ` (${status.host})` : ""}.`,
+              `Emails are sent from ${status.senderAddress} through your SMTP server (${status.host ?? ""}).`,
               "This page cannot check the domain's SPF, DKIM and DMARC records: they are set up with your mail host. Send yourself a test email to check that messages arrive and do not land in spam.",
             ],
             ready: true,
@@ -951,10 +1001,11 @@ function describeEmailStatus(status: EmailStatus): {
           }
         : {
             lines: [
-              'Enter the address emails should come from in "Send email from" above and save. It must be an address your SMTP server is allowed to send as.',
+              `Emails will be sent from ${status.senderAddress} through ${status.host ?? "your SMTP server"}.`,
+              "Check the connection to see that the server accepts the login, then send yourself a test email. Email counts as working once the server accepts one.",
             ],
             ready: false,
-            title: "Choose the address emails come from",
+            title: "Send a test email to finish",
           };
     case "error":
       return {
