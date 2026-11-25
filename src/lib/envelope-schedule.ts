@@ -97,7 +97,6 @@ async function listExpiredEnvelopesToNotify(
         AND e.expires_at IS NOT NULL
         AND e.expires_at <= $1
         AND e.expiry_notified_at IS NULL
-        AND ${canAccessEnvelopeFolderCondition("e.user_id", "e")}
       ORDER BY e.expires_at ASC, e.id ASC
       LIMIT ${BATCH_SIZE}
     `,
@@ -106,31 +105,35 @@ async function listExpiredEnvelopesToNotify(
 }
 
 /**
- * True while there is still something to tell: the envelope is out, its
- * deadline is the one that passed, and the sender has not been told. The
- * list above can be minutes old by the time an envelope's turn comes, and
- * the sender may have moved the deadline or voided the envelope since.
+ * Whether there is still something to note, and whether the sender may be
+ * told. The expiry is due while the envelope is out, its deadline is the one
+ * that passed, and it has not been noted. The list above can be minutes old
+ * by the time an envelope's turn comes, and the sender may have moved the
+ * deadline or voided the envelope since. The expiry is always noted, so
+ * folder members see it and integrations get `envelope.expired`; the email
+ * goes to the sender only while they can still open the envelope's folder.
  */
-async function isExpiryNoticeDue(
+async function checkExpiryNotice(
   envelope: ExpiredEnvelopeRow,
   database: DbPool,
-): Promise<boolean> {
-  const due = await queryOne<{ id: string }>(
+): Promise<{ due: false } | { due: true; tellSender: boolean }> {
+  const row = await queryOne<{ tellSender: boolean }>(
     database,
     `
-      SELECT id
+      SELECT ${canAccessEnvelopeFolderCondition("$3")} AS "tellSender"
       FROM envelopes
       WHERE id = $1
         AND status = 'sent'
         AND expires_at = $2
         AND expiry_notified_at IS NULL
         AND user_id = $3
-        AND ${canAccessEnvelopeFolderCondition("$3")}
     `,
     [envelope.id, envelope.expiresAt, envelope.ownerId],
   );
 
-  return due !== null;
+  return row === null
+    ? { due: false }
+    : { due: true, tellSender: row.tellSender };
 }
 
 /**
@@ -212,16 +215,21 @@ async function sendExpiryNotices({
     }
 
     try {
-      if (!(await isExpiryNoticeDue(envelope, database))) {
+      const notice = await checkExpiryNotice(envelope, database);
+      if (!notice.due) {
         continue;
       }
 
-      await emailService().send(buildExpiryNotice(envelope), {
-        idempotencyKey: `expiry-notice/${envelope.id}/${envelope.expiresAt}`,
-      });
+      if (notice.tellSender) {
+        await emailService().send(buildExpiryNotice(envelope), {
+          idempotencyKey: `expiry-notice/${envelope.id}/${envelope.expiresAt}`,
+        });
+      }
       await noteExpiryNoticeSent(envelope, now, database);
 
-      summary.expiryNoticesSent += 1;
+      if (notice.tellSender) {
+        summary.expiryNoticesSent += 1;
+      }
     } catch (error) {
       summary.expiryNoticeFailures.push(envelope.id);
       console.error(`Expiry notice failed for envelope ${envelope.id}:`, error);
