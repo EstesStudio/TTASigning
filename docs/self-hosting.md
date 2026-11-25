@@ -369,7 +369,7 @@ Self-hosted operators are responsible for:
 
 ## Email over SMTP
 
-Away from Vercel, SignuDoc can send through any SMTP server (your mail host, or a relay such as Postmark, Mailgun or Amazon SES) instead of Resend:
+Away from Vercel, SignuDoc can send through any SMTP server (your mail host, or a relay such as Postmark, Mailgun or Amazon SES) instead of Resend. Set `EMAIL_DRIVER=smtp`, then enter the server under Settings, Organization, Email setup, or set it in the environment:
 
 ```bash
 EMAIL_DRIVER=smtp
@@ -381,7 +381,8 @@ SMTP_PASSWORD=...
 ```
 
 - Mail is sent from `RESEND_FROM_EMAIL` when it is set (despite the name, it is used by both drivers), and otherwise from the address set under Settings, Organization. It must be an address your SMTP server is allowed to send as.
-- There is no domain to add or verify in the app: Settings, Organization shows that email goes through your SMTP server once a sender address is set. Use "Send me a test email" there to check that your server accepts the login and delivers. SPF, DKIM and DMARC for the sender's domain are set up with your mail host.
+- Each `SMTP_*` variable that is set wins over what is entered in Settings, and the page shows that field without letting it be changed. A password entered there is stored encrypted with a key derived from `BETTER_AUTH_SECRET` and is never shown again. If you change `BETTER_AUTH_SECRET`, enter the SMTP password again.
+- There is no domain to add or verify in the app. "Check connection" under Settings, Organization connects and logs in without sending anything, and shows the server's answer. Email counts as working once "Send me a test email" gets through, and saving a different server or password asks for a new test. SPF, DKIM and DMARC for the sender's domain are set up with your mail host.
 - Without TLS from the start, the connection must upgrade with STARTTLS before the password is sent; a server that does not offer it is refused.
 - Messages are sent one by one, and attachments go with them as they do with Resend.
 - Resend refuses a repeated send with the same idempotency key for 24 hours. SMTP servers do not, so SignuDoc keeps the keys of SMTP sends in the `email_idempotency_keys` table for 24 hours instead: a notice whose follow-up database write failed is not sent twice. A send interrupted halfway (the app stopped while talking to the server) is sent again by the next attempt after 10 minutes, so a message is never lost, at the cost of a rare duplicate.
