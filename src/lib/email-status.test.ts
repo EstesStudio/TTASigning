@@ -10,6 +10,7 @@ import {
   type ResendDomainsClient,
 } from "./email-status.ts";
 import { resolveSettings, type AppSettings } from "./settings.ts";
+import { NO_STORED_SMTP_SETTINGS } from "./smtp-settings.ts";
 
 const stored: AppSettings = {
   allowedEmailDomains: ["acme.com"],
@@ -573,13 +574,48 @@ test("an SMTP install reports its own state, without asking Resend", async () =>
   const recordReady = async (ready: boolean) => {
     marks.push(ready);
   };
-  const smtpEnv = { EMAIL_DRIVER: "smtp", SMTP_HOST: "smtp.acme.com" };
+  const storedSmtp = async () => NO_STORED_SMTP_SETTINGS;
+  const smtpEnv = {
+    EMAIL_DRIVER: "smtp",
+    SMTP_HOST: "smtp.acme.com",
+    SMTP_PASSWORD: "secret",
+    SMTP_USER: "sign@acme.com",
+  };
 
   assert.deepEqual(
-    await getEmailStatus({ env: smtpEnv, recordReady, settings }),
-    { host: "smtp.acme.com", senderAddress: "sign@acme.com", state: "smtp" },
+    await getEmailStatus({ env: smtpEnv, recordReady, settings, storedSmtp }),
+    {
+      configured: true,
+      host: "smtp.acme.com",
+      senderAddress: "sign@acme.com",
+      state: "smtp",
+      tested: false,
+    },
   );
-  assert.deepEqual(marks, [true]);
+  // A server and a sender are not proof that email works: only a test
+  // email that gets through sets the mark.
+  assert.deepEqual(marks, []);
+
+  // Once a test email has got through, the page says email works.
+  assert.deepEqual(
+    await getEmailStatus({
+      env: smtpEnv,
+      recordReady,
+      settings: resolveSettings(
+        { ...stored, emailReadyAt: 1_800_000_000 },
+        smtpEnv,
+      ),
+      storedSmtp,
+    }),
+    {
+      configured: true,
+      host: "smtp.acme.com",
+      senderAddress: "sign@acme.com",
+      state: "smtp",
+      tested: true,
+    },
+  );
+  assert.deepEqual(marks, []);
 
   // No sender chosen yet: Resend's shared test address is not used for SMTP.
   assert.deepEqual(
@@ -587,8 +623,42 @@ test("an SMTP install reports its own state, without asking Resend", async () =>
       env: smtpEnv,
       recordReady,
       settings: resolveSettings({ ...stored, senderAddress: null }, smtpEnv),
+      storedSmtp,
     }),
-    { host: "smtp.acme.com", senderAddress: null, state: "smtp" },
+    {
+      configured: true,
+      host: "smtp.acme.com",
+      senderAddress: null,
+      state: "smtp",
+      tested: false,
+    },
   );
-  assert.deepEqual(marks, [true, false]);
+  assert.deepEqual(marks, [false]);
+});
+
+test("an SMTP install with no login yet is not ready, and says which server it has", async () => {
+  const marks: boolean[] = [];
+  const status = await getEmailStatus({
+    env: { EMAIL_DRIVER: "smtp" },
+    recordReady: async (ready) => {
+      marks.push(ready);
+    },
+    settings: resolveSettings(
+      { ...stored, emailReadyAt: 1_800_000_000 },
+      { EMAIL_DRIVER: "smtp" },
+    ),
+    storedSmtp: async () => ({
+      ...NO_STORED_SMTP_SETTINGS,
+      host: "smtp.acme.com",
+    }),
+  });
+
+  assert.deepEqual(status, {
+    configured: false,
+    host: "smtp.acme.com",
+    senderAddress: "sign@acme.com",
+    state: "smtp",
+    tested: false,
+  });
+  assert.deepEqual(marks, [false]);
 });

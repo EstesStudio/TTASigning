@@ -9,6 +9,7 @@ import {
 } from "../smtp-settings.ts";
 import {
   canSendEmail,
+  checkSmtpConnection,
   createConnectedEmailService,
   createEmailService,
   createLazyEmailService,
@@ -262,6 +263,64 @@ test("an SMTP server saved in Settings is used where the environment sets none",
       secure: false,
     },
   );
+});
+
+test("checking the SMTP connection reports the server's answer, never the password", async () => {
+  const env = {
+    EMAIL_DRIVER: "smtp",
+    SMTP_HOST: "smtp.example.test",
+    SMTP_PASSWORD: "pa55-word",
+    SMTP_PORT: "587",
+    SMTP_USER: "sign@example.test",
+  };
+  const connected: Record<string, unknown>[] = [];
+
+  const accepted = await checkSmtpConnection({
+    connect: (options) => {
+      connected.push(options);
+      return { verify: async () => true as const };
+    },
+    env,
+    storedSmtp: async () => NO_STORED_SMTP_SETTINGS,
+  });
+
+  assert.deepEqual(accepted, {
+    message: "smtp.example.test:587 accepted the connection and the login.",
+    ok: true,
+  });
+  // A server that never answers is given up on while the admin waits.
+  assert.equal(typeof connected[0]?.connectionTimeout, "number");
+
+  const refused = await checkSmtpConnection({
+    connect: () => ({
+      verify: async () => {
+        throw new Error("Invalid login: 535 Bad credentials for pa55-word");
+      },
+    }),
+    env,
+    storedSmtp: async () => NO_STORED_SMTP_SETTINGS,
+  });
+
+  assert.equal(refused.ok, false);
+  assert.match(refused.message, /smtp\.example\.test:587/);
+  assert.match(refused.message, /535 Bad credentials/);
+  assert.ok(!refused.message.includes("pa55-word"));
+
+  let tried = false;
+  const unset = await checkSmtpConnection({
+    connect: () => {
+      tried = true;
+      return { verify: async () => true as const };
+    },
+    env: { EMAIL_DRIVER: "smtp" },
+    storedSmtp: async () => NO_STORED_SMTP_SETTINGS,
+  });
+
+  assert.deepEqual(unset, {
+    message: "Enter the SMTP server, user name and password first.",
+    ok: false,
+  });
+  assert.equal(tried, false);
 });
 
 test("SMTP uses TLS on port 465 and requires STARTTLS on other ports", () => {

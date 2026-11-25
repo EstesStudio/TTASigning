@@ -6,13 +6,18 @@ import {
   getAddressDomain,
   isResendTestSender,
 } from "./services/email-addresses.ts";
-import { resolveEmailDriver } from "./services/email.ts";
+import { resolveEmailDriver, SMTP_ENV_KEYS } from "./services/email.ts";
 import {
   getSettings,
   markEmailReady,
   type ResolvedSettings,
 } from "./settings.ts";
-import { getEnv, readEnv, type EnvSource } from "./utils/env.ts";
+import {
+  readStoredSmtpSettings,
+  smtpEnvFor,
+  type StoredSmtpSettings,
+} from "./smtp-settings.ts";
+import { getEnv, hasEnv, readEnv, type EnvSource } from "./utils/env.ts";
 
 // Whether this install can send email to anyone, and what is left to do if
 // it cannot. Shown to the administrator in Settings.
@@ -65,9 +70,17 @@ export type EmailStatus =
   | { state: "ready"; domain: string; senderAddress: string }
   /**
    * EMAIL_DRIVER=smtp: mail goes through the operator's own server, so there
-   * is no domain to check here. senderAddress is null until one is set.
+   * is no domain to check here. configured is false until a host, a user
+   * and a password are set, senderAddress is null until one is chosen, and
+   * tested is true once a test email has got through.
    */
-  | { state: "smtp"; host: string; senderAddress: string | null }
+  | {
+      state: "smtp";
+      configured: boolean;
+      host: string | null;
+      senderAddress: string | null;
+      tested: boolean;
+    }
   | { state: "error"; message: string; senderAddress: string };
 
 /** The parts of the Resend SDK used here. Replaced by a fake in tests. */
@@ -106,6 +119,8 @@ type EmailStatusOptions = {
   /** Replaced in tests, where there is no database to write the result to. */
   recordReady?: (ready: boolean) => Promise<void>;
   settings?: ResolvedSettings;
+  /** Replaced in tests, where there is no database to read SMTP settings from. */
+  storedSmtp?: () => Promise<StoredSmtpSettings>;
 };
 
 // Whether Resend refused because this key is not allowed to look at
@@ -382,6 +397,7 @@ async function inspectEmail({
   env = process.env,
   recordReady,
   settings,
+  storedSmtp = () => readStoredSmtpSettings(),
 }: EmailStatusOptions): Promise<Inspection> {
   const noop = async () => undefined;
 
@@ -395,9 +411,10 @@ async function inspectEmail({
   }
 
   if (!domainsClient && resolveEmailDriver(env) === "smtp") {
-    // There is no provider API to ask. Email counts as set up once a sender
-    // address at a real domain is chosen; "Send a test email" is what shows
-    // the server accepts it.
+    // There is no provider API to ask. Only a test email that gets through
+    // shows the server takes the login and the sender, so only that sets
+    // the "email works" mark (see email-test.ts). This clears it when
+    // nothing could be sent.
     const smtpSettings = settings ?? (await getSettings(env));
     const smtpMarkReady =
       recordReady ??
@@ -407,17 +424,23 @@ async function inspectEmail({
       ? extractEmailAddress(configuredSender)
       : null;
     const hasSender = Boolean(smtpSender && getAddressDomain(smtpSender));
+    const smtpEnv = smtpEnvFor(env, await storedSmtp());
+    const configured = SMTP_ENV_KEYS.every((key) => hasEnv(key, smtpEnv));
 
-    await smtpMarkReady(hasSender);
+    if (!configured || !hasSender) {
+      await smtpMarkReady(false);
+    }
 
     return {
       client: null,
       domainId: null,
       markReady: smtpMarkReady,
       status: {
-        host: readEnv(env, "SMTP_HOST") ?? "",
+        configured,
+        host: readEnv(smtpEnv, "SMTP_HOST") ?? null,
         senderAddress: hasSender ? smtpSender : null,
         state: "smtp",
+        tested: configured && hasSender && smtpSettings.emailReadyAt !== null,
       },
     };
   }

@@ -306,7 +306,12 @@ function createCaptureEmailService(
   };
 }
 
-const SMTP_ENV_KEYS = ["SMTP_HOST", "SMTP_USER", "SMTP_PASSWORD"] as const;
+/** What the SMTP driver cannot send without. */
+export const SMTP_ENV_KEYS = [
+  "SMTP_HOST",
+  "SMTP_USER",
+  "SMTP_PASSWORD",
+] as const;
 
 /** The part of a nodemailer transport used here. Replaced by a fake in tests. */
 export type SmtpTransport = Pick<Transporter, "sendMail">;
@@ -419,6 +424,74 @@ export async function resolveSmtpOptions(
   assertServiceConfig("email", SMTP_ENV_KEYS, smtpEnv);
 
   return readSmtpSettings(smtpEnv);
+}
+
+/** What a connection check tells the administrator. */
+export type SmtpConnectionCheck = { message: string; ok: boolean };
+
+/** The part of a nodemailer transport a connection check uses. */
+export type SmtpVerifier = Pick<Transporter, "verify">;
+
+// A check runs while the administrator waits, so a server that does not
+// answer is given up on long before nodemailer's own two minutes.
+const CHECK_TIMEOUTS = {
+  connectionTimeout: 10_000,
+  greetingTimeout: 10_000,
+  socketTimeout: 15_000,
+};
+
+/**
+ * Connects to the SMTP server and logs in without sending anything, so an
+ * administrator hears about a wrong host or login before a signer misses an
+ * email. A failure comes back with the server's own words, without the
+ * password. Only a test email that gets through marks email as working:
+ * a server can accept the login and still refuse the sender address.
+ */
+export async function checkSmtpConnection({
+  connect = (options) => nodemailer.createTransport(options),
+  env = process.env,
+  storedSmtp,
+}: {
+  /** Replaced in tests, where there is no SMTP server to talk to. */
+  connect?: (
+    options: ReturnType<typeof readSmtpSettings> & typeof CHECK_TIMEOUTS,
+  ) => SmtpVerifier;
+  env?: EnvSource;
+  storedSmtp?: () => Promise<StoredSmtpSettings>;
+} = {}): Promise<SmtpConnectionCheck> {
+  let options: ReturnType<typeof readSmtpSettings>;
+
+  try {
+    options = await resolveSmtpOptions(env, storedSmtp);
+  } catch (error) {
+    return {
+      message: isEmailNotConnectedError(error)
+        ? "Enter the SMTP server, user name and password first."
+        : error instanceof Error
+          ? error.message
+          : "The SMTP settings could not be read.",
+      ok: false,
+    };
+  }
+
+  const server = `${options.host}:${String(options.port)}`;
+
+  try {
+    await connect({ ...options, ...CHECK_TIMEOUTS }).verify();
+
+    return {
+      message: `${server} accepted the connection and the login.`,
+      ok: true,
+    };
+  } catch (error) {
+    const answer =
+      error instanceof Error && error.message ? error.message : "No answer.";
+
+    return {
+      message: `Could not connect and log in to ${server}: ${answer.replaceAll(options.auth.pass, "[password]")}`,
+      ok: false,
+    };
+  }
 }
 
 /**

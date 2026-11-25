@@ -8,6 +8,7 @@ import {
   recheckEmailDomain,
 } from "@/lib/email-status";
 import { sendTestEmail } from "@/lib/email-test";
+import { checkSmtpConnection, resolveEmailDriver } from "@/lib/services/email";
 import { recordAdminActivity } from "@/lib/services/admin-activity";
 import { logRouteError } from "@/lib/security/logging";
 import {
@@ -20,7 +21,7 @@ import { getClientIpAddress, getRequestPathname } from "@/lib/security/request";
 // and the steps an administrator can take from the app when it does not.
 
 const actionSchema = z.object({
-  action: z.enum(["add_domain", "recheck", "send_test"]),
+  action: z.enum(["add_domain", "check_connection", "recheck", "send_test"]),
 });
 
 function failure(request: Request, error: unknown, userId: string) {
@@ -89,6 +90,22 @@ export async function POST(request: Request) {
       return NextResponse.json(
         { status: await getEmailStatus(), test: result },
         { status: result.sent ? 200 : 502 },
+      );
+    }
+
+    if (parsed.data.action === "check_connection") {
+      if (resolveEmailDriver() !== "smtp") {
+        return NextResponse.json(
+          { error: "This site does not send email over SMTP." },
+          { status: 400 },
+        );
+      }
+
+      const connection = await checkSmtpConnection();
+
+      return NextResponse.json(
+        { connection, status: await getEmailStatus() },
+        { status: connection.ok ? 200 : 502 },
       );
     }
 
