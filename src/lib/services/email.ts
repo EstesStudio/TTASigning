@@ -7,6 +7,11 @@ import { Resend } from "resend";
 
 import { getDb } from "../db/connection.ts";
 import { getSettings } from "../settings.ts";
+import {
+  readStoredSmtpSettings,
+  smtpEnvFor,
+  type StoredSmtpSettings,
+} from "../smtp-settings.ts";
 import { type EmailTemplateKind } from "../types/domain.ts";
 import { getEnv, isLocalDeployment, type EnvSource } from "../utils/env.ts";
 import { buildEmailAddresses, type EmailAddresses } from "./email-addresses.ts";
@@ -78,6 +83,8 @@ type CreateEmailServiceOptions = {
   smtpIdempotency?: SmtpIdempotencyStore;
   /** Replaced in tests, where there is no SMTP server to talk to. */
   smtpTransport?: SmtpTransport;
+  /** Replaced in tests, where there is no database to read SMTP settings from. */
+  storedSmtp?: () => Promise<StoredSmtpSettings>;
   /** Replaced in tests, so that they do not really wait. */
   wait?: (milliseconds: number) => Promise<void>;
 };
@@ -397,25 +404,42 @@ export function readSmtpSettings(env: EnvSource) {
 }
 
 /**
+ * The server to send through right now: each SMTP_* variable that is set,
+ * and what is saved under Settings, Organization for the others. Without a
+ * host, a user and a password this fails as a missing Resend key does, so
+ * the flows that check for that say email is not set up.
+ */
+export async function resolveSmtpOptions(
+  env: EnvSource = process.env,
+  storedSmtp: () => Promise<StoredSmtpSettings> = () =>
+    readStoredSmtpSettings(),
+) {
+  const smtpEnv = smtpEnvFor(env, await storedSmtp());
+
+  assertServiceConfig("email", SMTP_ENV_KEYS, smtpEnv);
+
+  return readSmtpSettings(smtpEnv);
+}
+
+/**
  * Sends through an SMTP server of the operator's own. The sender address
  * comes from RESEND_FROM_EMAIL or the install's settings, as with Resend.
+ * The server is looked up for each message, so a change saved in Settings
+ * applies to the next one.
  */
 function createSmtpEmailService(
   env: EnvSource,
   resolveAddresses: () => Promise<EmailAddresses>,
   smtpTransport?: SmtpTransport,
   idempotency: SmtpIdempotencyStore = createDatabaseIdempotencyStore(),
+  storedSmtp?: () => Promise<StoredSmtpSettings>,
 ): EmailService {
-  if (!smtpTransport) {
-    assertServiceConfig("email", SMTP_ENV_KEYS, env);
-  }
-
-  const transport =
-    smtpTransport ?? nodemailer.createTransport(readSmtpSettings(env));
-
   async function transmit(
     message: TransactionalEmailMessage,
   ): Promise<EmailDeliveryResult> {
+    const transport =
+      smtpTransport ??
+      nodemailer.createTransport(await resolveSmtpOptions(env, storedSmtp));
     const config = await resolveAddresses();
     const info = await transport.sendMail({
       attachments: message.attachments?.map((attachment) => ({
@@ -524,17 +548,39 @@ export function isEmailNotConnectedError(error: unknown): boolean {
 }
 
 /**
+ * createEmailService, refused in the same way when SMTP is chosen but no
+ * server is set up yet. A flow that must not change anything unless email
+ * can go out uses this: the SMTP server may be saved in Settings, which
+ * only a database read can tell.
+ */
+export async function createConnectedEmailService(
+  env: EnvSource = process.env,
+  storedSmtp?: () => Promise<StoredSmtpSettings>,
+): Promise<EmailService> {
+  const service = createEmailService({ env, storedSmtp });
+
+  if (resolveEmailDriver(env) === "smtp") {
+    await resolveSmtpOptions(env, storedSmtp);
+  }
+
+  return service;
+}
+
+/**
  * Whether this install has an email provider to send with. Without one,
  * a flow that would tell someone to check their inbox says that email is
  * not set up instead (issue #95).
  */
-export function canSendEmail(env: EnvSource = process.env): boolean {
+export async function canSendEmail(
+  env: EnvSource = process.env,
+  storedSmtp?: () => Promise<StoredSmtpSettings>,
+): Promise<boolean> {
   try {
-    createEmailService({ env });
+    await createConnectedEmailService(env, storedSmtp);
     return true;
   } catch {
-    // No provider key, or a driver this deployment cannot use: either way
-    // nothing would be sent.
+    // No provider key, no SMTP server, or a driver this deployment cannot
+    // use: either way nothing would be sent.
     return false;
   }
 }
@@ -565,6 +611,7 @@ export function createEmailService({
   resendClient,
   smtpIdempotency,
   smtpTransport,
+  storedSmtp,
   wait = waitFor,
 }: CreateEmailServiceOptions = {}): EmailService {
   if (!resendClient && resolveEmailDriver(env) === "capture") {
@@ -577,6 +624,7 @@ export function createEmailService({
       resolveAddresses,
       smtpTransport,
       smtpIdempotency,
+      storedSmtp,
     );
   }
 

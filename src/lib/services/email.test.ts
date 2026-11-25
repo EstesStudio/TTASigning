@@ -4,12 +4,19 @@ import { test } from "node:test";
 import type { Resend } from "resend";
 
 import {
+  applySmtpSettingsUpdate,
+  NO_STORED_SMTP_SETTINGS,
+} from "../smtp-settings.ts";
+import {
   canSendEmail,
+  createConnectedEmailService,
   createEmailService,
   createLazyEmailService,
   type EmailService,
+  isEmailNotConnectedError,
   readSmtpSettings,
   resolveEmailDriver,
+  resolveSmtpOptions,
   type SmtpIdempotencyStore,
   type SmtpTransport,
 } from "./email.ts";
@@ -167,19 +174,19 @@ test("a lazy email service with no provider fails the send, not its creation (is
   await assert.rejects(service.send(MESSAGE), /RESEND_API_KEY/);
 });
 
-test("signup knows when there is no email provider to send with (issue #95)", () => {
-  assert.equal(canSendEmail({ NODE_ENV: "production" }), false);
+test("signup knows when there is no email provider to send with (issue #95)", async () => {
+  assert.equal(await canSendEmail({ NODE_ENV: "production" }), false);
   assert.equal(
-    canSendEmail({ NODE_ENV: "production", RESEND_API_KEY: "re_test" }),
+    await canSendEmail({ NODE_ENV: "production", RESEND_API_KEY: "re_test" }),
     true,
   );
   assert.equal(
-    canSendEmail({ EMAIL_DRIVER: "capture", NODE_ENV: "development" }),
+    await canSendEmail({ EMAIL_DRIVER: "capture", NODE_ENV: "development" }),
     true,
   );
   // The capture driver drops mail, so a real site cannot count on it.
   assert.equal(
-    canSendEmail({
+    await canSendEmail({
       APP_URL: "https://sign.example.com",
       EMAIL_DRIVER: "capture",
       NODE_ENV: "production",
@@ -194,26 +201,66 @@ test("EMAIL_DRIVER=smtp is a driver of its own", () => {
   assert.throws(() => resolveEmailDriver({ EMAIL_DRIVER: "sendmail" }), /smtp/);
 });
 
-test("the SMTP driver needs a host, a user and a password", () => {
+test("the SMTP driver needs a host, a user and a password", async () => {
   const smtp = { EMAIL_DRIVER: "smtp", NODE_ENV: "production" };
+  const nothingSaved = async () => NO_STORED_SMTP_SETTINGS;
 
-  assert.equal(canSendEmail(smtp), false);
+  assert.equal(await canSendEmail(smtp, nothingSaved), false);
   assert.equal(
-    canSendEmail({
-      ...smtp,
-      SMTP_HOST: "smtp.example.test",
-      SMTP_USER: "sign@example.test",
-    }),
+    await canSendEmail(
+      {
+        ...smtp,
+        SMTP_HOST: "smtp.example.test",
+        SMTP_USER: "sign@example.test",
+      },
+      nothingSaved,
+    ),
     false,
   );
   assert.equal(
-    canSendEmail({
-      ...smtp,
-      SMTP_HOST: "smtp.example.test",
-      SMTP_PASSWORD: "secret",
-      SMTP_USER: "sign@example.test",
-    }),
+    await canSendEmail(
+      {
+        ...smtp,
+        SMTP_HOST: "smtp.example.test",
+        SMTP_PASSWORD: "secret",
+        SMTP_USER: "sign@example.test",
+      },
+      nothingSaved,
+    ),
     true,
+  );
+});
+
+test("an SMTP server saved in Settings is used where the environment sets none", async () => {
+  const env = { BETTER_AUTH_SECRET: "a".repeat(64), EMAIL_DRIVER: "smtp" };
+  const { next: saved } = applySmtpSettingsUpdate(
+    NO_STORED_SMTP_SETTINGS,
+    { host: "smtp.example.test", password: "saved-secret", port: 587 },
+    env,
+  );
+
+  // Saved without a user: still not enough to send.
+  assert.equal(await canSendEmail(env, async () => saved), false);
+  await assert.rejects(
+    createConnectedEmailService(env, async () => saved),
+    (error: unknown) => isEmailNotConnectedError(error),
+  );
+
+  const withUser = { ...saved, user: "sign@example.test" };
+
+  assert.equal(await canSendEmail(env, async () => withUser), true);
+  assert.deepEqual(
+    await resolveSmtpOptions(
+      { ...env, SMTP_USER: "env@example.test" },
+      async () => withUser,
+    ),
+    {
+      auth: { pass: "saved-secret", user: "env@example.test" },
+      host: "smtp.example.test",
+      port: 587,
+      requireTLS: true,
+      secure: false,
+    },
   );
 });
 
