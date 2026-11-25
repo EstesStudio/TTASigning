@@ -159,6 +159,22 @@ test("a saved password is only sent to the server it was saved for", () => {
     SmtpSettingsError,
   );
 
+  for (const change of [{ host: null }, { port: 2525 }, { secure: true }]) {
+    assert.throws(
+      () => applySmtpSettingsUpdate(stored, change, env),
+      SmtpSettingsError,
+    );
+  }
+
+  assert.throws(
+    () =>
+      parseSmtpSettingsUpdate(
+        { host: "smtp.elsewhere.test", password: "" },
+        env,
+      ),
+    SmtpSettingsError,
+  );
+
   const moved = applySmtpSettingsUpdate(
     stored,
     { host: "smtp.elsewhere.test", password: "hunter2-smtp" },
