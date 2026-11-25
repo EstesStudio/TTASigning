@@ -128,6 +128,19 @@ function isSetInEnv(env: EnvSource, field: SmtpField): boolean {
 }
 
 /**
+ * Whether a field can only come from the environment. It is, when its own
+ * variable is set, and for the server, port, encryption and user name also
+ * when SMTP_PASSWORD is: a password from the environment is only ever sent
+ * to a server the environment names, never to one saved in the app.
+ */
+function isLockedByEnv(env: EnvSource, field: SmtpField): boolean {
+  return (
+    isSetInEnv(env, field) ||
+    (field !== "password" && isSetInEnv(env, "password"))
+  );
+}
+
+/**
  * The SMTP_* values to send with: each variable that is set in the
  * environment, and the saved value for every other one. A saved password
  * that can no longer be read is left out, so the install counts as not set
@@ -149,7 +162,11 @@ export function smtpEnvFor(
   for (const field of SMTP_FIELDS) {
     const variable = SMTP_VARIABLES[field];
 
-    merged[variable] = isSetInEnv(env, field) ? env[variable] : saved[field];
+    merged[variable] = isSetInEnv(env, field)
+      ? env[variable]
+      : isLockedByEnv(env, field)
+        ? undefined
+        : saved[field];
   }
 
   return merged;
@@ -165,7 +182,7 @@ export function toSmtpSettingsView(
 
   return {
     fromEnv: Object.fromEntries(
-      SMTP_FIELDS.map((field) => [field, isSetInEnv(env, field)]),
+      SMTP_FIELDS.map((field) => [field, isLockedByEnv(env, field)]),
     ) as Record<SmtpField, boolean>,
     host: readEnv(merged, "SMTP_HOST") ?? null,
     password:
@@ -246,7 +263,7 @@ export function parseSmtpSettingsUpdate(
       ? Object.fromEntries(
           Object.entries(rawInput).filter(
             ([key]) =>
-              !(key in SMTP_VARIABLES && isSetInEnv(env, key as SmtpField)),
+              !(key in SMTP_VARIABLES && isLockedByEnv(env, key as SmtpField)),
           ),
         )
       : rawInput;
@@ -289,6 +306,22 @@ export function applySmtpSettingsUpdate(
   const passwordChanged =
     update.password !== undefined &&
     update.password !== openPassword(stored, env);
+  const destinationChanged = (["host", "port", "secure", "user"] as const).some(
+    (field) => update[field] !== undefined && update[field] !== stored[field],
+  );
+
+  // A saved password is only sent to the server it was saved for. Without
+  // this, an administrator could point the saved login at a server of their
+  // own and read it from "Check connection".
+  if (
+    destinationChanged &&
+    stored.sealedPassword &&
+    update.password === undefined
+  ) {
+    throw new SmtpSettingsError({
+      password: "Enter the password again for the new server or user name",
+    });
+  }
   const next: StoredSmtpSettings = {
     host: update.host === undefined ? stored.host : update.host,
     port: update.port === undefined ? stored.port : update.port,

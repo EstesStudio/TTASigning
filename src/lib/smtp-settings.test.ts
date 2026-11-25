@@ -74,21 +74,18 @@ test("after BETTER_AUTH_SECRET changes, the saved password has to be entered aga
 });
 
 test("the page shows which fields the environment sets", () => {
-  const view = toSmtpSettingsView(
-    { ...env, SMTP_PASSWORD: "from-env", SMTP_SECURE: "true" },
-    saved(),
-  );
+  const view = toSmtpSettingsView({ ...env, SMTP_SECURE: "true" }, saved());
 
   assert.deepEqual(view.fromEnv, {
     host: false,
-    password: true,
+    password: false,
     port: false,
     secure: true,
     user: false,
   });
   assert.equal(view.secure, true);
   assert.equal(view.password, "saved");
-  assert.ok(!JSON.stringify(view).includes("from-env"));
+  assert.ok(!JSON.stringify(view).includes("hunter2-smtp"));
 });
 
 test("a change to a field the environment sets is ignored", () => {
@@ -147,3 +144,50 @@ function pickSmtp(source: Readonly<Record<string, string | undefined>>) {
     SMTP_USER: source.SMTP_USER,
   };
 }
+
+test("a saved password is only sent to the server it was saved for", () => {
+  const stored = saved();
+
+  assert.throws(
+    () => applySmtpSettingsUpdate(stored, { host: "smtp.elsewhere.test" }, env),
+    (error: unknown) =>
+      error instanceof SmtpSettingsError &&
+      typeof error.fieldErrors.password === "string",
+  );
+  assert.throws(
+    () => applySmtpSettingsUpdate(stored, { user: "other@acme.com" }, env),
+    SmtpSettingsError,
+  );
+
+  const moved = applySmtpSettingsUpdate(
+    stored,
+    { host: "smtp.elsewhere.test", password: "hunter2-smtp" },
+    env,
+  ).next;
+
+  assert.equal(smtpEnvFor(env, moved).SMTP_HOST, "smtp.elsewhere.test");
+});
+
+test("a password from the environment is never sent to a server saved in the app", () => {
+  const stored = saved();
+  const withEnvPassword = { ...env, SMTP_PASSWORD: "from-the-environment" };
+  const merged = smtpEnvFor(withEnvPassword, stored);
+
+  assert.equal(merged.SMTP_PASSWORD, "from-the-environment");
+  assert.equal(merged.SMTP_HOST, undefined);
+  assert.equal(merged.SMTP_USER, undefined);
+  assert.deepEqual(toSmtpSettingsView(withEnvPassword, stored).fromEnv, {
+    host: true,
+    password: true,
+    port: true,
+    secure: true,
+    user: true,
+  });
+  assert.deepEqual(
+    parseSmtpSettingsUpdate(
+      { host: "smtp.elsewhere.test", user: "x@acme.com" },
+      withEnvPassword,
+    ),
+    {},
+  );
+});

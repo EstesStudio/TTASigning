@@ -382,6 +382,7 @@ SMTP_PASSWORD=...
 
 - Mail is sent from `RESEND_FROM_EMAIL` when it is set (despite the name, it is used by both drivers), and otherwise from the address set under Settings, Organization. It must be an address your SMTP server is allowed to send as.
 - Each `SMTP_*` variable that is set wins over what is entered in Settings, and the page shows that field without letting it be changed. A password entered there is stored encrypted with a key derived from `BETTER_AUTH_SECRET` and is never shown again. If you change `BETTER_AUTH_SECRET`, enter the SMTP password again.
+- A saved password is only sent to the server it was saved for: changing the server, port, encryption or user name in Settings asks for the password again. When `SMTP_PASSWORD` is set in the environment, the server, port, encryption and user name come from the environment too, and cannot be entered in Settings.
 - There is no domain to add or verify in the app. "Check connection" under Settings, Organization connects and logs in without sending anything, and shows the server's answer. Email counts as working once "Send me a test email" gets through, and saving a different server or password asks for a new test. SPF, DKIM and DMARC for the sender's domain are set up with your mail host.
 - Without TLS from the start, the connection must upgrade with STARTTLS before the password is sent; a server that does not offer it is refused.
 - Messages are sent one by one, and attachments go with them as they do with Resend.
