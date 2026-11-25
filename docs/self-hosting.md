@@ -12,6 +12,7 @@ Everything about running your own SignuDoc: deploying it, setting it up, what it
 - [Bot protection](#bot-protection)
 - [Hosted mode](#hosted-mode)
 - [Self-hosting somewhere else](#self-hosting-somewhere-else)
+- [Email over SMTP](#email-over-smtp)
 
 ## Deploy to Vercel
 
@@ -355,7 +356,7 @@ Away from Vercel, a few things Vercel does for you are yours to set:
 - `DATABASE_URL`, pointing at your Postgres. Run `npm run db:migrate` on every deploy; it only applies what is new.
 - `APP_URL`, the site's public HTTPS address.
 - `BETTER_AUTH_SECRET`, at least 32 characters (`openssl rand -hex 32`). Without it a secret is derived from the database password, which must then be at least 12 characters long.
-- `RESEND_API_KEY`, from your Resend account.
+- `RESEND_API_KEY`, from your Resend account, or an SMTP server of your own (see [Email over SMTP](#email-over-smtp)).
 - Files are kept on the machine's disk under `.data/storage` (`STORAGE_LOCAL_DIR` changes where), so that disk must survive restarts. To use a Vercel Blob store from elsewhere, set `BLOB_READ_WRITE_TOKEN`.
 - Leave `EMAIL_DRIVER` unset. The capture driver is for development only.
 
@@ -365,3 +366,24 @@ Self-hosted operators are responsible for:
 - keeping the support address pointed at a mailbox someone reads, and verifying a sending domain for email;
 - configuring retention, consent, and compliance requirements for their own deployment; and
 - scheduling the [daily cleanup](#daily-cleanup) if they are not on Vercel, where it is scheduled for them.
+
+## Email over SMTP
+
+Away from Vercel, SignuDoc can send through any SMTP server (your mail host, or a relay such as Postmark, Mailgun or Amazon SES) instead of Resend. Set `EMAIL_DRIVER=smtp`, then enter the server under Settings, Organization, Email setup, or set it in the environment:
+
+```bash
+EMAIL_DRIVER=smtp
+SMTP_HOST=smtp.example.com
+SMTP_PORT=465            # the default; 587 and others must offer STARTTLS
+SMTP_USER=sign@example.com
+SMTP_PASSWORD=...
+# SMTP_SECURE=true|false overrides the TLS choice made from the port
+```
+
+- Mail is sent from `RESEND_FROM_EMAIL` when it is set (despite the name, it is used by both drivers), and otherwise from the address set under Settings, Organization. It must be an address your SMTP server is allowed to send as.
+- Each `SMTP_*` variable that is set wins over what is entered in Settings, and the page shows that field without letting it be changed. A password entered there is stored encrypted with a key derived from `BETTER_AUTH_SECRET` and is never shown again. If you change `BETTER_AUTH_SECRET`, enter the SMTP password again.
+- A saved password is only sent to the server it was saved for: changing the server, port, encryption or user name in Settings asks for the password again. When `SMTP_PASSWORD` is set in the environment, the server, port, encryption and user name come from the environment too, and cannot be entered in Settings.
+- There is no domain to add or verify in the app. "Check connection" under Settings, Organization connects and logs in without sending anything, and shows the server's answer. Email counts as working once "Send me a test email" gets through, and saving a different server or password, or changing an `SMTP_*` variable, asks for a new test. SPF, DKIM and DMARC for the sender's domain are set up with your mail host.
+- Without TLS from the start, the connection must upgrade with STARTTLS before the password is sent; a server that does not offer it is refused.
+- Messages are sent one by one, and attachments go with them as they do with Resend.
+- Resend refuses a repeated send with the same idempotency key for 24 hours. SMTP servers do not, so SignuDoc keeps the keys of SMTP sends in the `email_idempotency_keys` table for 24 hours instead: a notice whose follow-up database write failed is not sent twice. A send interrupted halfway (the app stopped while talking to the server) is sent again by the next attempt after 10 minutes, so a message is never lost, at the cost of a rare duplicate.

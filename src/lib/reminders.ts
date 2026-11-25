@@ -24,6 +24,7 @@ import {
   recordEmailSent,
 } from "./services/audit.ts";
 import {
+  createConnectedEmailService,
   createEmailService,
   EMAIL_NOT_CONNECTED_MESSAGE,
   isEmailNotConnectedError,
@@ -700,7 +701,7 @@ export async function sendManualEnvelopeNudge(
   let service: EmailService;
 
   try {
-    service = emailService ?? createEmailService();
+    service = emailService ?? (await createConnectedEmailService());
   } catch (error) {
     if (isEmailNotConnectedError(error)) {
       throw new ReminderMutationError(EMAIL_NOT_CONNECTED_MESSAGE, 503);

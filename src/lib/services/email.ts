@@ -2,12 +2,23 @@ import { createHash, randomUUID } from "node:crypto";
 import { mkdir, rename, writeFile } from "node:fs/promises";
 import path from "node:path";
 
+import nodemailer, { type Transporter } from "nodemailer";
 import { Resend } from "resend";
 
+import { getDb } from "../db/connection.ts";
 import { getSettings } from "../settings.ts";
+import {
+  readStoredSmtpSettings,
+  smtpEnvFor,
+  type StoredSmtpSettings,
+} from "../smtp-settings.ts";
 import { type EmailTemplateKind } from "../types/domain.ts";
 import { getEnv, isLocalDeployment, type EnvSource } from "../utils/env.ts";
-import { buildEmailAddresses, type EmailAddresses } from "./email-addresses.ts";
+import {
+  buildEmailAddresses,
+  isResendTestSender,
+  type EmailAddresses,
+} from "./email-addresses.ts";
 import { CAPTURED_MESSAGE_ID_PREFIX } from "./captured-email.ts";
 import {
   assertServiceConfig,
@@ -22,7 +33,7 @@ const EMAIL_ENV_KEYS = ["RESEND_API_KEY"] as const;
 const DEFAULT_CAPTURE_DIR = ".data/outbox";
 const DEFAULT_CAPTURE_SENDER_ADDRESS = "dev@signudoc.localhost";
 
-export type EmailDriver = "capture" | "resend";
+export type EmailDriver = "capture" | "resend" | "smtp";
 
 export type EmailAttachment = {
   content: Uint8Array;
@@ -72,6 +83,12 @@ type CreateEmailServiceOptions = {
   /** Replaced in tests, where there is no database to read settings from. */
   resolveAddresses?: () => Promise<EmailAddresses>;
   resendClient?: Resend;
+  /** Replaced in tests, where there is no database to keep keys in. */
+  smtpIdempotency?: SmtpIdempotencyStore;
+  /** Replaced in tests, where there is no SMTP server to talk to. */
+  smtpTransport?: SmtpTransport;
+  /** Replaced in tests, where there is no database to read SMTP settings from. */
+  storedSmtp?: () => Promise<StoredSmtpSettings>;
   /** Replaced in tests, so that they do not really wait. */
   wait?: (milliseconds: number) => Promise<void>;
 };
@@ -193,12 +210,16 @@ export function resolveEmailDriver(env: EnvSource = process.env): EmailDriver {
     return "resend";
   }
 
-  if (configuredDriver === "capture" || configuredDriver === "resend") {
+  if (
+    configuredDriver === "capture" ||
+    configuredDriver === "resend" ||
+    configuredDriver === "smtp"
+  ) {
     return configuredDriver;
   }
 
   throw new Error(
-    `Unknown EMAIL_DRIVER "${configuredDriver}". Use "resend" or "capture".`,
+    `Unknown EMAIL_DRIVER "${configuredDriver}". Use "resend", "smtp" or "capture".`,
   );
 }
 
@@ -289,6 +310,319 @@ function createCaptureEmailService(
   };
 }
 
+/** What the SMTP driver cannot send without. */
+export const SMTP_ENV_KEYS = [
+  "SMTP_HOST",
+  "SMTP_USER",
+  "SMTP_PASSWORD",
+] as const;
+
+/** The part of a nodemailer transport used here. Replaced by a fake in tests. */
+export type SmtpTransport = Pick<Transporter, "sendMail">;
+
+/**
+ * Where the SMTP driver remembers idempotency keys, since SMTP servers do
+ * not (Resend keeps them for 24 hours). claim answers "claimed" when this
+ * send should go out, "sent" when the key was already delivered, and
+ * "in_flight" when another attempt may still be sending it. complete marks a
+ * delivered key; release gives a key back after a send that failed.
+ */
+export type SmtpIdempotencyStore = {
+  claim(key: string): Promise<"claimed" | "in_flight" | "sent">;
+  complete(key: string): Promise<void>;
+  release(key: string): Promise<void>;
+};
+
+const IDEMPOTENCY_WINDOW = "24 hours";
+/** After this, a key still marked as sending belongs to an interrupted attempt. */
+const SENDING_LEASE = "10 minutes";
+
+function createDatabaseIdempotencyStore(): SmtpIdempotencyStore {
+  return {
+    async claim(key) {
+      const db = getDb();
+
+      await db.query(
+        `DELETE FROM email_idempotency_keys WHERE claimed_at < now() - interval '${IDEMPOTENCY_WINDOW}'`,
+      );
+      // A new key, or one left 'sending' by an attempt that was interrupted.
+      const claimed = await db.query(
+        `INSERT INTO email_idempotency_keys (key) VALUES ($1)
+         ON CONFLICT (key) DO UPDATE SET claimed_at = now()
+         WHERE email_idempotency_keys.state = 'sending'
+           AND email_idempotency_keys.claimed_at < now() - interval '${SENDING_LEASE}'`,
+        [key],
+      );
+
+      if (claimed.rowCount === 1) {
+        return "claimed";
+      }
+
+      const existing = await db.query<{ state: string }>(
+        `SELECT state FROM email_idempotency_keys WHERE key = $1`,
+        [key],
+      );
+
+      return existing.rows[0]?.state === "sent" ? "sent" : "in_flight";
+    },
+    async complete(key) {
+      await getDb().query(
+        `UPDATE email_idempotency_keys SET state = 'sent' WHERE key = $1`,
+        [key],
+      );
+    },
+    async release(key) {
+      await getDb().query(`DELETE FROM email_idempotency_keys WHERE key = $1`, [
+        key,
+      ]);
+    },
+  };
+}
+
+function addressList(addresses: readonly unknown[] | undefined): string[] {
+  return (addresses ?? []).map((address) =>
+    typeof address === "string"
+      ? address
+      : String((address as { address?: unknown }).address ?? address),
+  );
+}
+
+/**
+ * Settings for EMAIL_DRIVER=smtp. SMTP_PORT is 465 unless set. Port 465
+ * uses TLS from the start; any other port has to upgrade with STARTTLS.
+ * SMTP_SECURE=true or false overrides that choice.
+ */
+export function readSmtpSettings(env: EnvSource) {
+  const port = Number(env.SMTP_PORT?.trim() || "465");
+
+  if (!Number.isInteger(port) || port < 1 || port > 65535) {
+    throw new Error(`SMTP_PORT "${env.SMTP_PORT ?? ""}" is not a port number.`);
+  }
+
+  const secureSetting = env.SMTP_SECURE?.trim().toLowerCase();
+  const secure = secureSetting ? secureSetting === "true" : port === 465;
+
+  return {
+    auth: { pass: env.SMTP_PASSWORD ?? "", user: env.SMTP_USER?.trim() ?? "" },
+    host: env.SMTP_HOST?.trim() ?? "",
+    port,
+    // Without implicit TLS, refuse to send the password in the clear.
+    requireTLS: !secure,
+    secure,
+  };
+}
+
+/**
+ * The server to send through right now: each SMTP_* variable that is set,
+ * and what is saved under Settings, Organization for the others. Without a
+ * host, a user and a password this fails as a missing Resend key does, so
+ * the flows that check for that say email is not set up.
+ */
+export async function resolveSmtpOptions(
+  env: EnvSource = process.env,
+  storedSmtp: () => Promise<StoredSmtpSettings> = () =>
+    readStoredSmtpSettings(),
+) {
+  const smtpEnv = smtpEnvFor(env, await storedSmtp());
+
+  assertServiceConfig("email", SMTP_ENV_KEYS, smtpEnv);
+
+  return readSmtpSettings(smtpEnv);
+}
+
+/** What a connection check tells the administrator. */
+export type SmtpConnectionCheck = { message: string; ok: boolean };
+
+/** The part of a nodemailer transport a connection check uses. */
+export type SmtpVerifier = Pick<Transporter, "close" | "verify">;
+
+// A check runs while the administrator waits, so a server that does not
+// answer is given up on long before nodemailer's own two minutes. These
+// limits apply to each step; the deadline applies to the whole check.
+const CHECK_TIMEOUTS = {
+  connectionTimeout: 10_000,
+  greetingTimeout: 10_000,
+  socketTimeout: 15_000,
+};
+
+const CHECK_DEADLINE_MS = 10_000;
+
+/**
+ * Connects to the SMTP server and logs in without sending anything, so an
+ * administrator hears about a wrong host or login before a signer misses an
+ * email. A failure comes back with the server's own words, without the
+ * password. Only a test email that gets through marks email as working:
+ * a server can accept the login and still refuse the sender address.
+ *
+ * The administrator gets an answer within ten seconds. Closing the
+ * transport does not stop a check nodemailer has started, so a connection
+ * still open then ends at the socket limit above.
+ */
+export async function checkSmtpConnection({
+  connect = (options) => nodemailer.createTransport(options),
+  deadlineMs = CHECK_DEADLINE_MS,
+  env = process.env,
+  storedSmtp,
+}: {
+  /** Replaced in tests, where there is no SMTP server to talk to. */
+  connect?: (
+    options: ReturnType<typeof readSmtpSettings> & typeof CHECK_TIMEOUTS,
+  ) => SmtpVerifier;
+  /** Shortened in tests. */
+  deadlineMs?: number;
+  env?: EnvSource;
+  storedSmtp?: () => Promise<StoredSmtpSettings>;
+} = {}): Promise<SmtpConnectionCheck> {
+  let options: ReturnType<typeof readSmtpSettings>;
+
+  try {
+    options = await resolveSmtpOptions(env, storedSmtp);
+  } catch (error) {
+    return {
+      message: isEmailNotConnectedError(error)
+        ? "Enter the SMTP server, user name and password first."
+        : error instanceof Error
+          ? error.message
+          : "The SMTP settings could not be read.",
+      ok: false,
+    };
+  }
+
+  const server = `${options.host}:${String(options.port)}`;
+  const transport = connect({ ...options, ...CHECK_TIMEOUTS });
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  const deadline = new Promise<"timed_out">((resolve) => {
+    timer = setTimeout(resolve, deadlineMs, "timed_out");
+  });
+
+  try {
+    if ((await Promise.race([transport.verify(), deadline])) === "timed_out") {
+      return {
+        message: `${server} did not finish the check within ${String(deadlineMs / 1000)} seconds.`,
+        ok: false,
+      };
+    }
+
+    return {
+      message: `${server} accepted the connection and the login.`,
+      ok: true,
+    };
+  } catch (error) {
+    const answer =
+      error instanceof Error && error.message ? error.message : "No answer.";
+
+    return {
+      message: `Could not connect and log in to ${server}: ${answer.replaceAll(options.auth.pass, "[password]")}`,
+      ok: false,
+    };
+  } finally {
+    clearTimeout(timer);
+    transport.close();
+  }
+}
+
+/**
+ * Sends through an SMTP server of the operator's own. The sender address
+ * comes from RESEND_FROM_EMAIL or the install's settings, as with Resend.
+ * The server is looked up for each message, so a change saved in Settings
+ * applies to the next one.
+ */
+function createSmtpEmailService(
+  env: EnvSource,
+  resolveAddresses: () => Promise<EmailAddresses>,
+  smtpTransport?: SmtpTransport,
+  idempotency: SmtpIdempotencyStore = createDatabaseIdempotencyStore(),
+  storedSmtp?: () => Promise<StoredSmtpSettings>,
+): EmailService {
+  async function transmit(
+    message: TransactionalEmailMessage,
+  ): Promise<EmailDeliveryResult> {
+    const transport =
+      smtpTransport ??
+      nodemailer.createTransport(await resolveSmtpOptions(env, storedSmtp));
+    const config = await resolveAddresses();
+
+    assertSmtpSender(config);
+    const info = await transport.sendMail({
+      attachments: message.attachments?.map((attachment) => ({
+        content: Buffer.from(attachment.content),
+        contentType: attachment.contentType,
+        filename: attachment.filename,
+      })),
+      from: config.senderAddress,
+      html: message.htmlBody,
+      replyTo: message.replyTo ?? config.supportAddress ?? undefined,
+      subject: message.subject,
+      text: message.textBody,
+      to: message.to,
+    });
+
+    return {
+      accepted: addressList(info.accepted),
+      messageId: info.messageId,
+      rejected: addressList(info.rejected),
+    };
+  }
+
+  async function deliver(
+    message: TransactionalEmailMessage,
+    idempotencyKey?: string,
+  ): Promise<EmailDeliveryResult> {
+    if (!idempotencyKey) {
+      return transmit(message);
+    }
+
+    const claim = await idempotency.claim(idempotencyKey);
+
+    if (claim === "sent") {
+      // Already delivered under this key: answer as Resend does, without sending.
+      return { accepted: [message.to], rejected: [] };
+    }
+
+    if (claim === "in_flight") {
+      // Another attempt may still be sending it. Failing lets the caller try
+      // again later, rather than count a message that may never go out.
+      throw new Error(
+        `An email with idempotency key "${idempotencyKey}" is already being sent. Try again later.`,
+      );
+    }
+
+    let result: EmailDeliveryResult;
+
+    try {
+      result = await transmit(message);
+    } catch (error) {
+      await idempotency.release(idempotencyKey);
+      throw error;
+    }
+
+    await idempotency.complete(idempotencyKey);
+    return result;
+  }
+
+  return {
+    send: (message, options) => deliver(message, options?.idempotencyKey),
+    // SMTP has no batch call: messages go one after another, each with its
+    // own key derived from the batch's.
+    async sendBatch(messages, options) {
+      const results: EmailDeliveryResult[] = [];
+
+      for (const [index, message] of messages.entries()) {
+        results.push(
+          await deliver(
+            message,
+            options?.idempotencyKey
+              ? `${options.idempotencyKey}/${String(index)}`
+              : undefined,
+          ),
+        );
+      }
+
+      return results;
+    },
+  };
+}
+
 /** The addresses this install sends from, as configured right now. */
 export async function resolveEmailAddresses(
   env: EnvSource = process.env,
@@ -298,6 +632,19 @@ export async function resolveEmailAddresses(
   return resolveEmailDriver(env) === "capture"
     ? buildEmailAddresses(settings, DEFAULT_CAPTURE_SENDER_ADDRESS)
     : buildEmailAddresses(settings);
+}
+
+/**
+ * Fails as an unconnected email service when SMTP would send from Resend's
+ * test address: no address is set under Settings, Organization or in
+ * RESEND_FROM_EMAIL, and an SMTP server only sends as addresses it allows.
+ */
+function assertSmtpSender(addresses: EmailAddresses): void {
+  if (isResendTestSender(addresses.senderAddress)) {
+    throw new ServiceConfigurationError("email", [
+      "RESEND_FROM_EMAIL or a sender address under Settings, Organization",
+    ]);
+  }
 }
 
 /** What a sender is told when an action needs email and none is connected. */
@@ -316,17 +663,43 @@ export function isEmailNotConnectedError(error: unknown): boolean {
 }
 
 /**
+ * createEmailService, refused in the same way when SMTP is chosen but no
+ * server is set up yet. A flow that must not change anything unless email
+ * can go out uses this: the SMTP server may be saved in Settings, which
+ * only a database read can tell.
+ */
+export async function createConnectedEmailService(
+  env: EnvSource = process.env,
+  storedSmtp?: () => Promise<StoredSmtpSettings>,
+  resolveAddresses: () => Promise<EmailAddresses> = () =>
+    resolveEmailAddresses(env),
+): Promise<EmailService> {
+  const service = createEmailService({ env, resolveAddresses, storedSmtp });
+
+  if (resolveEmailDriver(env) === "smtp") {
+    await resolveSmtpOptions(env, storedSmtp);
+    assertSmtpSender(await resolveAddresses());
+  }
+
+  return service;
+}
+
+/**
  * Whether this install has an email provider to send with. Without one,
  * a flow that would tell someone to check their inbox says that email is
  * not set up instead (issue #95).
  */
-export function canSendEmail(env: EnvSource = process.env): boolean {
+export async function canSendEmail(
+  env: EnvSource = process.env,
+  storedSmtp?: () => Promise<StoredSmtpSettings>,
+  resolveAddresses?: () => Promise<EmailAddresses>,
+): Promise<boolean> {
   try {
-    createEmailService({ env });
+    await createConnectedEmailService(env, storedSmtp, resolveAddresses);
     return true;
   } catch {
-    // No provider key, or a driver this deployment cannot use: either way
-    // nothing would be sent.
+    // No provider key, no SMTP server, or a driver this deployment cannot
+    // use: either way nothing would be sent.
     return false;
   }
 }
@@ -355,10 +728,23 @@ export function createEmailService({
   env = process.env,
   resolveAddresses = () => resolveEmailAddresses(env),
   resendClient,
+  smtpIdempotency,
+  smtpTransport,
+  storedSmtp,
   wait = waitFor,
 }: CreateEmailServiceOptions = {}): EmailService {
   if (!resendClient && resolveEmailDriver(env) === "capture") {
     return createCaptureEmailService(env, resolveAddresses);
+  }
+
+  if (!resendClient && (smtpTransport || resolveEmailDriver(env) === "smtp")) {
+    return createSmtpEmailService(
+      env,
+      resolveAddresses,
+      smtpTransport,
+      smtpIdempotency,
+      storedSmtp,
+    );
   }
 
   if (!resendClient) {

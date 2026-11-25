@@ -10,6 +10,11 @@ import {
   type ResendDomainsClient,
 } from "./email-status.ts";
 import { resolveSettings, type AppSettings } from "./settings.ts";
+import {
+  applySmtpSettingsUpdate,
+  NO_STORED_SMTP_SETTINGS,
+  smtpFingerprint,
+} from "./smtp-settings.ts";
 
 const stored: AppSettings = {
   allowedEmailDomains: ["acme.com"],
@@ -566,4 +571,152 @@ test("RESEND_REGION picks a known Resend region and ignores anything else", () =
   });
   assert.deepEqual(resendRegionOption({ RESEND_REGION: "mars-1" }), {});
   assert.deepEqual(resendRegionOption({}), {});
+});
+
+test("an SMTP install reports its own state, without asking Resend", async () => {
+  const marks: boolean[] = [];
+  const recordReady = async (ready: boolean) => {
+    marks.push(ready);
+  };
+  const storedSmtp = async () => NO_STORED_SMTP_SETTINGS;
+  const smtpEnv = {
+    EMAIL_DRIVER: "smtp",
+    SMTP_HOST: "smtp.acme.com",
+    SMTP_PASSWORD: "secret",
+    SMTP_USER: "sign@acme.com",
+  };
+
+  assert.deepEqual(
+    await getEmailStatus({ env: smtpEnv, recordReady, settings, storedSmtp }),
+    {
+      configured: true,
+      host: "smtp.acme.com",
+      senderAddress: "sign@acme.com",
+      state: "smtp",
+      tested: false,
+    },
+  );
+  // A server and a sender are not proof that email works: only a test
+  // email that gets through sets the mark.
+  assert.deepEqual(marks, []);
+
+  // Once a test email has got through, the page says email works.
+  assert.deepEqual(
+    await getEmailStatus({
+      env: smtpEnv,
+      recordReady,
+      settings: resolveSettings(
+        { ...stored, emailReadyAt: 1_800_000_000 },
+        smtpEnv,
+      ),
+      smtpTestedFingerprint: async () =>
+        smtpFingerprint(smtpEnv, NO_STORED_SMTP_SETTINGS),
+      storedSmtp,
+    }),
+    {
+      configured: true,
+      host: "smtp.acme.com",
+      senderAddress: "sign@acme.com",
+      state: "smtp",
+      tested: true,
+    },
+  );
+  assert.deepEqual(marks, []);
+
+  // No sender chosen yet: Resend's shared test address is not used for SMTP.
+  assert.deepEqual(
+    await getEmailStatus({
+      env: smtpEnv,
+      recordReady,
+      settings: resolveSettings({ ...stored, senderAddress: null }, smtpEnv),
+      storedSmtp,
+    }),
+    {
+      configured: true,
+      host: "smtp.acme.com",
+      senderAddress: null,
+      state: "smtp",
+      tested: false,
+    },
+  );
+  assert.deepEqual(marks, [false]);
+});
+
+test("an SMTP install with no login yet is not ready, and says which server it has", async () => {
+  const marks: boolean[] = [];
+  const status = await getEmailStatus({
+    env: { EMAIL_DRIVER: "smtp" },
+    recordReady: async (ready) => {
+      marks.push(ready);
+    },
+    settings: resolveSettings(
+      { ...stored, emailReadyAt: 1_800_000_000 },
+      { EMAIL_DRIVER: "smtp" },
+    ),
+    storedSmtp: async () => ({
+      ...NO_STORED_SMTP_SETTINGS,
+      host: "smtp.acme.com",
+    }),
+  });
+
+  assert.deepEqual(status, {
+    configured: false,
+    host: "smtp.acme.com",
+    senderAddress: "sign@acme.com",
+    state: "smtp",
+    tested: false,
+  });
+  assert.deepEqual(marks, [false]);
+});
+
+test("an SMTP install counts as tested only with the settings the test email got through with", async () => {
+  const smtpEnv = { BETTER_AUTH_SECRET: "a".repeat(64), EMAIL_DRIVER: "smtp" };
+  const login = { password: "hunter2-smtp" };
+  const testedWith = applySmtpSettingsUpdate(
+    NO_STORED_SMTP_SETTINGS,
+    { ...login, host: "smtp.acme.com", port: 587, user: "sign@acme.com" },
+    smtpEnv,
+  ).next;
+  const testedFingerprint = smtpFingerprint(smtpEnv, testedWith);
+  const isTested = async (
+    current: typeof testedWith,
+    fingerprint: string | null,
+  ) => {
+    const status = await getEmailStatus({
+      env: smtpEnv,
+      recordReady: async () => undefined,
+      settings: resolveSettings(
+        { ...stored, emailReadyAt: 1_800_000_000 },
+        smtpEnv,
+      ),
+      smtpTestedFingerprint: async () => fingerprint,
+      storedSmtp: async () => current,
+    });
+
+    return status.state === "smtp" && status.tested;
+  };
+
+  assert.equal(await isTested(testedWith, testedFingerprint), true);
+  // A mark earned with Resend, before EMAIL_DRIVER became smtp.
+  assert.equal(await isTested(testedWith, null), false);
+
+  for (const change of [
+    { host: "mail.acme.com" },
+    { port: 465 },
+    { secure: true },
+    { user: "other@acme.com" },
+    { password: "another-password" },
+  ]) {
+    const changed = applySmtpSettingsUpdate(
+      testedWith,
+      { ...login, ...change },
+      smtpEnv,
+    ).next;
+
+    assert.equal(
+      await isTested(changed, testedFingerprint),
+      false,
+      JSON.stringify(change),
+    );
+  }
 });

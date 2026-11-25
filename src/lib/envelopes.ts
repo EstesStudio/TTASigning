@@ -81,6 +81,7 @@ import {
   recordEmailSent,
 } from "./services/audit.ts";
 import {
+  createConnectedEmailService,
   createEmailService,
   EMAIL_NOT_CONNECTED_MESSAGE,
   isEmailNotConnectedError,
@@ -524,9 +525,9 @@ export class EnvelopeMutationError extends Error {
  * so, before anything changes, instead of failing as an unexpected server
  * error (issues #53, #225).
  */
-function createEmailServiceForSending(): EmailService {
+async function createEmailServiceForSending(): Promise<EmailService> {
   try {
-    return createEmailService();
+    return await createConnectedEmailService();
   } catch (error) {
     if (isEmailNotConnectedError(error)) {
       throw new EnvelopeMutationError(EMAIL_NOT_CONNECTED_MESSAGE, 503);
@@ -3002,7 +3003,7 @@ export async function sendDraftEnvelope(
     );
   }
 
-  const emailService = createEmailServiceForSending();
+  const emailService = await createEmailServiceForSending();
   const storageService = createStorageService();
   const sourcePdfHead = await storageService.headObject(envelope.sourcePdfKey);
 

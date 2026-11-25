@@ -4,10 +4,22 @@ import { test } from "node:test";
 import type { Resend } from "resend";
 
 import {
+  applySmtpSettingsUpdate,
+  NO_STORED_SMTP_SETTINGS,
+} from "../smtp-settings.ts";
+import {
   canSendEmail,
+  checkSmtpConnection,
+  createConnectedEmailService,
   createEmailService,
   createLazyEmailService,
   type EmailService,
+  isEmailNotConnectedError,
+  readSmtpSettings,
+  resolveEmailDriver,
+  resolveSmtpOptions,
+  type SmtpIdempotencyStore,
+  type SmtpTransport,
 } from "./email.ts";
 
 // What the Resend client is asked to do when the service turns a request
@@ -163,23 +175,394 @@ test("a lazy email service with no provider fails the send, not its creation (is
   await assert.rejects(service.send(MESSAGE), /RESEND_API_KEY/);
 });
 
-test("signup knows when there is no email provider to send with (issue #95)", () => {
-  assert.equal(canSendEmail({ NODE_ENV: "production" }), false);
+test("signup knows when there is no email provider to send with (issue #95)", async () => {
+  assert.equal(await canSendEmail({ NODE_ENV: "production" }), false);
   assert.equal(
-    canSendEmail({ NODE_ENV: "production", RESEND_API_KEY: "re_test" }),
+    await canSendEmail({ NODE_ENV: "production", RESEND_API_KEY: "re_test" }),
     true,
   );
   assert.equal(
-    canSendEmail({ EMAIL_DRIVER: "capture", NODE_ENV: "development" }),
+    await canSendEmail({ EMAIL_DRIVER: "capture", NODE_ENV: "development" }),
     true,
   );
   // The capture driver drops mail, so a real site cannot count on it.
   assert.equal(
-    canSendEmail({
+    await canSendEmail({
       APP_URL: "https://sign.example.com",
       EMAIL_DRIVER: "capture",
       NODE_ENV: "production",
     }),
     false,
+  );
+});
+
+const ownSender = async () => ({
+  senderAddress: "Acme <sign@example.test>",
+  supportAddress: null,
+});
+
+test("EMAIL_DRIVER=smtp is a driver of its own", () => {
+  assert.equal(resolveEmailDriver({ EMAIL_DRIVER: "smtp" }), "smtp");
+  assert.equal(resolveEmailDriver({ EMAIL_DRIVER: " SMTP " }), "smtp");
+  assert.throws(() => resolveEmailDriver({ EMAIL_DRIVER: "sendmail" }), /smtp/);
+});
+
+test("the SMTP driver needs a host, a user and a password", async () => {
+  const smtp = { EMAIL_DRIVER: "smtp", NODE_ENV: "production" };
+  const nothingSaved = async () => NO_STORED_SMTP_SETTINGS;
+
+  assert.equal(await canSendEmail(smtp, nothingSaved), false);
+  assert.equal(
+    await canSendEmail(
+      {
+        ...smtp,
+        SMTP_HOST: "smtp.example.test",
+        SMTP_USER: "sign@example.test",
+      },
+      nothingSaved,
+    ),
+    false,
+  );
+  assert.equal(
+    await canSendEmail(
+      {
+        ...smtp,
+        SMTP_HOST: "smtp.example.test",
+        SMTP_PASSWORD: "secret",
+        SMTP_USER: "sign@example.test",
+      },
+      nothingSaved,
+      ownSender,
+    ),
+    true,
+  );
+});
+
+test("the SMTP driver never sends from Resend's test address", async () => {
+  const env = {
+    EMAIL_DRIVER: "smtp",
+    NODE_ENV: "production",
+    SMTP_HOST: "smtp.example.test",
+    SMTP_PASSWORD: "secret",
+    SMTP_USER: "sign@example.test",
+  };
+  const noSender = async () => ({
+    senderAddress: "SignuDoc <onboarding@resend.dev>",
+    supportAddress: null,
+  });
+
+  assert.equal(
+    await canSendEmail(env, async () => NO_STORED_SMTP_SETTINGS, noSender),
+    false,
+  );
+  await assert.rejects(
+    createConnectedEmailService(
+      env,
+      async () => NO_STORED_SMTP_SETTINGS,
+      noSender,
+    ),
+    (error: unknown) => isEmailNotConnectedError(error),
+  );
+});
+
+test("an SMTP server saved in Settings is used where the environment sets none", async () => {
+  const env = { BETTER_AUTH_SECRET: "a".repeat(64), EMAIL_DRIVER: "smtp" };
+  const { next: saved } = applySmtpSettingsUpdate(
+    NO_STORED_SMTP_SETTINGS,
+    { host: "smtp.example.test", password: "saved-secret", port: 587 },
+    env,
+  );
+
+  // Saved without a user: still not enough to send.
+  assert.equal(await canSendEmail(env, async () => saved), false);
+  await assert.rejects(
+    createConnectedEmailService(env, async () => saved),
+    (error: unknown) => isEmailNotConnectedError(error),
+  );
+
+  const withUser = { ...saved, user: "sign@example.test" };
+
+  assert.equal(await canSendEmail(env, async () => withUser, ownSender), true);
+  assert.deepEqual(
+    await resolveSmtpOptions(
+      { ...env, SMTP_USER: "env@example.test" },
+      async () => withUser,
+    ),
+    {
+      auth: { pass: "saved-secret", user: "env@example.test" },
+      host: "smtp.example.test",
+      port: 587,
+      requireTLS: true,
+      secure: false,
+    },
+  );
+});
+
+test("checking the SMTP connection reports the server's answer, never the password", async () => {
+  const env = {
+    EMAIL_DRIVER: "smtp",
+    SMTP_HOST: "smtp.example.test",
+    SMTP_PASSWORD: "pa55-word",
+    SMTP_PORT: "587",
+    SMTP_USER: "sign@example.test",
+  };
+  const connected: Record<string, unknown>[] = [];
+
+  const accepted = await checkSmtpConnection({
+    connect: (options) => {
+      connected.push(options);
+      return { close: () => undefined, verify: async () => true as const };
+    },
+    env,
+    storedSmtp: async () => NO_STORED_SMTP_SETTINGS,
+  });
+
+  assert.deepEqual(accepted, {
+    message: "smtp.example.test:587 accepted the connection and the login.",
+    ok: true,
+  });
+  // A server that never answers is given up on while the admin waits.
+  assert.equal(typeof connected[0]?.connectionTimeout, "number");
+
+  const refused = await checkSmtpConnection({
+    connect: () => ({
+      close: () => undefined,
+      verify: async () => {
+        throw new Error("Invalid login: 535 Bad credentials for pa55-word");
+      },
+    }),
+    env,
+    storedSmtp: async () => NO_STORED_SMTP_SETTINGS,
+  });
+
+  assert.equal(refused.ok, false);
+  assert.match(refused.message, /smtp\.example\.test:587/);
+  assert.match(refused.message, /535 Bad credentials/);
+  assert.ok(!refused.message.includes("pa55-word"));
+
+  let tried = false;
+  const unset = await checkSmtpConnection({
+    connect: () => {
+      tried = true;
+      return { close: () => undefined, verify: async () => true as const };
+    },
+    env: { EMAIL_DRIVER: "smtp" },
+    storedSmtp: async () => NO_STORED_SMTP_SETTINGS,
+  });
+
+  assert.deepEqual(unset, {
+    message: "Enter the SMTP server, user name and password first.",
+    ok: false,
+  });
+  assert.equal(tried, false);
+});
+
+test("a server that stalls after connecting is given up on at the check's deadline", async () => {
+  let closed = false;
+  const started = Date.now();
+  const result = await checkSmtpConnection({
+    connect: () => ({
+      close: () => {
+        closed = true;
+      },
+      verify: () => new Promise<true>(() => undefined),
+    }),
+    deadlineMs: 50,
+    env: {
+      EMAIL_DRIVER: "smtp",
+      SMTP_HOST: "smtp.example.test",
+      SMTP_PASSWORD: "pa55-word",
+      SMTP_PORT: "587",
+      SMTP_USER: "sign@example.test",
+    },
+    storedSmtp: async () => NO_STORED_SMTP_SETTINGS,
+  });
+
+  assert.equal(result.ok, false);
+  assert.match(
+    result.message,
+    /smtp\.example\.test:587 did not finish the check within/,
+  );
+  assert.ok(Date.now() - started < 5_000);
+  assert.equal(closed, true);
+});
+
+test("SMTP uses TLS on port 465 and requires STARTTLS on other ports", () => {
+  const base = {
+    SMTP_HOST: " smtp.example.test ",
+    SMTP_PASSWORD: "secret",
+    SMTP_USER: "sign@example.test",
+  };
+
+  assert.deepEqual(readSmtpSettings(base), {
+    auth: { pass: "secret", user: "sign@example.test" },
+    host: "smtp.example.test",
+    port: 465,
+    requireTLS: false,
+    secure: true,
+  });
+  assert.deepEqual(
+    { ...readSmtpSettings({ ...base, SMTP_PORT: "587" }), auth: undefined },
+    {
+      auth: undefined,
+      host: "smtp.example.test",
+      port: 587,
+      requireTLS: true,
+      secure: false,
+    },
+  );
+  assert.equal(
+    readSmtpSettings({ ...base, SMTP_PORT: "2525", SMTP_SECURE: "true" })
+      .secure,
+    true,
+  );
+  assert.throws(
+    () => readSmtpSettings({ ...base, SMTP_PORT: "smtp" }),
+    /SMTP_PORT/,
+  );
+});
+
+test("the SMTP driver sends each message with the install's addresses", async () => {
+  const sent: Record<string, unknown>[] = [];
+  const transport: SmtpTransport = {
+    sendMail: (async (mail: Record<string, unknown>) => {
+      sent.push(mail);
+
+      return {
+        accepted: [mail.to],
+        messageId: `<${String(sent.length)}@example.test>`,
+        rejected: [],
+      };
+    }) as unknown as SmtpTransport["sendMail"],
+  };
+  const service = createEmailService({
+    resolveAddresses: async () => ({
+      senderAddress: "Example <hello@example.test>",
+      supportAddress: "help@example.test",
+    }),
+    smtpIdempotency: memoryIdempotency(),
+    smtpTransport: transport,
+  });
+
+  const result = await service.send({
+    ...MESSAGE,
+    attachments: [
+      {
+        content: new Uint8Array([37, 80, 68, 70]),
+        contentType: "application/pdf",
+        filename: "signed.pdf",
+      },
+    ],
+  });
+  const batch = await service.sendBatch([
+    MESSAGE,
+    { ...MESSAGE, to: "b@example.test" },
+  ]);
+
+  assert.deepEqual(result, {
+    accepted: [MESSAGE.to],
+    messageId: "<1@example.test>",
+    rejected: [],
+  });
+  assert.equal(sent[0]?.from, "Example <hello@example.test>");
+  assert.equal(sent[0]?.replyTo, "help@example.test");
+  assert.equal(sent[0]?.subject, MESSAGE.subject);
+  assert.equal(
+    (sent[0]?.attachments as { filename: string }[])[0]?.filename,
+    "signed.pdf",
+  );
+  assert.deepEqual(
+    batch.map((item) => item.accepted[0]),
+    [MESSAGE.to, "b@example.test"],
+  );
+});
+
+/** An idempotency store kept in memory, standing in for the database table. */
+function memoryIdempotency(): SmtpIdempotencyStore & {
+  keys: Map<string, "sending" | "sent">;
+} {
+  const keys = new Map<string, "sending" | "sent">();
+
+  return {
+    claim: async (key) => {
+      const state = keys.get(key);
+
+      if (state === "sent") {
+        return "sent";
+      }
+
+      if (state === "sending") {
+        return "in_flight";
+      }
+
+      keys.set(key, "sending");
+      return "claimed";
+    },
+    complete: async (key) => {
+      keys.set(key, "sent");
+    },
+    keys,
+    release: async (key) => {
+      keys.delete(key);
+    },
+  };
+}
+
+test("an SMTP send with an idempotency key already used is not sent again", async () => {
+  let sends = 0;
+  let failNext = false;
+  const transport = {
+    sendMail: (async () => {
+      if (failNext) {
+        failNext = false;
+        throw new Error("connection reset");
+      }
+
+      sends += 1;
+      return {
+        accepted: [MESSAGE.to],
+        messageId: "<x@example.test>",
+        rejected: [],
+      };
+    }) as unknown as SmtpTransport["sendMail"],
+  };
+  const idempotency = memoryIdempotency();
+  const service = createEmailService({
+    resolveAddresses: async () => ({
+      senderAddress: "hello@example.test",
+      supportAddress: null,
+    }),
+    smtpIdempotency: idempotency,
+    smtpTransport: transport,
+  });
+
+  await service.send(MESSAGE, { idempotencyKey: "expiry-notice/1" });
+  const again = await service.send(MESSAGE, {
+    idempotencyKey: "expiry-notice/1",
+  });
+
+  assert.equal(sends, 1);
+  assert.deepEqual(again, { accepted: [MESSAGE.to], rejected: [] });
+
+  // A send that fails gives its key back, so the retry goes out.
+  failNext = true;
+  await assert.rejects(
+    service.send(MESSAGE, { idempotencyKey: "expiry-notice/2" }),
+    /connection reset/,
+  );
+  await service.send(MESSAGE, { idempotencyKey: "expiry-notice/2" });
+  assert.equal(sends, 2);
+
+  // Without a key, every send goes out.
+  await service.send(MESSAGE);
+  await service.send(MESSAGE);
+  assert.equal(sends, 4);
+
+  // A batch key covers each message of the batch separately.
+  await service.sendBatch([MESSAGE, MESSAGE], { idempotencyKey: "batch/1" });
+  await service.sendBatch([MESSAGE, MESSAGE], { idempotencyKey: "batch/1" });
+  assert.equal(sends, 6);
+  assert.ok(
+    idempotency.keys.has("batch/1/0") && idempotency.keys.has("batch/1/1"),
   );
 });
