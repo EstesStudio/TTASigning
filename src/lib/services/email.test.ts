@@ -196,6 +196,11 @@ test("signup knows when there is no email provider to send with (issue #95)", as
   );
 });
 
+const ownSender = async () => ({
+  senderAddress: "Acme <sign@example.test>",
+  supportAddress: null,
+});
+
 test("EMAIL_DRIVER=smtp is a driver of its own", () => {
   assert.equal(resolveEmailDriver({ EMAIL_DRIVER: "smtp" }), "smtp");
   assert.equal(resolveEmailDriver({ EMAIL_DRIVER: " SMTP " }), "smtp");
@@ -227,8 +232,36 @@ test("the SMTP driver needs a host, a user and a password", async () => {
         SMTP_USER: "sign@example.test",
       },
       nothingSaved,
+      ownSender,
     ),
     true,
+  );
+});
+
+test("the SMTP driver never sends from Resend's test address", async () => {
+  const env = {
+    EMAIL_DRIVER: "smtp",
+    NODE_ENV: "production",
+    SMTP_HOST: "smtp.example.test",
+    SMTP_PASSWORD: "secret",
+    SMTP_USER: "sign@example.test",
+  };
+  const noSender = async () => ({
+    senderAddress: "SignuDoc <onboarding@resend.dev>",
+    supportAddress: null,
+  });
+
+  assert.equal(
+    await canSendEmail(env, async () => NO_STORED_SMTP_SETTINGS, noSender),
+    false,
+  );
+  await assert.rejects(
+    createConnectedEmailService(
+      env,
+      async () => NO_STORED_SMTP_SETTINGS,
+      noSender,
+    ),
+    (error: unknown) => isEmailNotConnectedError(error),
   );
 });
 
@@ -249,7 +282,7 @@ test("an SMTP server saved in Settings is used where the environment sets none",
 
   const withUser = { ...saved, user: "sign@example.test" };
 
-  assert.equal(await canSendEmail(env, async () => withUser), true);
+  assert.equal(await canSendEmail(env, async () => withUser, ownSender), true);
   assert.deepEqual(
     await resolveSmtpOptions(
       { ...env, SMTP_USER: "env@example.test" },

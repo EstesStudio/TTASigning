@@ -14,7 +14,11 @@ import {
 } from "../smtp-settings.ts";
 import { type EmailTemplateKind } from "../types/domain.ts";
 import { getEnv, isLocalDeployment, type EnvSource } from "../utils/env.ts";
-import { buildEmailAddresses, type EmailAddresses } from "./email-addresses.ts";
+import {
+  buildEmailAddresses,
+  isResendTestSender,
+  type EmailAddresses,
+} from "./email-addresses.ts";
 import { CAPTURED_MESSAGE_ID_PREFIX } from "./captured-email.ts";
 import {
   assertServiceConfig,
@@ -537,6 +541,8 @@ function createSmtpEmailService(
       smtpTransport ??
       nodemailer.createTransport(await resolveSmtpOptions(env, storedSmtp));
     const config = await resolveAddresses();
+
+    assertSmtpSender(config);
     const info = await transport.sendMail({
       attachments: message.attachments?.map((attachment) => ({
         content: Buffer.from(attachment.content),
@@ -628,6 +634,19 @@ export async function resolveEmailAddresses(
     : buildEmailAddresses(settings);
 }
 
+/**
+ * Fails as an unconnected email service when SMTP would send from Resend's
+ * test address: no address is set under Settings, Organization or in
+ * RESEND_FROM_EMAIL, and an SMTP server only sends as addresses it allows.
+ */
+function assertSmtpSender(addresses: EmailAddresses): void {
+  if (isResendTestSender(addresses.senderAddress)) {
+    throw new ServiceConfigurationError("email", [
+      "RESEND_FROM_EMAIL or a sender address under Settings, Organization",
+    ]);
+  }
+}
+
 /** What a sender is told when an action needs email and none is connected. */
 export const EMAIL_NOT_CONNECTED_MESSAGE =
   "Email is not set up yet, so signers can't be emailed. An administrator can finish email setup in Settings, Organization.";
@@ -652,11 +671,14 @@ export function isEmailNotConnectedError(error: unknown): boolean {
 export async function createConnectedEmailService(
   env: EnvSource = process.env,
   storedSmtp?: () => Promise<StoredSmtpSettings>,
+  resolveAddresses: () => Promise<EmailAddresses> = () =>
+    resolveEmailAddresses(env),
 ): Promise<EmailService> {
-  const service = createEmailService({ env, storedSmtp });
+  const service = createEmailService({ env, resolveAddresses, storedSmtp });
 
   if (resolveEmailDriver(env) === "smtp") {
     await resolveSmtpOptions(env, storedSmtp);
+    assertSmtpSender(await resolveAddresses());
   }
 
   return service;
@@ -670,9 +692,10 @@ export async function createConnectedEmailService(
 export async function canSendEmail(
   env: EnvSource = process.env,
   storedSmtp?: () => Promise<StoredSmtpSettings>,
+  resolveAddresses?: () => Promise<EmailAddresses>,
 ): Promise<boolean> {
   try {
-    await createConnectedEmailService(env, storedSmtp);
+    await createConnectedEmailService(env, storedSmtp, resolveAddresses);
     return true;
   } catch {
     // No provider key, no SMTP server, or a driver this deployment cannot
