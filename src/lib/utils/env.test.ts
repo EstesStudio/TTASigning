@@ -23,12 +23,16 @@ const vercelProduction = {
   VERCEL_URL: "signudoc-abc123-acme.vercel.app",
 };
 
-test("a fresh Vercel install resolves everything from what Vercel provides", () => {
-  const env = getEnv({ ...vercelProduction, DATABASE_URL: NEON_URL });
+test("a Vercel install resolves its URLs from what Vercel provides", () => {
+  const env = getEnv({
+    ...vercelProduction,
+    BETTER_AUTH_SECRET: "s".repeat(40),
+    DATABASE_URL: NEON_URL,
+  });
 
   assert.equal(env.appUrl, "https://sign.acme.com");
   assert.equal(env.auth.betterAuthUrl, "https://sign.acme.com");
-  assert.match(env.auth.betterAuthSecret ?? "", /^[0-9a-f]{64}$/);
+  assert.equal(env.auth.betterAuthSecret, "s".repeat(40));
   assert.match(env.databaseUrl ?? "", /sslmode=verify-full/);
 });
 
@@ -87,12 +91,16 @@ test("the derived secret is stable and follows the database password", () => {
   assert.equal(first, samePasswordOtherHost);
 });
 
-test("a weak database password is not used to derive a production secret", () => {
+test("production never derives a secret from the database password", () => {
   const weak = "postgres://signudoc:signudoc@db.internal:5432/signudoc";
 
-  assert.equal(
-    resolveAuthSecret({ DATABASE_URL: weak, NODE_ENV: "production" }),
-    undefined,
+  assert.throws(
+    () => resolveAuthSecret({ DATABASE_URL: weak, NODE_ENV: "production" }),
+    /BETTER_AUTH_SECRET must be set in production/,
+  );
+  assert.throws(
+    () => resolveAuthSecret({ DATABASE_URL: NEON_URL, NODE_ENV: "production" }),
+    /BETTER_AUTH_SECRET must be set in production/,
   );
   assert.match(
     resolveAuthSecret({ DATABASE_URL: weak, NODE_ENV: "development" }) ?? "",

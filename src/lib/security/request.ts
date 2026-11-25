@@ -83,11 +83,42 @@ export function getClientIpHeaderNames(env: IpEnv = process.env): string[] {
     : ["x-forwarded-for", "cf-connecting-ip", "x-real-ip"];
 }
 
+/**
+ * Number of reverse proxies the install sits behind (TRUSTED_PROXY_COUNT).
+ * When set off Vercel, the visitor's address is the entry that many places
+ * from the end of X-Forwarded-For, which only the install's own proxies
+ * wrote, and every other header is ignored. Left unset, the older
+ * best-effort reading below applies, which a visitor can fool when no
+ * proxy sits in front of the app.
+ */
+function trustedProxyCount(env: IpEnv): number {
+  const count = Number.parseInt(env.TRUSTED_PROXY_COUNT ?? "", 10);
+
+  return Number.isSafeInteger(count) && count > 0 ? count : 0;
+}
+
+function trustedProxyAddress(value: string | null, count: number) {
+  const addresses = (value ?? "")
+    .split(",")
+    .map((address) => address.trim())
+    .filter(Boolean);
+
+  // Fewer entries than proxies: the request did not pass through them all.
+  return addresses.length >= count
+    ? (addresses[addresses.length - count] ?? null)
+    : null;
+}
+
 export function getClientIpAddress(
   headers: Headers,
   env: IpEnv = process.env,
 ): string | null {
   const offVercel = env.VERCEL !== "1";
+  const proxies = offVercel ? trustedProxyCount(env) : 0;
+
+  if (proxies > 0) {
+    return trustedProxyAddress(headers.get("x-forwarded-for"), proxies);
+  }
 
   for (const name of getClientIpHeaderNames(env)) {
     const address =

@@ -228,6 +228,17 @@ export function resolveAuthSecret(
   const configuredSecret = readEnv(env, "BETTER_AUTH_SECRET");
 
   if (!configuredSecret) {
+    // In production the secret must be set on purpose. Deriving it from the
+    // database password would let a database dump unlock the 2FA secrets,
+    // the session cookies and the sealing key.
+    if (isProduction(env)) {
+      throw new Error(
+        "BETTER_AUTH_SECRET must be set in production (at least " +
+          String(MINIMUM_SECRET_LENGTH) +
+          " characters).",
+      );
+    }
+
     return deriveAuthSecret(env);
   }
 

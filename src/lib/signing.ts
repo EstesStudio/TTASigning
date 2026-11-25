@@ -942,7 +942,7 @@ function formatLocalSigningDate(
   }).format(localDateTime);
 }
 
-function parsePngDataUrl(dataUrl: string): Uint8Array {
+export function parsePngDataUrl(dataUrl: string): Uint8Array {
   const match = dataUrl
     .trim()
     .match(/^data:image\/png;base64,([a-z0-9+/=\s]+)$/i);
@@ -983,7 +983,46 @@ function parsePngDataUrl(dataUrl: string): Uint8Array {
     );
   }
 
+  assertSafePngHeader(imageBody);
+
   return new Uint8Array(imageBody);
+}
+
+const PNG_SIGNATURE = [0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a];
+const MAX_DRAWN_SIGNATURE_SIDE = 4096;
+const MAX_DRAWN_SIGNATURE_PIXELS = 4_000_000;
+
+// A small PNG can declare an enormous canvas and exhaust memory when it is
+// drawn into the finished PDF, which would stop the envelope from ever
+// completing. The size is read from the header, before anything decodes it.
+function assertSafePngHeader(bytes: Buffer): void {
+  const isPng =
+    bytes.byteLength >= 24 &&
+    PNG_SIGNATURE.every((value, index) => bytes[index] === value) &&
+    bytes.toString("ascii", 12, 16) === "IHDR";
+
+  if (!isPng) {
+    throw new SigningMutationError(
+      "Drawn signatures must be submitted as PNG images.",
+      400,
+    );
+  }
+
+  const width = bytes.readUInt32BE(16);
+  const height = bytes.readUInt32BE(20);
+
+  if (
+    width === 0 ||
+    height === 0 ||
+    width > MAX_DRAWN_SIGNATURE_SIDE ||
+    height > MAX_DRAWN_SIGNATURE_SIDE ||
+    width * height > MAX_DRAWN_SIGNATURE_PIXELS
+  ) {
+    throw new SigningMutationError(
+      "Drawn signature image dimensions are too large.",
+      400,
+    );
+  }
 }
 
 function isFieldSubmissionComplete(

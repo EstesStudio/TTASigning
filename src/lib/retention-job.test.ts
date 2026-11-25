@@ -73,3 +73,13 @@ test("with both set, either secret works", () => {
   );
   assert.equal(identifyRetentionCaller("Bearer wrong", env), "denied");
 });
+
+test("production without a secret refuses the cleanup", () => {
+  assert.equal(
+    identifyRetentionCaller(null, {
+      BETTER_AUTH_SECRET: "s".repeat(40),
+      NODE_ENV: "production",
+    }),
+    "denied",
+  );
+});

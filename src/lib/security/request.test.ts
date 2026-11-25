@@ -104,3 +104,22 @@ test("the audit schema accepts what an empty user agent header gives", () => {
     auditEventRecordSchema.shape.userAgent.safeParse(userAgent).success,
   );
 });
+
+test("with TRUSTED_PROXY_COUNT the address comes from the proxy chain only", () => {
+  const env = { TRUSTED_PROXY_COUNT: "1" };
+  const read = (headers: Record<string, string>) =>
+    getClientIpAddress(new Headers(headers), env);
+
+  assert.equal(
+    read({ "x-forwarded-for": "6.6.6.6, 198.51.100.7" }),
+    "198.51.100.7",
+  );
+  // No proxy added an entry, or the visitor sent other headers: not trusted.
+  assert.equal(read({ "cf-connecting-ip": "6.6.6.6" }), null);
+  assert.equal(
+    getClientIpAddress(new Headers({ "x-forwarded-for": "6.6.6.6" }), {
+      TRUSTED_PROXY_COUNT: "2",
+    }),
+    null,
+  );
+});
