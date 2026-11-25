@@ -23,16 +23,12 @@ const vercelProduction = {
   VERCEL_URL: "signudoc-abc123-acme.vercel.app",
 };
 
-test("a Vercel install resolves its URLs from what Vercel provides", () => {
-  const env = getEnv({
-    ...vercelProduction,
-    BETTER_AUTH_SECRET: "s".repeat(40),
-    DATABASE_URL: NEON_URL,
-  });
+test("a fresh Vercel install resolves everything from what Vercel provides", () => {
+  const env = getEnv({ ...vercelProduction, DATABASE_URL: NEON_URL });
 
   assert.equal(env.appUrl, "https://sign.acme.com");
   assert.equal(env.auth.betterAuthUrl, "https://sign.acme.com");
-  assert.equal(env.auth.betterAuthSecret, "s".repeat(40));
+  assert.match(env.auth.betterAuthSecret ?? "", /^[0-9a-f]{64}$/);
   assert.match(env.databaseUrl ?? "", /sslmode=verify-full/);
 });
 
@@ -91,16 +87,12 @@ test("the derived secret is stable and follows the database password", () => {
   assert.equal(first, samePasswordOtherHost);
 });
 
-test("production never derives a secret from the database password", () => {
+test("a weak database password is not used to derive a production secret", () => {
   const weak = "postgres://signudoc:signudoc@db.internal:5432/signudoc";
 
-  assert.throws(
-    () => resolveAuthSecret({ DATABASE_URL: weak, NODE_ENV: "production" }),
-    /BETTER_AUTH_SECRET must be set in production/,
-  );
-  assert.throws(
-    () => resolveAuthSecret({ DATABASE_URL: NEON_URL, NODE_ENV: "production" }),
-    /BETTER_AUTH_SECRET must be set in production/,
+  assert.equal(
+    resolveAuthSecret({ DATABASE_URL: weak, NODE_ENV: "production" }),
+    undefined,
   );
   assert.match(
     resolveAuthSecret({ DATABASE_URL: weak, NODE_ENV: "development" }) ?? "",
@@ -152,5 +144,27 @@ test("Supabase's POSTGRES_URL is used when DATABASE_URL is not set", () => {
   assert.equal(
     resolveDatabaseUrl({ DATABASE_URL: NEON_URL, POSTGRES_URL: supabase }),
     NEON_URL.replace("sslmode=require", "sslmode=verify-full"),
+  );
+});
+
+test("STRICT_SECRETS makes production refuse a derived secret", () => {
+  const strict = { NODE_ENV: "production", STRICT_SECRETS: "1" };
+
+  assert.throws(
+    () => resolveAuthSecret({ ...strict, DATABASE_URL: NEON_URL }),
+    /BETTER_AUTH_SECRET must be set in production/,
+  );
+  assert.equal(
+    resolveAuthSecret({
+      ...strict,
+      BETTER_AUTH_SECRET: "s".repeat(40),
+      DATABASE_URL: NEON_URL,
+    }),
+    "s".repeat(40),
+  );
+  // Without the switch, an install that types in nothing keeps working.
+  assert.match(
+    resolveAuthSecret({ DATABASE_URL: NEON_URL, NODE_ENV: "production" }) ?? "",
+    /^[0-9a-f]{64}$/,
   );
 });

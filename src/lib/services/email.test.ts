@@ -166,11 +166,7 @@ test("a lazy email service with no provider fails the send, not its creation (is
 test("signup knows when there is no email provider to send with (issue #95)", () => {
   assert.equal(canSendEmail({ NODE_ENV: "production" }), false);
   assert.equal(
-    canSendEmail({
-      BETTER_AUTH_SECRET: "s".repeat(40),
-      NODE_ENV: "production",
-      RESEND_API_KEY: "re_test",
-    }),
+    canSendEmail({ NODE_ENV: "production", RESEND_API_KEY: "re_test" }),
     true,
   );
   assert.equal(

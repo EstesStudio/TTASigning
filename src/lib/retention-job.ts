@@ -20,7 +20,7 @@ import {
 import type { EmailService } from "./services/email.ts";
 import type { StorageService } from "./services/storage.ts";
 import { isMissingSchemaError } from "./settings.ts";
-import { getEnv, isProduction, type EnvSource } from "./utils/env.ts";
+import { getEnv, isStrictSecrets, type EnvSource } from "./utils/env.ts";
 
 // The daily job. First the cleanup: stale drafts, queued account deletions,
 // expired download links and finished rate limit windows. Then the
@@ -94,8 +94,9 @@ export function identifyRetentionCaller(
 
   if (secrets.length === 0) {
     // Without a secret anyone could start the cleanup, a backup or a
-    // webhook drain. Open only outside production, for local development.
-    return isProduction(env) ? "denied" : "anonymous";
+    // webhook drain. With STRICT_SECRETS=1 in production they are refused;
+    // otherwise the route looks after itself (docs/self-hosting.md).
+    return isStrictSecrets(env) ? "denied" : "anonymous";
   }
 
   const presented = /^Bearer (.+)$/.exec(authorizationHeader ?? "")?.[1];
