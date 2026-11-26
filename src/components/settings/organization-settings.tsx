@@ -984,6 +984,23 @@ function describeEmailStatus(status: EmailStatus): {
         ready: true,
         title: "Email is working",
       };
+    case "smtp":
+      return status.senderAddress
+        ? {
+            lines: [
+              `Emails are sent from ${status.senderAddress} through your SMTP server${status.host ? ` (${status.host})` : ""}.`,
+              "This page cannot check the domain's SPF, DKIM and DMARC records: they are set up with your mail host. Send yourself a test email to check that messages arrive and do not land in spam.",
+            ],
+            ready: true,
+            title: "Email goes through your SMTP server",
+          }
+        : {
+            lines: [
+              'Enter the address emails should come from in "Send email from" above and save. It must be an address your SMTP server is allowed to send as.',
+            ],
+            ready: false,
+            title: "Choose the address emails come from",
+          };
     case "error":
       return {
         lines: [

@@ -72,6 +72,11 @@ export type EmailStatus =
       senderAddress: string;
     }
   | { state: "ready"; domain: string; senderAddress: string }
+  /**
+   * EMAIL_DRIVER=smtp: mail goes through the operator's own server, so there
+   * is no domain to check here. senderAddress is null until one is set.
+   */
+  | { state: "smtp"; host: string; senderAddress: string | null }
   | { state: "error"; message: string; senderAddress: string };
 
 /** The parts of the Resend SDK used here. Replaced by a fake in tests. */
@@ -400,6 +405,34 @@ async function inspectEmail({
             onVercel: readEnv(env, "VERCEL") === "1",
             state: "capture_refused",
           },
+    };
+  }
+
+  if (!domainsClient && resolveEmailDriver(env) === "smtp") {
+    // There is no provider API to ask. Email counts as set up once a sender
+    // address at a real domain is chosen; "Send a test email" is what shows
+    // the server accepts it.
+    const smtpSettings = settings ?? (await getSettings(env));
+    const smtpMarkReady =
+      recordReady ??
+      ((ready: boolean) => defaultRecordReady(ready, smtpSettings));
+    const configuredSender = smtpSettings.senderAddress?.trim() || null;
+    const smtpSender = configuredSender
+      ? extractEmailAddress(configuredSender)
+      : null;
+    const hasSender = Boolean(smtpSender && getAddressDomain(smtpSender));
+
+    await smtpMarkReady(hasSender);
+
+    return {
+      client: null,
+      domainId: null,
+      markReady: smtpMarkReady,
+      status: {
+        host: readEnv(env, "SMTP_HOST") ?? "",
+        senderAddress: hasSender ? smtpSender : null,
+        state: "smtp",
+      },
     };
   }
 

@@ -729,3 +729,28 @@ test("RESEND_REGION picks a known Resend region and ignores anything else", () =
   assert.deepEqual(resendRegionOption({ RESEND_REGION: "mars-1" }), {});
   assert.deepEqual(resendRegionOption({}), {});
 });
+
+test("an SMTP install reports its own state, without asking Resend", async () => {
+  const marks: boolean[] = [];
+  const recordReady = async (ready: boolean) => {
+    marks.push(ready);
+  };
+  const smtpEnv = { EMAIL_DRIVER: "smtp", SMTP_HOST: "smtp.acme.com" };
+
+  assert.deepEqual(
+    await getEmailStatus({ env: smtpEnv, recordReady, settings }),
+    { host: "smtp.acme.com", senderAddress: "sign@acme.com", state: "smtp" },
+  );
+  assert.deepEqual(marks, [true]);
+
+  // No sender chosen yet: Resend's shared test address is not used for SMTP.
+  assert.deepEqual(
+    await getEmailStatus({
+      env: smtpEnv,
+      recordReady,
+      settings: resolveSettings({ ...stored, senderAddress: null }, smtpEnv),
+    }),
+    { host: "smtp.acme.com", senderAddress: null, state: "smtp" },
+  );
+  assert.deepEqual(marks, [true, false]);
+});
