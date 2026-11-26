@@ -8,6 +8,75 @@ release says when it does.
 
 ## [Unreleased]
 
+## [0.9.2] - 2026-11-26
+
+Eleven bug fixes reported by @coygeek across authentication, email
+settings, PDF uploads, Part 11 signature manifestations, envelope counts
+and audit timestamps, bulk-send templates, and the Place fields editor.
+No database migrations are required.
+
+### Authentication and email
+
+- Passwords with leading or trailing spaces are now preserved
+  consistently across sign-in, password reset, Settings password updates,
+  and the Part 11 account check instead of being trimmed on sign-in
+  (#207, PR #272).
+- On non-loopback production installs where `EMAIL_DRIVER=capture` is
+  refused at send time, the dashboard now shows the email setup warning
+  and **Settings → Organization → Email setup** renders a non-success
+  warning card explaining how to configure a real mail driver, while
+  local development and loopback builds continue to work (#212, PR #272).
+
+### PDF uploads and Part 11 finalization
+
+- PDF import now inspects parsed document structure with `pdf-lib`
+  instead of scanning raw file bytes for `/Encrypt` or `/XFA`, so
+  unlocked standard PDFs whose metadata, text, or AcroForm values
+  mention those terms upload cleanly while encrypted PDFs and genuine
+  XFA forms remain rejected (#221, #222, PR #272).
+- The **New envelope** upload step now enforces the 160-character title
+  limit client-side and preserves the selected PDF and thumbnail preview
+  when a title or other non-file validation error (HTTP 400) occurs
+  across both local and Vercel Blob upload flows (#210, PR #272).
+- Part 11 signature manifestations on finalized PDFs now use page-level
+  layout (`layoutPageManifestations`) so side-by-side manifestations and
+  signatures sandwiched between neighboring fields wrap, shift left, fit
+  into collision-free vertical gaps, or place beside the signature box
+  without overlapping adjacent signatures or saved field values (#220,
+  PR #272).
+
+### Envelopes, templates, and fields
+
+- Signer field summaries on the envelope detail page now include `date`
+  and `name` fields so assigned and completed counts match **Place
+  fields** and **Review**, while the signing page's remaining-field
+  counter stays focused on interactive fields (#209, PR #272).
+- Same-second envelope create-and-send requests no longer bump the
+  `sent` audit row by `+1s`, keeping `sent.at` aligned with
+  `envelope.sentAt` and `email_sent.at >= sent.at` while preserving
+  recorded `created → sent → email_sent` order across API responses, CSV
+  exports, and certificates (#213, PR #272).
+- **Templates → Send to many** now validates dropdown readability upfront
+  during preview and batch submission, reporting unreadable dropdowns
+  before marking rows **Ready** or creating draft envelopes (#223,
+  PR #272).
+- Dropdown choices in **Place fields** now truncate on whole Unicode
+  code-point boundaries instead of UTF-16 code units, preserving
+  choices that end with emoji within the 80-character limit and
+  rejecting lone surrogates cleanly (#233, PR #272).
+- `Backspace` and `Delete` field removal in **Place fields** is now
+  scoped to canvas focus, so pressing `Backspace` while focused on
+  **Required** or any Field settings, toolbar, or dialog control leaves
+  the selected field in place (#239, PR #272).
+
+### Upgrading
+
+No database migrations or configuration changes are required for this
+release.
+
+Thank you to @coygeek for the detailed bug reports and reproductions
+behind every fix in this release.
+
 ## [0.9.1] - 2026-11-25
 
 Seven high-priority bug fixes reported by @coygeek across privacy and
@@ -815,6 +884,7 @@ checked against the real services:
 
 SignuDoc is software, not legal advice. See the README's legal disclaimer.
 
+[0.9.2]: https://github.com/NYLLON-SOFTWARE/SignuDoc/releases/tag/v0.9.2
 [0.9.1]: https://github.com/NYLLON-SOFTWARE/SignuDoc/releases/tag/v0.9.1
 [0.9.0]: https://github.com/NYLLON-SOFTWARE/SignuDoc/releases/tag/v0.9.0
 [0.8.0]: https://github.com/NYLLON-SOFTWARE/SignuDoc/releases/tag/v0.8.0
