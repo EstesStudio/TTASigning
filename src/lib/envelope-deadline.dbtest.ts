@@ -550,7 +550,7 @@ test("a deadline moved while a signer submits reaches the next signer", async ()
       fields: [
         {
           fieldId,
-          imageDataUrl: "data:image/png;base64,iVBORw0KGgo=",
+          imageDataUrl: DRAWN_SIGNATURE,
           inputMethod: "drawn",
           type: "signature",
         },
