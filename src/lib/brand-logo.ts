@@ -193,7 +193,7 @@ function hasWholePngPixels(header: PngHeader, data: Uint8Array[]): boolean {
   return true;
 }
 
-function isCompletePng(bytes: Uint8Array): boolean {
+export function isCompletePng(bytes: Uint8Array): boolean {
   let offset = 8;
   let header: PngHeader | null = null;
   let seenPalette = false;

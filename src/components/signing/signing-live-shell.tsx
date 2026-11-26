@@ -54,6 +54,10 @@ import {
   NUMBER_ENTRY_MESSAGE,
 } from "@/lib/field-choices";
 import { getInitials } from "@/lib/initials";
+import {
+  SignatureImageError,
+  signatureImageFromFile,
+} from "@/lib/signature-image";
 import { truncateToWholeCharacters } from "@/lib/text-truncate";
 import { postToEmbedParent } from "./embed-parent-message";
 
@@ -62,13 +66,17 @@ const typedSignatureFont =
 
 type SignatureEntry = {
   imageDataUrl?: string | null;
+  /** Where an image came from; all of them are submitted as drawn. */
+  imageSource?: "drawn" | "saved" | "uploaded";
   inputMethod: "drawn" | "typed";
   value: string;
 };
 
+type SignatureMode = "drawn" | "saved" | "typed" | "uploaded";
+
 type SignatureModalState = {
   fieldId: string;
-  mode: "drawn" | "typed";
+  mode: SignatureMode;
   type: "initials" | "signature";
 };
 
@@ -485,16 +493,27 @@ function describeProviderProblem(
   }
 }
 
+function entryMode(entry: SignatureEntry | null | undefined) {
+  return entry ? (entry.imageSource ?? entry.inputMethod) : null;
+}
+
 export function SigningLiveShell({
   embedOrigin = null,
   record,
+  savedSignature: initialSavedSignature = null,
   signatureProblem = null,
+  signerHasAccount = false,
 }: {
   /** The site framing an embedded signing page, told when it is done. */
   embedOrigin?: string | null;
   record: SigningPayload;
+  /** The signed-in signer's saved signature, as a PNG data URL. */
+  savedSignature?: string | null;
   signatureProblem?: ProviderSignatureProblem | null;
+  /** Signed in as the signer, so a signature can be saved to the account. */
+  signerHasAccount?: boolean;
 }) {
+  const [savedSignature, setSavedSignature] = useState(initialSavedSignature);
   const [hasDeclined, setHasDeclined] = useState(false);
   const [activePage, setActivePage] = useState(
     record.currentSignerFields[0]?.page ??
@@ -795,9 +814,8 @@ export function SigningLiveShell({
     setSignatureModal({
       fieldId: field.id,
       mode:
-        existingFieldEntry?.inputMethod ??
-        reusableEntry?.inputMethod ??
-        "typed",
+        entryMode(existingFieldEntry ?? reusableEntry) ??
+        (savedSignature && fieldType === "signature" ? "saved" : "typed"),
       type: fieldType,
     });
   }
@@ -1404,7 +1422,10 @@ export function SigningLiveShell({
                 : null,
             )
           }
+          onSaveSignature={setSavedSignature}
+          savedSignature={savedSignature}
           signatureMode={signatureModal.mode}
+          signerHasAccount={signerHasAccount}
           signerName={record.signer.name}
         />
       ) : null}
@@ -2087,7 +2108,10 @@ function SignatureModal({
   onClearDrawnSignature,
   onClose,
   onModeChange,
+  onSaveSignature,
+  savedSignature,
   signatureMode,
+  signerHasAccount,
   signerName,
 }: {
   existingEntry?: SignatureEntry;
@@ -2096,17 +2120,46 @@ function SignatureModal({
   onApply: (entry: SignatureEntry) => void;
   onClearDrawnSignature: () => void;
   onClose: () => void;
-  onModeChange: (mode: "drawn" | "typed") => void;
-  signatureMode: "drawn" | "typed";
+  onModeChange: (mode: SignatureMode) => void;
+  onSaveSignature: (dataUrl: string) => void;
+  savedSignature: string | null;
+  signatureMode: SignatureMode;
+  signerHasAccount: boolean;
   signerName: string;
 }) {
   const [drawnSignatureDataUrl, setDrawnSignatureDataUrl] = useState<
     string | null
   >(
-    existingEntry?.inputMethod === "drawn"
-      ? (existingEntry.imageDataUrl ?? null)
+    entryMode(existingEntry) === "drawn"
+      ? (existingEntry?.imageDataUrl ?? null)
       : null,
   );
+  const [uploadedSignatureDataUrl, setUploadedSignatureDataUrl] = useState<
+    string | null
+  >(
+    entryMode(existingEntry) === "uploaded"
+      ? (existingEntry?.imageDataUrl ?? null)
+      : null,
+  );
+  const [uploadError, setUploadError] = useState<string | null>(null);
+  const [saveToAccount, setSaveToAccount] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
+  const [isConverting, setIsConverting] = useState(false);
+  // Only the latest file chosen may become the uploaded image.
+  const uploadRequestRef = useRef(0);
+  const imageForMode =
+    signatureMode === "drawn"
+      ? drawnSignatureDataUrl
+      : signatureMode === "uploaded"
+        ? uploadedSignatureDataUrl
+        : signatureMode === "saved"
+          ? savedSignature
+          : null;
+  // Initials stay typed or drawn; the account keeps one full signature.
+  const canSaveToAccount =
+    signerHasAccount &&
+    fieldType === "signature" &&
+    (signatureMode === "drawn" || signatureMode === "uploaded");
   const [typedSignatureValue, setTypedSignatureValue] = useState(() => {
     if (existingEntry?.inputMethod === "typed" && existingEntry.value.trim()) {
       return existingEntry.value;
@@ -2126,9 +2179,98 @@ function SignatureModal({
     fieldType === "initials" ? "Type your initials" : "Type your signature";
   const normalizedTypedSignatureValue = typedSignatureValue.trim();
   const canApply =
-    signatureMode === "typed"
+    !isSaving &&
+    !isConverting &&
+    (signatureMode === "typed"
       ? normalizedTypedSignatureValue.length > 0
-      : Boolean(drawnSignatureDataUrl);
+      : Boolean(imageForMode));
+
+  async function handleUpload(file: File | undefined) {
+    if (!file) {
+      return;
+    }
+
+    const request = ++uploadRequestRef.current;
+
+    setUploadError(null);
+    setUploadedSignatureDataUrl(null);
+    setIsConverting(true);
+
+    try {
+      const dataUrl = await signatureImageFromFile(file);
+
+      if (request === uploadRequestRef.current) {
+        setUploadedSignatureDataUrl(dataUrl);
+      }
+    } catch (error) {
+      if (request === uploadRequestRef.current) {
+        setUploadError(
+          error instanceof SignatureImageError
+            ? error.message
+            : "We couldn't read this image. Choose another file.",
+        );
+      }
+    } finally {
+      if (request === uploadRequestRef.current) {
+        setIsConverting(false);
+      }
+    }
+  }
+
+  // Dismissing mid-save would let the save's result fill a field the signer cancelled.
+  function handleClose() {
+    if (!isSaving) {
+      onClose();
+    }
+  }
+
+  async function handleApply() {
+    if (signatureMode === "typed") {
+      onApply({
+        imageDataUrl: null,
+        inputMethod: "typed",
+        value: normalizedTypedSignatureValue,
+      });
+      return;
+    }
+
+    if (!imageForMode) {
+      return;
+    }
+
+    if (canSaveToAccount && saveToAccount) {
+      setIsSaving(true);
+      setUploadError(null);
+
+      const response = await fetch("/api/account/signature", {
+        body: JSON.stringify({ imageDataUrl: imageForMode }),
+        headers: { "Content-Type": "application/json" },
+        method: "PUT",
+      }).catch(() => null);
+
+      setIsSaving(false);
+
+      if (!response?.ok) {
+        const payload = (await response?.json().catch(() => null)) as {
+          error?: string;
+        } | null;
+
+        setUploadError(
+          payload?.error ?? "We couldn't save your signature. Try again.",
+        );
+        return;
+      }
+
+      onSaveSignature(imageForMode);
+    }
+
+    onApply({
+      imageDataUrl: imageForMode,
+      imageSource: signatureMode,
+      inputMethod: "drawn",
+      value: fieldType === "initials" ? "Drawn initials" : "Drawn signature",
+    });
+  }
 
   function handleTypedSignatureValueChange(value: string) {
     if (fieldType === "initials") {
@@ -2145,11 +2287,14 @@ function SignatureModal({
       title={
         fieldType === "initials" ? "Add your initials" : "Add your signature"
       }
-      onClose={onClose}
+      onClose={handleClose}
     >
       <Tabs
         className="gap-4"
-        onValueChange={(value) => onModeChange(value as "typed" | "drawn")}
+        onValueChange={(value) => {
+          setUploadError(null);
+          onModeChange(value as SignatureMode);
+        }}
         value={signatureMode}
       >
         <TabsList className="segmented flex h-auto w-full p-1 group-data-horizontal/tabs:h-auto">
@@ -2165,6 +2310,20 @@ function SignatureModal({
           >
             Draw
           </TabsTrigger>
+          <TabsTrigger
+            className="segmented-item h-auto min-h-10 flex-1 data-active:bg-white data-active:text-(--fg) data-active:shadow-[0_1px_3px_rgba(28,29,43,0.12)] after:hidden"
+            value="uploaded"
+          >
+            Upload
+          </TabsTrigger>
+          {savedSignature && fieldType === "signature" ? (
+            <TabsTrigger
+              className="segmented-item h-auto min-h-10 flex-1 data-active:bg-white data-active:text-(--fg) data-active:shadow-[0_1px_3px_rgba(28,29,43,0.12)] after:hidden"
+              value="saved"
+            >
+              Saved
+            </TabsTrigger>
+          ) : null}
         </TabsList>
       </Tabs>
 
@@ -2204,6 +2363,42 @@ function SignatureModal({
             </p>
           </div>
         </div>
+      ) : signatureMode === "uploaded" || signatureMode === "saved" ? (
+        <div className="well space-y-3 p-3">
+          <div className="flex h-[220px] items-center justify-center rounded-xl border-2 border-dashed border-(--border-strong) bg-white p-4">
+            {imageForMode ? (
+              // eslint-disable-next-line @next/next/no-img-element -- a data URL made in this browser
+              <img
+                alt={
+                  signatureMode === "saved"
+                    ? "Your saved signature"
+                    : "Uploaded signature"
+                }
+                className="max-h-full max-w-full object-contain"
+                src={imageForMode}
+              />
+            ) : (
+              <p className="text-center text-sm text-(--tertiary)">
+                A photo or scan of your signature, dark ink on light paper
+              </p>
+            )}
+          </div>
+          {signatureMode === "uploaded" ? (
+            <label className="block">
+              <span className="sr-only">Choose a signature image</span>
+              <input
+                accept="image/png,image/jpeg,image/webp"
+                className="block w-full text-sm text-(--secondary) file:mr-3 file:rounded-lg file:border-0 file:bg-(--surface-strong) file:px-3 file:py-2 file:text-sm file:font-semibold"
+                onChange={(event) => void handleUpload(event.target.files?.[0])}
+                type="file"
+              />
+            </label>
+          ) : (
+            <p className="text-xs text-(--tertiary)">
+              Saved to your account. Change it in Settings.
+            </p>
+          )}
+        </div>
       ) : (
         <div className="well p-3">
           <SignatureDrawCanvas
@@ -2229,30 +2424,35 @@ function SignatureModal({
         </div>
       )}
 
+      {canSaveToAccount ? (
+        <label className="flex items-center gap-2 text-sm text-(--secondary)">
+          <input
+            checked={saveToAccount}
+            onChange={(event) => setSaveToAccount(event.target.checked)}
+            type="checkbox"
+          />
+          Save to my account for next time
+        </label>
+      ) : null}
+
+      {uploadError ? (
+        <p className="notice notice-warning" role="alert">
+          {uploadError}
+        </p>
+      ) : null}
+
       <div className="flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
-        <ShellButton onClick={onClose} variant="secondary">
+        <ShellButton
+          disabled={isSaving}
+          onClick={handleClose}
+          variant="secondary"
+        >
           Cancel
         </ShellButton>
         <ShellButton
           disabled={!canApply}
-          onClick={() =>
-            onApply(
-              signatureMode === "drawn"
-                ? {
-                    imageDataUrl: drawnSignatureDataUrl,
-                    inputMethod: "drawn",
-                    value:
-                      fieldType === "initials"
-                        ? "Drawn initials"
-                        : "Drawn signature",
-                  }
-                : {
-                    imageDataUrl: null,
-                    inputMethod: "typed",
-                    value: normalizedTypedSignatureValue,
-                  },
-            )
-          }
+          loading={isSaving}
+          onClick={() => void handleApply()}
         >
           {fieldType === "initials" ? "Apply initials" : "Apply signature"}
         </ShellButton>

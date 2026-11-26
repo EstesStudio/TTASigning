@@ -1,7 +1,9 @@
 import { cookies, headers } from "next/headers";
 
 import { SigningShell } from "@/components/signing/signing-shell";
+import { getAuthSession } from "@/lib/auth/server";
 import { getDb } from "@/lib/db/connection";
+import { isSignerAccount, readSignature } from "@/lib/saved-signature";
 import {
   getClientIpAddress,
   getRequestUserAgent,
@@ -68,12 +70,27 @@ export default async function SignPage({
     }
   }
 
+  // Not on embedded pages: the framing site holds the link, so it could read the signature.
+  let savedSignature: string | null = null;
+  let signerHasAccount = false;
+
+  if (record) {
+    const session = await getAuthSession().catch(() => null);
+
+    if (isSignerAccount(session?.user, record.signer.email)) {
+      signerHasAccount = true;
+      savedSignature = await readSignature(session.user.id).catch(() => null);
+    }
+  }
+
   return (
     <SigningShell
       initialState={initialState}
       key={token}
       record={record ?? undefined}
+      savedSignature={savedSignature}
       signatureProblem={signatureProblem}
+      signerHasAccount={signerHasAccount}
       token={token}
       verification={verification ?? undefined}
     />

@@ -1,3 +1,4 @@
+import { SavedSignaturePanel } from "@/components/settings/saved-signature-panel";
 import { OrganizationSettings } from "@/components/settings/organization-settings";
 import { SettingsShell } from "@/components/settings/settings-shell";
 import { UpdatesPanel } from "@/components/settings/updates-panel";
@@ -5,6 +6,7 @@ import { isAdminUser } from "@/lib/auth/admin";
 import { accountClosureBlock } from "@/lib/account";
 import { getAuthSession } from "@/lib/auth/server";
 import { readSsoConfig } from "@/lib/auth/sso";
+import { readSignature } from "@/lib/saved-signature";
 import { toOrganizationSettingsView } from "@/lib/organization-settings";
 import {
   getSettings,
@@ -16,12 +18,13 @@ import { getUpdateStatus } from "@/lib/software-update";
 
 export default async function SettingsPage() {
   const session = await getAuthSession();
-  const [isAdmin, settings, closureBlockedReason, hasPassword] =
+  const [isAdmin, settings, closureBlockedReason, hasPassword, signature] =
     await Promise.all([
       session ? isAdminUser(session.user.id) : false,
       getSettings(),
       session ? accountClosureBlock(session.user).catch(() => null) : null,
       session ? userHasPassword(session.user.id) : false,
+      session ? readSignature(session.user.id).catch(() => null) : null,
     ]);
   const sso = readSsoConfig();
 
@@ -40,6 +43,7 @@ export default async function SettingsPage() {
           ssoProviderName: sso?.name ?? null,
         }}
       />
+      {session ? <SavedSignaturePanel initialSignature={signature} /> : null}
       {isAdmin ? (
         <OrganizationSettings
           // Read fresh, not from the short-lived cache, so the form never

@@ -23,8 +23,10 @@ type SigningShellProps = {
   embedOrigin?: string | null;
   initialState?: SigningUnavailableState;
   record?: SigningPayload;
+  savedSignature?: string | null;
   /** Set when the signer came back from a signing provider without signing. */
   signatureProblem?: ProviderSignatureProblem | null;
+  signerHasAccount?: boolean;
   token: string;
   verification?: SigningVerificationState;
 };
@@ -68,7 +70,9 @@ export function SigningShell({
   embedOrigin = null,
   initialState,
   record,
+  savedSignature = null,
   signatureProblem,
+  signerHasAccount = false,
   token,
   verification,
 }: SigningShellProps) {
@@ -77,7 +81,9 @@ export function SigningShell({
       <SigningLiveShell
         embedOrigin={embedOrigin}
         record={record}
+        savedSignature={savedSignature}
         signatureProblem={signatureProblem}
+        signerHasAccount={signerHasAccount}
       />
     );
   }
