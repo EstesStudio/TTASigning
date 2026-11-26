@@ -14,17 +14,23 @@ const METADATA_TOKEN_URL =
 const TOKEN_EXPIRY_MARGIN_MS = 60_000;
 
 type CachedToken = { expiresAt: number; value: string };
+type TokenCache = { token: CachedToken | null };
+
+// Callers build a service per request, so the metadata-server token is shared between them.
+const sharedTokenCache: TokenCache = { token: null };
 
 type CreateGcsStorageServiceOptions = {
   env?: EnvSource;
   fetch?: typeof fetch;
   now?: () => number;
+  tokenCache?: TokenCache;
 };
 
 export function createGcsStorageService({
   env = process.env,
   fetch: send = fetch,
   now = Date.now,
+  tokenCache = sharedTokenCache,
 }: CreateGcsStorageServiceOptions = {}): StorageService {
   const bucket = env.GCS_BUCKET?.trim();
 
@@ -33,12 +39,13 @@ export function createGcsStorageService({
   }
 
   const staticToken = env.GCS_ACCESS_TOKEN?.trim();
-  let cached: CachedToken | null = null;
 
   async function accessToken(): Promise<string> {
     if (staticToken) {
       return staticToken;
     }
+
+    const cached = tokenCache.token;
 
     if (cached && cached.expiresAt > now()) {
       return cached.value;
@@ -59,12 +66,12 @@ export function createGcsStorageService({
       expires_in: number;
     };
 
-    cached = {
+    tokenCache.token = {
       expiresAt: now() + answer.expires_in * 1000 - TOKEN_EXPIRY_MARGIN_MS,
       value: answer.access_token,
     };
 
-    return cached.value;
+    return answer.access_token;
   }
 
   const objectUrl = (key: string) =>

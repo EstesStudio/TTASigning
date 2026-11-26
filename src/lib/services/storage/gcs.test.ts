@@ -91,6 +91,7 @@ test("objects round-trip through the bucket with a metadata-server token", async
   const storage = createGcsStorageService({
     env: { GCS_BUCKET: "docs" },
     fetch,
+    tokenCache: { token: null },
   });
 
   await storage.putObject({
@@ -139,6 +140,7 @@ test("an expired token is fetched again", async () => {
   const storage = createGcsStorageService({
     env: { GCS_BUCKET: "docs" },
     fetch,
+    tokenCache: { token: null },
     now: () => clock,
   });
 
@@ -150,6 +152,25 @@ test("an expired token is fetched again", async () => {
     calls.filter((call) => call.url.includes("metadata.google.internal"))
       .length,
     2,
+  );
+});
+
+test("services built one after another share a token", async () => {
+  const { calls, fetch } = fakeGcs();
+  const tokenCache = { token: null };
+
+  for (let i = 0; i < 3; i += 1) {
+    await createGcsStorageService({
+      env: { GCS_BUCKET: "docs" },
+      fetch,
+      tokenCache,
+    }).headObject("a");
+  }
+
+  assert.equal(
+    calls.filter((call) => call.url.includes("metadata.google.internal"))
+      .length,
+    1,
   );
 });
 
@@ -174,6 +195,7 @@ test("keepExisting leaves the first write in place", async () => {
   const storage = createGcsStorageService({
     env: { GCS_BUCKET: "docs" },
     fetch,
+    tokenCache: { token: null },
   });
 
   await storage.putObject({
@@ -197,6 +219,7 @@ test("a missing object is not found, and deleting it is not a failure", async ()
   const storage = createGcsStorageService({
     env: { GCS_BUCKET: "docs" },
     fetch,
+    tokenCache: { token: null },
   });
 
   await assert.rejects(storage.getObject("gone"), StorageObjectNotFoundError);
