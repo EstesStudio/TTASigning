@@ -6,6 +6,7 @@ import {
   type PointerEvent as ReactPointerEvent,
 } from "react";
 
+import { releaseStaleFocusForCanvas } from "@/lib/prepare-shortcuts";
 import { type FieldResizeHandle } from "@/lib/utils/pdf-coords";
 
 const dragThresholdPx = 4;
@@ -117,6 +118,11 @@ export function InteractivePlacedField({
 
     event.preventDefault();
     event.stopPropagation();
+    const placedField = event.currentTarget.closest(
+      "[data-placed-field='true']",
+    );
+
+    releaseStaleFocusForCanvas(document.activeElement, placedField);
     onSelect();
 
     if (typeof event.currentTarget.setPointerCapture === "function") {

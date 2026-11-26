@@ -16,6 +16,12 @@ import {
 } from "@/components/ui/dialog";
 import { Field, FieldLabel } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
+import {
+  describePasswordRefusal,
+  newPasswordLengthError,
+  PASSWORD_TOO_SHORT_MESSAGE,
+} from "@/lib/password-messages";
+import { updatePasswordSchema } from "@/lib/schemas/auth";
 
 const CLOSURE_CONFIRMATION_PHRASE = "close my account";
 const GENERIC_ERROR_MESSAGE = "Something went wrong. Please try again.";
@@ -24,7 +30,12 @@ type SettingsShellProps = {
   /** Why this account cannot be closed; shown in place of the button. */
   closureBlockedReason?: string | null;
   initialProfile?: ProfileValues;
-  twoFactor?: { enabled: boolean; required: boolean };
+  twoFactor?: {
+    enabled: boolean;
+    hasPassword?: boolean;
+    required: boolean;
+    ssoProviderName?: string | null;
+  };
 };
 
 type FeedbackTone = "error" | "success";
@@ -91,14 +102,26 @@ function validateProfileValues(values: ProfileValues): ProfileErrors {
 }
 
 function validatePasswordValues(values: PasswordValues): PasswordErrors {
-  const errors: PasswordErrors = {};
+  const validationResult = updatePasswordSchema.safeParse(values);
 
-  if (values.currentPassword.length === 0) {
-    errors.currentPassword = "Enter your current password";
+  if (validationResult.success) {
+    return {};
   }
 
-  if (values.newPassword.trim().length < 15) {
-    errors.newPassword = "Password must be at least 15 characters";
+  const errors: PasswordErrors = {};
+
+  for (const issue of validationResult.error.issues) {
+    const field = issue.path[0];
+
+    if (field === "currentPassword") {
+      errors.currentPassword = "Enter your current password";
+    }
+
+    if (field === "newPassword") {
+      errors.newPassword =
+        newPasswordLengthError(values.newPassword) ??
+        PASSWORD_TOO_SHORT_MESSAGE;
+    }
   }
 
   return errors;
@@ -146,14 +169,6 @@ function isInvalidPasswordMessage(message: string) {
   return message.toLowerCase().includes("invalid password");
 }
 
-function isPasswordTooShortMessage(message: string) {
-  return message.toLowerCase().includes("password too short");
-}
-
-function isCompromisedPasswordMessage(message: string) {
-  return message.toLowerCase().includes("compromised");
-}
-
 function isNoOpEmailChangeMessage(message: string) {
   const normalizedMessage = message.toLowerCase();
 
@@ -166,7 +181,12 @@ function isNoOpEmailChangeMessage(message: string) {
 export function SettingsShell({
   closureBlockedReason = null,
   initialProfile = defaultProfileValues,
-  twoFactor = { enabled: false, required: false },
+  twoFactor = {
+    enabled: false,
+    hasPassword: true,
+    required: false,
+    ssoProviderName: null,
+  },
 }: SettingsShellProps) {
   const closureCopy = useClosureCopy();
   const [profileValues, setProfileValues] = useState(initialProfile);
@@ -392,22 +412,19 @@ export function SettingsShell({
 
       if (!response.ok) {
         const errorMessage = extractApiErrorMessage(payload);
+        const newPasswordError =
+          describePasswordRefusal({ message: errorMessage }) ?? undefined;
+        const invalidCurrentPassword = isInvalidPasswordMessage(errorMessage);
 
         setPasswordErrors({
-          currentPassword: isInvalidPasswordMessage(errorMessage)
+          currentPassword: invalidCurrentPassword
             ? "Current password is incorrect"
             : undefined,
-          newPassword: isPasswordTooShortMessage(errorMessage)
-            ? "Password must be at least 15 characters"
-            : isCompromisedPasswordMessage(errorMessage)
-              ? "Choose a password that hasn't appeared in a breach"
-              : undefined,
+          newPassword: newPasswordError,
         });
         setFeedback({
           message:
-            isInvalidPasswordMessage(errorMessage) ||
-            isPasswordTooShortMessage(errorMessage) ||
-            isCompromisedPasswordMessage(errorMessage)
+            invalidCurrentPassword || newPasswordError
               ? "Please correct the highlighted fields."
               : errorMessage,
           tone: "error",
@@ -665,7 +682,9 @@ export function SettingsShell({
 
           <TwoFactorPanel
             enabled={twoFactor.enabled}
+            hasPassword={twoFactor.hasPassword ?? true}
             required={twoFactor.required}
+            ssoProviderName={twoFactor.ssoProviderName ?? null}
           />
 
           <SessionsPanel />

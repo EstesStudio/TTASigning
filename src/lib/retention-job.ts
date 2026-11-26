@@ -242,7 +242,8 @@ export function retentionSweepFailed(summary: RetentionSweepSummary): boolean {
   return (
     summary.accountPurgeFailures.length > 0 ||
     summary.draftDeletionFailures.length > 0 ||
-    summary.finishedEnvelopeDeletionFailures.length > 0
+    summary.finishedEnvelopeDeletionFailures.length > 0 ||
+    summary.pendingFileDeletionFailures.length > 0
   );
 }
 

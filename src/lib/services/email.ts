@@ -6,7 +6,12 @@ import { Resend } from "resend";
 
 import { getSettings } from "../settings.ts";
 import { type EmailTemplateKind } from "../types/domain.ts";
-import { getEnv, isLocalDeployment, type EnvSource } from "../utils/env.ts";
+import {
+  getEnv,
+  isLocalDeployment,
+  readEnv,
+  type EnvSource,
+} from "../utils/env.ts";
 import { buildEmailAddresses, type EmailAddresses } from "./email-addresses.ts";
 import { CAPTURED_MESSAGE_ID_PREFIX } from "./captured-email.ts";
 import {
@@ -202,6 +207,33 @@ export function resolveEmailDriver(env: EnvSource = process.env): EmailDriver {
   );
 }
 
+export const CAPTURE_IN_PRODUCTION_ERROR_MESSAGE =
+  "EMAIL_DRIVER=capture drops every email and cannot be used in production.";
+
+/**
+ * Whether EMAIL_DRIVER=capture may be used in this deployment.
+ * Allowed in development, and for a production build that is being run on
+ * localhost (which is what the end-to-end test does). Never on Vercel or on
+ * a deployed production site, because it drops every email.
+ */
+export function isCaptureEmailDriverAllowed(
+  env: EnvSource = process.env,
+): boolean {
+  if (readEnv(env, "VERCEL") === "1") {
+    return false;
+  }
+
+  if (env.NODE_ENV !== "production") {
+    return true;
+  }
+
+  try {
+    return isLocalDeployment(env);
+  } catch {
+    return false;
+  }
+}
+
 /**
  * Development and test driver: nothing is sent. Each message is written as a
  * JSON file so a person (or the end-to-end test) can read the links in it.
@@ -210,12 +242,8 @@ function createCaptureEmailService(
   env: EnvSource,
   resolveAddresses: () => Promise<EmailAddresses>,
 ): EmailService {
-  // Allowed in development, and for a production build that is being run on
-  // localhost (which is what the end-to-end test does). Never on a real site.
-  if (env.NODE_ENV === "production" && !isLocalDeployment(env)) {
-    throw new Error(
-      "EMAIL_DRIVER=capture drops every email and cannot be used in production.",
-    );
+  if (!isCaptureEmailDriverAllowed(env)) {
+    throw new Error(CAPTURE_IN_PRODUCTION_ERROR_MESSAGE);
   }
 
   // The comment stops Turbopack from tracing the whole project into the
@@ -295,7 +323,8 @@ export async function resolveEmailAddresses(
 ): Promise<EmailAddresses> {
   const settings = await getSettings(env);
 
-  return resolveEmailDriver(env) === "capture"
+  return resolveEmailDriver(env) === "capture" &&
+    isCaptureEmailDriverAllowed(env)
     ? buildEmailAddresses(settings, DEFAULT_CAPTURE_SENDER_ADDRESS)
     : buildEmailAddresses(settings);
 }

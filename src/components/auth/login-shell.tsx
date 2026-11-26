@@ -16,8 +16,13 @@ import {
   describePasswordRefusal,
   newPasswordLengthError,
   PASSWORD_TOO_LONG_MESSAGE,
+  PASSWORD_TOO_SHORT_MESSAGE,
 } from "@/lib/password-messages";
-import { forgotPasswordSchema, loginSchema } from "@/lib/schemas/auth";
+import {
+  forgotPasswordSchema,
+  loginSchema,
+  resetPasswordSchema,
+} from "@/lib/schemas/auth";
 import {
   Dialog,
   DialogContent,
@@ -639,25 +644,28 @@ function ResetPasswordCard({ resetToken }: { resetToken: string }) {
     }
 
     const formData = new FormData(event.currentTarget);
-    const trimmedPassword = String(
+    const submittedPassword = String(
       formData.get("reset-password") ?? password,
-    ).trim();
+    );
+    const validationResult = resetPasswordSchema.safeParse({
+      newPassword: submittedPassword,
+    });
 
-    const lengthError = newPasswordLengthError(trimmedPassword);
-
-    if (lengthError) {
-      setError(lengthError);
+    if (!validationResult.success) {
+      setError(
+        newPasswordLengthError(submittedPassword) ?? PASSWORD_TOO_SHORT_MESSAGE,
+      );
       setSuccessMessage(null);
       return;
     }
 
-    setPassword(trimmedPassword);
+    setPassword(validationResult.data.newPassword);
     setError(null);
     setSuccessMessage(null);
     setIsSubmitting(true);
 
     const result = await authClient.resetPassword({
-      newPassword: trimmedPassword,
+      newPassword: validationResult.data.newPassword,
       token: resetToken,
     });
 

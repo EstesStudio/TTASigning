@@ -949,6 +949,110 @@ test("a template with no signature field is refused before any row is ready", as
   assert.equal(await countEnvelopes(userId), 1);
 });
 
+async function createDropdownTemplate(
+  userId: string,
+  dropdown: { height: number; width: number },
+) {
+  const choices = [
+    "Approved with the conditions listed in the schedule",
+    "Rejected until the landlord answers the open questions",
+  ];
+  const draft = await createDraftEnvelope(
+    userId,
+    {
+      sourcePdf: { body: sourcePdf, filename: "dropdown.pdf" },
+      title: "Dropdown Agreement",
+    },
+    options(),
+  );
+  const saved = await replaceDraftEnvelopeSigners(
+    userId,
+    draft.envelope.id,
+    {
+      signers: [{ email: "riley@example.test", name: "Riley Recipient" }],
+    },
+    database,
+  );
+  const signerId = saved.signers[0]!.id;
+
+  await replaceDraftEnvelopeFields(
+    userId,
+    draft.envelope.id,
+    {
+      fields: [
+        field(signerId, "signature", 0.1),
+        field(signerId, "dropdown", 0.3, { options: choices, ...dropdown }),
+      ],
+    },
+    database,
+  );
+
+  return saveEnvelopeAsTemplate(
+    userId,
+    draft.envelope.id,
+    { name: "Dropdown Agreement", roleNames: ["Signer"] },
+    options(),
+  );
+}
+
+test("a template with an unreadable dropdown is refused on preview and leaves zero orphan drafts (issue #223)", async () => {
+  const userId = await createUser();
+  const narrowTemplate = await createDropdownTemplate(userId, {
+    height: 0.012,
+    width: 0.05,
+  });
+  const invitationsBefore = (await capturedInvitations()).length;
+  const csv = `name,email\nAnn,ann-${randomUUID()}@example.test\nBen,ben-${randomUUID()}@example.test\n`;
+
+  await assert.rejects(
+    bulkSendFromTemplate(userId, narrowTemplate.id, { csv }, options()),
+    (error: unknown) =>
+      error instanceof BulkSendError &&
+      error.statusCode === 400 &&
+      /dropdown for Signer on page 1 is too small/.test(error.message),
+  );
+  await assert.rejects(
+    bulkSendFromTemplate(userId, narrowTemplate.id, confirmBody(csv), {
+      ...options(),
+      sender: senderFor(userId),
+    }),
+    (error: unknown) =>
+      error instanceof BulkSendError &&
+      error.statusCode === 400 &&
+      /dropdown for Signer on page 1 is too small/.test(error.message),
+  );
+  assert.equal(await countEnvelopes(userId), 1);
+  assert.equal((await capturedInvitations()).length, invitationsBefore);
+
+  // Wider dropdown control marks all rows Ready on preview and sends cleanly.
+  const wideTemplate = await createDropdownTemplate(userId, {
+    height: 0.03,
+    width: 0.6,
+  });
+  const preview = await bulkSendFromTemplate(
+    userId,
+    wideTemplate.id,
+    { csv },
+    options(),
+  );
+
+  assert.equal(preview.summary.ok, 2);
+  assert.deepEqual(
+    preview.rows.map((row) => row.status),
+    ["ok", "ok"],
+  );
+
+  const sent = await bulkSendFromTemplate(
+    userId,
+    wideTemplate.id,
+    confirmBody(csv),
+    { ...options(), sender: senderFor(userId) },
+  );
+
+  assert.equal(sent.summary.sent, 2);
+  assert.equal((await capturedInvitations()).length, invitationsBefore + 2);
+});
+
 test("confirming the same batch key does not send the envelopes again", async () => {
   const userId = await createUser();
   const template = await createOneRoleTemplate(userId);

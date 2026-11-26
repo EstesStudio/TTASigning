@@ -1,7 +1,11 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { fieldPlacementSchema } from "./field.ts";
+import {
+  fieldPlacementSchema,
+  replaceFieldsResponseSchema,
+  signingFieldSubmissionSchema,
+} from "./field.ts";
 
 const placement = {
   height: 0.05,
@@ -37,4 +41,86 @@ test("a text field may be optional", () => {
     }).success,
     true,
   );
+});
+
+test("dropdown choices accept 80-code-point emoji strings and refuse lone surrogates", () => {
+  const eightyWithEmoji = `${"a".repeat(79)}😀`;
+  const eightyOneWithEmoji = `${"a".repeat(80)}😀`;
+  const loneHighSurrogate = `${"a".repeat(79)}\ud83d`;
+  const loneLowSurrogate = `${"a".repeat(79)}\ude00`;
+
+  assert.equal(
+    fieldPlacementSchema.safeParse({
+      ...placement,
+      options: [eightyWithEmoji, "No"],
+      type: "dropdown",
+    }).success,
+    true,
+  );
+
+  assert.equal(
+    signingFieldSubmissionSchema.safeParse({
+      fieldId: "field-1",
+      type: "dropdown",
+      value: eightyWithEmoji,
+    }).success,
+    true,
+  );
+
+  assert.equal(
+    replaceFieldsResponseSchema.safeParse({
+      envelopeId: "env-1",
+      fields: [
+        {
+          ...placement,
+          id: "field-1",
+          options: [eightyWithEmoji, "No"],
+          type: "dropdown",
+        },
+      ],
+      fieldsRevision: 1,
+      redirectPath: "/envelopes/env-1/review",
+      updatedAt: 1700000000,
+    }).success,
+    true,
+  );
+
+  assert.equal(
+    fieldPlacementSchema.safeParse({
+      ...placement,
+      options: [eightyOneWithEmoji],
+      type: "dropdown",
+    }).success,
+    false,
+  );
+
+  for (const broken of [loneHighSurrogate, loneLowSurrogate]) {
+    assert.equal(
+      fieldPlacementSchema.safeParse({
+        ...placement,
+        options: [broken],
+        type: "dropdown",
+      }).success,
+      false,
+    );
+
+    assert.equal(
+      signingFieldSubmissionSchema.safeParse({
+        fieldId: "field-1",
+        type: "dropdown",
+        value: broken,
+      }).success,
+      false,
+    );
+
+    assert.equal(
+      fieldPlacementSchema.safeParse({
+        ...placement,
+        groupId: "group-1",
+        label: broken,
+        type: "radio",
+      }).success,
+      false,
+    );
+  }
 });

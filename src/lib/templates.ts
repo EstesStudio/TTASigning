@@ -12,6 +12,7 @@ import {
   createDraftEnvelope,
   deleteDraftEnvelope,
   EnvelopeDocumentAccessError,
+  findUnreadableDropdown,
   getDraftEnvelopeDocumentForUser,
   getPrepareEnvelopeDataForUser,
   replaceDraftEnvelopeFields,
@@ -29,6 +30,10 @@ import {
   useTemplateSchema,
   type TemplateRole,
 } from "./schemas/template.ts";
+import {
+  DocumentImportError,
+  importPdfDocument,
+} from "./services/document-import.ts";
 import { buildTemplatePdfKey } from "./services/storage-keys.ts";
 import { normalizeSigningSteps } from "./signing-steps.ts";
 import {
@@ -225,6 +230,8 @@ export async function listTemplatesForUser(
 
 export type TemplateForBulkSend = UseTemplateData & {
   fields: unknown;
+  sourcePdfFilename: string;
+  sourcePdfKey: string;
 };
 
 /**
@@ -296,10 +303,75 @@ export function describeUnsendableTemplate(
   );
 }
 
+/**
+ * Whether any dropdown on the template is too small to show one of its
+ * choices at a readable size on the template's PDF, in words for the
+ * sender, or null. Mirrors sendDraftEnvelope so Send to many rejects an
+ * unreadable dropdown before preview marks rows Ready or creates drafts.
+ */
+export async function describeTemplateDropdownProblem(
+  roles: readonly TemplateRole[],
+  fields: unknown,
+  sourcePdf: { filename: string; key: string },
+  storageService?: StorageService,
+): Promise<string | null> {
+  const parsed = fieldPlacementListSchema.safeParse(fields);
+
+  if (!parsed.success) {
+    return UNUSABLE_TEMPLATE_MESSAGE;
+  }
+
+  if (
+    !parsed.data.some(
+      (field) => field.type === "dropdown" && (field.options?.length ?? 0) > 0,
+    )
+  ) {
+    return null;
+  }
+
+  const resolvedStorage = storageService ?? createStorageService();
+  let sourcePdfBody: Uint8Array;
+
+  try {
+    sourcePdfBody = (await resolvedStorage.getObject(sourcePdf.key)).body;
+  } catch (error) {
+    if (error instanceof StorageObjectNotFoundError) {
+      throw new TemplateError(UNUSABLE_TEMPLATE_MESSAGE, 409);
+    }
+
+    throw error;
+  }
+
+  let imported: Awaited<ReturnType<typeof importPdfDocument>>;
+
+  try {
+    imported = await importPdfDocument({
+      body: sourcePdfBody,
+      contentType: "application/pdf",
+      filename: sourcePdf.filename,
+    });
+  } catch (error) {
+    if (error instanceof DocumentImportError) {
+      throw new TemplateError(error.message, 400);
+    }
+
+    throw error;
+  }
+
+  return findUnreadableDropdown(roles, parsed.data, imported.pages);
+}
+
 export async function getTemplateForBulkSend(
   userId: string,
   templateId: string,
   database: DbExecutor = getDb(),
+  {
+    checkDropdownReadability = true,
+    storageService,
+  }: {
+    checkDropdownReadability?: boolean;
+    storageService?: StorageService;
+  } = {},
 ): Promise<TemplateForBulkSend | null> {
   const row = await getTemplateRow(userId, templateId, database);
 
@@ -313,6 +385,25 @@ export async function getTemplateForBulkSend(
     throw new TemplateError(UNUSABLE_TEMPLATE_MESSAGE, 409);
   }
 
+  if (
+    checkDropdownReadability &&
+    describeUnsendableTemplate(roles.data, row.fields) === null
+  ) {
+    const dropdownProblem = await describeTemplateDropdownProblem(
+      roles.data,
+      row.fields,
+      {
+        filename: row.sourcePdfFilename,
+        key: row.sourcePdfKey,
+      },
+      storageService,
+    );
+
+    if (dropdownProblem) {
+      throw new TemplateError(dropdownProblem, 400);
+    }
+  }
+
   return {
     fieldCountLabel: countLabel(countFields(row.fields), "field"),
     fields: row.fields,
@@ -320,6 +411,8 @@ export async function getTemplateForBulkSend(
     name: row.name,
     pageCountLabel: countLabel(row.pageCount, "page"),
     roles: roles.data,
+    sourcePdfFilename: row.sourcePdfFilename,
+    sourcePdfKey: row.sourcePdfKey,
   };
 }
 
@@ -328,7 +421,9 @@ export async function getUseTemplateDataForUser(
   templateId: string,
   database: DbExecutor = getDb(),
 ): Promise<UseTemplateData | null> {
-  const template = await getTemplateForBulkSend(userId, templateId, database);
+  const template = await getTemplateForBulkSend(userId, templateId, database, {
+    checkDropdownReadability: false,
+  });
 
   if (!template) {
     return null;

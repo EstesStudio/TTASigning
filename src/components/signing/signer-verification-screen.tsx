@@ -232,7 +232,9 @@ export function SignerVerificationScreen({
             <div className="flex flex-col gap-3 sm:flex-row">
               <ShellButton
                 disabled={
-                  code.trim().length === 0 ||
+                  (method === "account"
+                    ? code.length === 0
+                    : code.trim().length === 0) ||
                   (method === "account" && email.trim().length === 0)
                 }
                 loading={isChecking}

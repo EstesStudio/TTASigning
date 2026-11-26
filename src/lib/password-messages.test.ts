@@ -20,6 +20,11 @@ test("a new password over 128 characters is told the maximum, not the minimum (i
     newPasswordLengthError("a".repeat(14)),
     PASSWORD_TOO_SHORT_MESSAGE,
   );
+  assert.equal(newPasswordLengthError("  12345678901  "), null);
+  assert.equal(
+    newPasswordLengthError(` ${"a".repeat(127)} `),
+    PASSWORD_TOO_LONG_MESSAGE,
+  );
 });
 
 test("Better Auth's password refusals get their own messages", () => {

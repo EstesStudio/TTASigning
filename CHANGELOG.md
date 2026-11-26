@@ -8,6 +8,81 @@ release says when it does.
 
 ## [Unreleased]
 
+## [0.9.1] - 2026-11-25
+
+Seven high-priority bug fixes reported by @coygeek across privacy and
+retention, document verification, hosted legal pages, envelope updates,
+and single sign-on settings. This release adds one index migration to
+the database: see the end of this entry.
+
+### Privacy and retention
+
+- Signer data exports under Settings, Organization, Signer data requests
+  now include stored and pending webhook deliveries for the requested
+  signer (scoped strictly to that party's own details). Erasing a signer
+  now deletes matching stored webhook deliveries in the same transaction
+  as the erased envelopes while leaving active, Part 11, owner-only, and
+  unrelated signers' records intact (#219, PR #268).
+- Daily retention cleanup now queues storage keys in
+  `pending_file_deletions` inside the same database transaction that
+  removes due closed-account and stale-draft rows. If storage refuses a
+  deletion, the run reports incomplete cleanup and later sweeps retry the
+  remaining files once storage recovers (#217, PR #268).
+
+### Verification
+
+- The public Verify page now checks `envelope_deleted` records in
+  `system_audit_events` when no live envelope matches, so unchanged signed
+  PDFs and audit certificates from deleted envelopes are recognized as
+  produced by this site (noting when the envelope record was deleted)
+  instead of getting a false negative. Only non-PII record fields are
+  read, and unsigned source PDFs still receive no match (#218, PR #268).
+
+### Envelopes and API
+
+- Voiding a sent envelope when email is not configured now returns
+  HTTP 503 with the actionable email-setup message on both
+  `/api/envelopes/[id]/void` and `/api/v1/envelopes/[id]/void` (matching
+  send and remind) while leaving the envelope `sent`, instead of failing
+  with HTTP 500. Voiding an envelope with no invited signers skips email
+  initialization (#225, PR #268).
+- Removing a signer or converting a signer to an approver now bumps
+  `fields_revision` under the draft lock, and field saves re-validate
+  signers and approver roles inside the lock so overlapping edits return
+  HTTP 409 reload guidance (or 400 for invalid IDs) instead of HTTP 500
+  foreign-key errors. Stale concurrent signer saves referencing a removed
+  signer are also refused with HTTP 409 instead of recreating the signer
+  without its saved access code (#224, PR #268).
+
+### Settings and hosted pages
+
+- In Settings, Two-step sign-in now checks whether the signed-in account
+  has a SignuDoc password. SSO-only accounts see that two-step sign-in is
+  managed by their identity provider, without the password-based setup
+  button or the inapplicable organization-requirement notice; direct
+  requests to the password-gated two-factor endpoints return
+  `PASSWORD_REQUIRED_FOR_TWO_FACTOR` (#243, PR #268).
+- On a fresh hosted install (`HOSTED_MODE=1`) before `SUPPORT_EMAIL` or
+  first-run setup is configured, `/privacy`, `/terms`, and
+  `/accessibility` now return HTTP 200 and link visitors to `/contact`
+  instead of returning HTTP 500, and `POST /api/contact` returns HTTP 503
+  instead of 500 while support email is unconfigured (#229, PR #268).
+
+### Upgrading
+
+This release adds one non-breaking migration:
+
+- `20261124120000_verify_deleted_audit_indexes.sql` adds three partial
+  expression indexes on `system_audit_events` for `envelope_deleted`
+  file-hash lookups so checking unknown or unsigned files on `/verify`
+  does not scan the full site audit log.
+
+On Vercel the production build applies the migration. On other hosts, run
+`npm run db:migrate` as on every deploy.
+
+Thank you to @coygeek for the thorough QA sweep and detailed reproduction
+scripts behind every fix in this release.
+
 ## [0.9.0] - 2026-11-22
 
 People can now work as a team, seeing the envelopes their teammates send,
@@ -740,6 +815,7 @@ checked against the real services:
 
 SignuDoc is software, not legal advice. See the README's legal disclaimer.
 
+[0.9.1]: https://github.com/NYLLON-SOFTWARE/SignuDoc/releases/tag/v0.9.1
 [0.9.0]: https://github.com/NYLLON-SOFTWARE/SignuDoc/releases/tag/v0.9.0
 [0.8.0]: https://github.com/NYLLON-SOFTWARE/SignuDoc/releases/tag/v0.8.0
 [0.7.0]: https://github.com/NYLLON-SOFTWARE/SignuDoc/releases/tag/v0.7.0

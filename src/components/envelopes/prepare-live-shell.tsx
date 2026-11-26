@@ -38,6 +38,11 @@ import {
 } from "@/lib/field-choices";
 import { getInitials } from "@/lib/initials";
 import {
+  releaseStaleFocusForCanvas,
+  shouldDeleteSelectedFieldOnKeydown,
+} from "@/lib/prepare-shortcuts";
+import { toWellFormedText } from "@/lib/whole-characters";
+import {
   type FieldPlacement,
   type ReplaceFieldsResponse,
 } from "@/lib/schemas/field";
@@ -308,18 +313,6 @@ function getFieldTool(type: PrepareFieldType) {
 
 function roundNormalized(value: number) {
   return Math.round(value * 1_000_000) / 1_000_000;
-}
-
-function isTextEntryTarget(target: EventTarget | null) {
-  if (
-    target instanceof HTMLInputElement ||
-    target instanceof HTMLTextAreaElement ||
-    target instanceof HTMLSelectElement
-  ) {
-    return true;
-  }
-
-  return target instanceof HTMLElement && target.isContentEditable;
 }
 
 function clearSelectedFieldFromViewportClick(
@@ -690,19 +683,20 @@ function PrepareLiveShellContent({
     const fieldId = selectedFieldId;
 
     function handleDeleteFieldKeydown(event: KeyboardEvent) {
-      if (event.defaultPrevented || isFieldInteracting) {
-        return;
-      }
-
-      if (event.key !== "Backspace" && event.key !== "Delete") {
-        return;
-      }
-
-      if (event.altKey || event.ctrlKey || event.metaKey) {
-        return;
-      }
-
-      if (isTextEntryTarget(event.target)) {
+      if (
+        !shouldDeleteSelectedFieldOnKeydown({
+          activeElement: document.activeElement,
+          altKey: event.altKey,
+          ctrlKey: event.ctrlKey,
+          defaultPrevented: event.defaultPrevented,
+          isComposing: event.isComposing,
+          isDialogOpen: isMobileToolsOpen,
+          isFieldInteracting,
+          key: event.key,
+          metaKey: event.metaKey,
+          target: event.target,
+        })
+      ) {
         return;
       }
 
@@ -715,7 +709,7 @@ function PrepareLiveShellContent({
     return () => {
       window.removeEventListener("keydown", handleDeleteFieldKeydown);
     };
-  }, [isFieldInteracting, selectedFieldId]);
+  }, [isFieldInteracting, isMobileToolsOpen, selectedFieldId]);
 
   useEffect(() => {
     if (zoomLevel > DEFAULT_DOCUMENT_ZOOM_LEVEL) {
@@ -1830,7 +1824,9 @@ function FieldEditor({
               maxLength={MAX_FIELD_OPTION_LENGTH}
               onChange={(event) => {
                 setLabelDraft(event.target.value);
-                onSetLabel(event.target.value.trim() || undefined);
+                onSetLabel(
+                  toWellFormedText(event.target.value).trim() || undefined,
+                );
               }}
               placeholder="Yes"
               value={shownLabel}
@@ -1956,6 +1952,7 @@ function placeField(
     type: tool.type,
   };
 
+  releaseStaleFocusForCanvas(document.activeElement);
   setFields((currentFields) => [...currentFields, nextField]);
   setSelectedFieldId(nextField.id);
   setArmedTool(null);

@@ -225,6 +225,8 @@ export const draftRecipientsChangedMessage =
 
 type VoidEnvelopeOptions = {
   database?: DbPool;
+  emailService?: EmailService;
+  storageService?: StorageService;
 };
 
 type EnvelopeRow = {
@@ -297,6 +299,10 @@ type FieldRow = {
   y: number;
 };
 
+// Fields shown in the envelope detail per-signer summary ("N fields assigned"
+// / "N fields completed"). Includes auto-filled Date and Name fields so the
+// count matches Place fields and Review; the signing page's remaining-required
+// counter tracks interactive signer actions separately.
 function shouldCountFieldForSignerSummary(
   field: Pick<FieldRecord, "required" | "type">,
 ): boolean {
@@ -305,6 +311,8 @@ function shouldCountFieldForSignerSummary(
   }
 
   if (
+    field.type === "date" ||
+    field.type === "name" ||
     field.type === "text" ||
     field.type === "number" ||
     field.type === "dropdown"
@@ -517,9 +525,10 @@ export class EnvelopeMutationError extends Error {
 }
 
 /**
- * The email service for a send. With no provider connected, sending is
- * refused with a message that says so, before anything changes, instead of
- * failing as an unexpected server error (issue #53).
+ * The email service for an action that emails signers (sending or voiding).
+ * With no provider connected, the action is refused with a message that says
+ * so, before anything changes, instead of failing as an unexpected server
+ * error (issues #53, #225).
  */
 function createEmailServiceForSending(): EmailService {
   try {
@@ -1607,9 +1616,14 @@ function describeChoiceProblem(
  * and on the signed document that can be too small to read. The sender
  * fixes it before sending instead.
  */
-async function findUnreadableDropdown(
-  signers: readonly PersistedSignerRecord[],
-  fields: readonly FieldRecord[],
+export async function findUnreadableDropdown(
+  signers: ReadonlyArray<{ id: string; name: string }>,
+  fields: ReadonlyArray<
+    Pick<
+      FieldRecord,
+      "height" | "options" | "page" | "signerId" | "type" | "width" | "x" | "y"
+    >
+  >,
   pages: Parameters<typeof findTypedValueTooLongForField>[1],
 ): Promise<string | null> {
   for (const field of fields) {
@@ -3011,7 +3025,6 @@ export async function sendDraftEnvelope(
   }
 
   const sentAt = Math.floor(Date.now() / 1000);
-  const sentAuditAt = Math.max(sentAt, envelope.createdAt + 1);
   const expiresAt = deadlineFromDays(sentAt, input.expiresInDays);
   const issuedLinks = new Map<string, IssuedSigningLink>();
 
@@ -3198,7 +3211,10 @@ export async function sendDraftEnvelope(
         {
           actorEmail: input.senderEmail,
           actorType: "sender",
-          createdAt: sentAuditAt,
+          // Keep the sent audit timestamp equal to envelopes.sent_at; tied
+          // whole-second events (created, sent, email_sent) stay ordered by
+          // audit_events.sequence rather than bumping sent past email_sent.
+          createdAt: sentAt,
           envelopeId,
           event: "sent",
           ipAddress: input.ipAddress ?? null,
@@ -3352,7 +3368,7 @@ export async function sendDraftEnvelope(
               SELECT max(sequence) FROM audit_events WHERE envelope_id = $1
             )
         `,
-        [envelopeId, sentAuditAt, input.senderEmail],
+        [envelopeId, sentAt, input.senderEmail],
       );
       // The envelope.sent webhook was held for the invitation (see
       // releaseSentWebhook below); it did not go out, so there is nothing
@@ -3986,7 +4002,11 @@ async function voidSentEnvelopeOnce(
   userId: string,
   envelopeId: string,
   input: VoidEnvelopeInput,
-  { database = getDb() }: VoidEnvelopeOptions = {},
+  {
+    database = getDb(),
+    emailService: givenEmailService,
+    storageService: givenStorageService,
+  }: VoidEnvelopeOptions = {},
 ): Promise<VoidEnvelopeResult> {
   const envelope = await getEnvelopeByIdForUser(userId, envelopeId, database);
 
@@ -4019,8 +4039,11 @@ async function voidSentEnvelopeOnce(
     (signer) => signer.status === "notified" || signer.status === "signed",
   );
   const voidedAt = Math.floor(Date.now() / 1000);
-  const emailService = createEmailService();
-  const storageService = createStorageService();
+  const emailService =
+    invitedSigners.length > 0
+      ? (givenEmailService ?? createEmailServiceForSending())
+      : null;
+  const storageService = givenStorageService ?? createStorageService();
   const sourcePdfHead = await storageService.headObject(envelope.sourcePdfKey);
 
   if (!sourcePdfHead.exists) {
@@ -4258,47 +4281,49 @@ async function voidSentEnvelopeOnce(
     throw error;
   });
 
-  const branding = await getBranding().catch(() => null);
+  if (emailService && invitedSigners.length > 0) {
+    const branding = await getBranding().catch(() => null);
 
-  await Promise.all(
-    invitedSigners.map(async (signer) => {
-      try {
-        if (!branding) {
-          throw new Error(
-            "Could not load settings for the notification email.",
+    await Promise.all(
+      invitedSigners.map(async (signer) => {
+        try {
+          if (!branding) {
+            throw new Error(
+              "Could not load settings for the notification email.",
+            );
+          }
+
+          const delivery = await emailService.send(
+            buildVoidNotificationEmail({
+              branding,
+              envelopeId,
+              envelopeTitle: envelope.title,
+              senderName: input.senderName,
+              signerEmail: signer.email,
+              signerName: signer.name,
+              signerSigned: signer.status === "signed",
+            }),
+          );
+
+          await recordEmailSent(
+            {
+              envelopeId,
+              messageId: delivery.messageId,
+              recipient: signer.email,
+              signerId: signer.id,
+              template: "void_notification",
+            },
+            database,
+          );
+        } catch (error) {
+          console.error(
+            `Failed to send void notification for envelope ${envelopeId} to ${signer.email}:`,
+            error,
           );
         }
-
-        const delivery = await emailService.send(
-          buildVoidNotificationEmail({
-            branding,
-            envelopeId,
-            envelopeTitle: envelope.title,
-            senderName: input.senderName,
-            signerEmail: signer.email,
-            signerName: signer.name,
-            signerSigned: signer.status === "signed",
-          }),
-        );
-
-        await recordEmailSent(
-          {
-            envelopeId,
-            messageId: delivery.messageId,
-            recipient: signer.email,
-            signerId: signer.id,
-            template: "void_notification",
-          },
-          database,
-        );
-      } catch (error) {
-        console.error(
-          `Failed to send void notification for envelope ${envelopeId} to ${signer.email}:`,
-          error,
-        );
-      }
-    }),
-  );
+      }),
+    );
+  }
 
   return voidEnvelopeResponseSchema.parse({
     envelopeId,
@@ -4327,40 +4352,12 @@ export async function replaceDraftEnvelopeFields(
     );
   }
 
-  const [signers, pages, existingFieldsByEnvelope] = await Promise.all([
-    listSignersForEnvelopeId(envelopeId, database),
-    listEnvelopePagesForEnvelopeId(envelopeId, database),
-    listFieldsForEnvelopeIds([envelopeId], database),
-  ]);
-  const signerIds = new Set(signers.map((signer) => signer.id));
-  const approverIds = new Set(
-    signers
-      .filter((signer) => signer.role === "approver")
-      .map((signer) => signer.id),
-  );
+  const pages = await listEnvelopePagesForEnvelopeId(envelopeId, database);
   const pageNumbers = new Set(pages.map((page) => page.pageNumber));
-  const existingFields = existingFieldsByEnvelope.get(envelopeId) ?? [];
-  const existingFieldMetadata = new Map(
-    existingFields.map((field) => [field.id, field.createdAt] as const),
-  );
   const usedFieldIds = new Set<string>();
   const updatedAt = Math.floor(Date.now() / 1000);
-  const nextFields = parsedInput.fields.map((field, index) => {
+  const preparedFields = parsedInput.fields.map((field) => {
     const parsedField = fieldPlacementSchema.parse(field);
-
-    if (!signerIds.has(parsedField.signerId)) {
-      throw new EnvelopeMutationError(
-        "Each field must be assigned to an existing signer on this envelope.",
-        400,
-      );
-    }
-
-    if (approverIds.has(parsedField.signerId)) {
-      throw new EnvelopeMutationError(
-        "Approvers approve or reject the document and have no fields. Give the field to a signer.",
-        400,
-      );
-    }
 
     if (!pageNumbers.has(parsedField.page)) {
       throw new EnvelopeMutationError(
@@ -4379,18 +4376,17 @@ export async function replaceDraftEnvelopeFields(
 
     return {
       ...parsedField,
-      createdAt: existingFieldMetadata.get(fieldId) ?? updatedAt + index,
       id: fieldId,
       updatedAt,
     };
   });
 
-  const fieldsRevision = await withTransaction(async (tx) => {
+  const { fields, fieldsRevision } = await withTransaction(async (tx) => {
     await lockDraftEnvelope(userId, envelopeId, tx);
 
-    // Under the draft's lock, so two saves cannot both pass this check: a
-    // save made against an older list (from a page the sender has since
-    // left, say) does not overwrite a newer one.
+    // Under the draft's lock, so two saves (or a signer removal) cannot both
+    // pass this check: a save made against an older list (from a page the
+    // sender has since left, say) does not overwrite a newer one.
     if (
       parsedInput.expectedRevision !== undefined &&
       parsedInput.expectedRevision !==
@@ -4398,6 +4394,40 @@ export async function replaceDraftEnvelopeFields(
     ) {
       throw new EnvelopeMutationError(FIELDS_CHANGED_MESSAGE, 409);
     }
+
+    // Checked under the draft's lock so a signer removed or turned into an
+    // approver right before this transaction acquired the lock is refused
+    // cleanly instead of failing on fields_signer_envelope_fk or the approver
+    // trigger (issue #224).
+    const signers = await listSignersForEnvelopeId(envelopeId, tx);
+    const signerIds = new Set(signers.map((signer) => signer.id));
+    const approverIds = new Set(
+      signers
+        .filter((signer) => signer.role === "approver")
+        .map((signer) => signer.id),
+    );
+
+    for (const field of preparedFields) {
+      if (!signerIds.has(field.signerId)) {
+        throw new EnvelopeMutationError(
+          "Each field must be assigned to an existing signer on this envelope.",
+          400,
+        );
+      }
+
+      if (approverIds.has(field.signerId)) {
+        throw new EnvelopeMutationError(
+          "Approvers approve or reject the document and have no fields. Give the field to a signer.",
+          400,
+        );
+      }
+    }
+
+    const existingFields =
+      (await listFieldsForEnvelopeIds([envelopeId], tx)).get(envelopeId) ?? [];
+    const existingFieldMetadata = new Map(
+      existingFields.map((field) => [field.id, field.createdAt] as const),
+    );
 
     await tx.query(
       `
@@ -4407,7 +4437,7 @@ export async function replaceDraftEnvelopeFields(
       [envelopeId],
     );
 
-    for (const field of nextFields) {
+    for (const [index, field] of preparedFields.entries()) {
       await tx.query(
         `
           INSERT INTO fields (
@@ -4447,7 +4477,7 @@ export async function replaceDraftEnvelopeFields(
           field.height,
           field.required,
           field.label ?? null,
-          field.createdAt,
+          existingFieldMetadata.get(field.id) ?? updatedAt + index,
           field.updatedAt,
           field.type === "dropdown"
             ? JSON.stringify(field.options ?? [])
@@ -4466,16 +4496,18 @@ export async function replaceDraftEnvelopeFields(
       `,
       [updatedAt, envelopeId, userId],
     );
+    const savedFields =
+      (await listFieldsForEnvelopeIds([envelopeId], tx)).get(envelopeId) ?? [];
 
-    return updated.rows[0]?.fields_revision ?? 0;
+    return {
+      fields: savedFields,
+      fieldsRevision: updated.rows[0]?.fields_revision ?? 0,
+    };
   }, database);
 
   return replaceFieldsResponseSchema.parse({
     envelopeId,
-    fields:
-      (await listFieldsForEnvelopeIds([envelopeId], database)).get(
-        envelopeId,
-      ) ?? [],
+    fields,
     fieldsRevision,
     redirectPath: `/envelopes/${envelopeId}/review`,
     updatedAt,
@@ -4616,7 +4648,32 @@ export async function replaceDraftEnvelopeSigners(
       [envelopeId],
     );
 
-    if (existingSigners.length > 0) {
+    const lockedSigners = await listSignersForEnvelopeId(envelopeId, tx);
+    const lockedSignerRoles = new Map(
+      lockedSigners.map((signer) => [signer.id, signer.role ?? "signer"]),
+    );
+
+    // Reject a stale save whose signer ID existed in the pre-lock snapshot
+    // but was removed concurrently before this transaction acquired the lock;
+    // inserting it anew would drop its saved access_code_hash,
+    // require_email_code, or signature_meaning.
+    for (const signer of nextSigners) {
+      if (
+        !lockedSignerRoles.has(signer.id) &&
+        existingSignerIds.has(signer.id)
+      ) {
+        throw new EnvelopeMutationError(
+          "These signers were changed somewhere else, so this change was not saved. Reload the page to see the latest signers.",
+          409,
+        );
+      }
+    }
+    // Any removal of a signer (which cascades to delete their fields) or
+    // conversion of a signer into an approver invalidates an open Place fields
+    // view, so bump fields_revision under the lock (issue #224).
+    let fieldsInvalidated = false;
+
+    if (lockedSigners.length > 0) {
       await tx.query(
         `
           UPDATE signers
@@ -4631,7 +4688,9 @@ export async function replaceDraftEnvelopeSigners(
     }
 
     for (const signer of nextSigners) {
-      if (existingSignerIds.has(signer.id)) {
+      const previousRole = lockedSignerRoles.get(signer.id);
+
+      if (previousRole !== undefined) {
         await tx.query(
           `
             UPDATE signers
@@ -4666,10 +4725,17 @@ export async function replaceDraftEnvelopeSigners(
 
         // Someone who becomes an approver has no fields any more.
         if (signer.role === "approver") {
-          await tx.query(
+          const deletedApproverFields = await tx.query(
             `DELETE FROM fields WHERE envelope_id = $1 AND signer_id = $2`,
             [envelopeId, signer.id],
           );
+
+          if (
+            (deletedApproverFields.rowCount ?? 0) > 0 ||
+            previousRole !== "approver"
+          ) {
+            fieldsInvalidated = true;
+          }
         }
       } else {
         await tx.query(
@@ -4718,7 +4784,7 @@ export async function replaceDraftEnvelopeSigners(
       }
     }
 
-    await tx.query(
+    const deletedSigners = await tx.query(
       `
         DELETE FROM signers
         WHERE envelope_id = $1
@@ -4726,6 +4792,10 @@ export async function replaceDraftEnvelopeSigners(
       `,
       [envelopeId, ...nextSigners.map((signer) => signer.id)],
     );
+
+    if ((deletedSigners.rowCount ?? 0) > 0) {
+      fieldsInvalidated = true;
+    }
 
     for (const recipient of nextCopyRecipients) {
       await tx.query(
@@ -4747,11 +4817,17 @@ export async function replaceDraftEnvelopeSigners(
     }
 
     await tx.query(
-      `
-        UPDATE envelopes
-        SET updated_at = $1
-        WHERE id = $2 AND user_id = $3
-      `,
+      fieldsInvalidated
+        ? `
+            UPDATE envelopes
+            SET updated_at = $1, fields_revision = fields_revision + 1
+            WHERE id = $2 AND user_id = $3
+          `
+        : `
+            UPDATE envelopes
+            SET updated_at = $1
+            WHERE id = $2 AND user_id = $3
+          `,
       [updatedAt, envelopeId, userId],
     );
   }, database);

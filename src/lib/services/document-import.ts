@@ -1,6 +1,12 @@
 import { createHash } from "node:crypto";
 
-import { PDFDocument } from "pdf-lib";
+import {
+  EncryptedPDFError,
+  PDFDict,
+  PDFDocument,
+  PDFName,
+  PDFNull,
+} from "pdf-lib";
 
 import type { EnvelopePageRecord } from "../schemas/envelope.ts";
 import { MAX_PDF_PAGES, MAX_UPLOAD_SIZE_BYTES } from "../types/domain.ts";
@@ -104,7 +110,11 @@ function assertImportRequest(input: {
   }
 }
 
-function isPasswordException(error: unknown): boolean {
+function isEncryptedPdfError(error: unknown): boolean {
+  if (error instanceof EncryptedPDFError) {
+    return true;
+  }
+
   if (!(error instanceof Error)) {
     return false;
   }
@@ -113,6 +123,7 @@ function isPasswordException(error: unknown): boolean {
 
   return (
     error.name === "PasswordException" ||
+    error.name === "EncryptedPDFError" ||
     normalizedMessage.includes("password") ||
     normalizedMessage.includes("encrypted")
   );
@@ -130,20 +141,34 @@ function looksLikePdf(body: Uint8Array): boolean {
   return header === PDF_MAGIC_HEADER;
 }
 
-function maybeContainsXfa(body: Uint8Array): boolean {
-  const prefix = new TextDecoder("latin1").decode(
-    body.subarray(0, Math.min(body.length, 512 * 1024)),
-  );
+function hasEncryptionEntry(document: PDFDocument): boolean {
+  if (document.isEncrypted) {
+    return true;
+  }
 
-  return prefix.includes("/XFA");
+  const encryptEntry = document.context.trailerInfo.Encrypt;
+
+  return encryptEntry !== undefined && encryptEntry !== PDFNull;
 }
 
-function maybeContainsEncrypt(body: Uint8Array): boolean {
-  const prefix = new TextDecoder("latin1").decode(
-    body.subarray(0, Math.min(body.length, 512 * 1024)),
-  );
+function hasXfaForm(document: PDFDocument): boolean {
+  if (!(document.catalog instanceof PDFDict)) {
+    return false;
+  }
 
-  return prefix.includes("/Encrypt");
+  const acroForm = document.catalog.lookup(PDFName.of("AcroForm"));
+
+  if (!(acroForm instanceof PDFDict)) {
+    return false;
+  }
+
+  const xfaEntry = acroForm.get(PDFName.of("XFA"));
+
+  if (xfaEntry === undefined || xfaEntry === PDFNull) {
+    return false;
+  }
+
+  return document.context.lookup(xfaEntry) !== PDFNull;
 }
 
 async function parsePdfDocument(
@@ -151,7 +176,16 @@ async function parsePdfDocument(
 ): Promise<{ pages: ImportedPdfPage[]; pureXfa: boolean }> {
   const document = await PDFDocument.load(body, {
     ignoreEncryption: false,
+    updateMetadata: false,
   });
+
+  if (hasEncryptionEntry(document)) {
+    throw new DocumentImportError("encrypted_pdf");
+  }
+
+  if (hasXfaForm(document)) {
+    throw new DocumentImportError("unsupported_variant");
+  }
 
   if (document.getPageCount() > MAX_PDF_PAGES) {
     throw new DocumentImportError("too_many_pages");
@@ -196,20 +230,10 @@ export async function importPdfDocument({
     throw new DocumentImportError("invalid_type");
   }
 
-  const containsEncrypt = maybeContainsEncrypt(body);
-  const containsXfa = maybeContainsXfa(body);
   const sourceHash = hashDocument(body);
-
-  if (containsEncrypt) {
-    throw new DocumentImportError("encrypted_pdf");
-  }
 
   try {
     const { pages, pureXfa } = await parsePdfDocument(body.slice());
-
-    if (pureXfa || containsXfa) {
-      throw new DocumentImportError("unsupported_variant");
-    }
 
     return {
       encrypted: false,
@@ -225,12 +249,8 @@ export async function importPdfDocument({
       throw error;
     }
 
-    if (isPasswordException(error) || containsXfa) {
-      if (isPasswordException(error)) {
-        throw new DocumentImportError("encrypted_pdf");
-      }
-
-      throw new DocumentImportError("unsupported_variant");
+    if (isEncryptedPdfError(error)) {
+      throw new DocumentImportError("encrypted_pdf");
     }
 
     throw new DocumentImportError("unreadable_pdf");

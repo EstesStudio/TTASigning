@@ -709,7 +709,8 @@ function EmailSetupPanel() {
   const canSendTest =
     status !== null &&
     status.state !== "missing_key" &&
-    status.state !== "capture";
+    status.state !== "capture" &&
+    status.state !== "capture_refused";
 
   return (
     <div className="space-y-5 border-t border-(--border) pt-8" id="email-setup">
@@ -845,6 +846,50 @@ function describeEmailStatus(status: EmailStatus): {
         ready: true,
         title: "Emails are being captured, not sent",
       };
+    case "capture_refused":
+      return status.onVercel
+        ? {
+            lines: [
+              "EMAIL_DRIVER=capture drops every email and cannot be used in production, so this site refuses to send anything: no sign-up confirmations and no signing invitations.",
+            ],
+            ready: false,
+            steps: [
+              {
+                text: "In this project on Vercel, open Settings, then Environment Variables, and remove EMAIL_DRIVER (or set it to resend).",
+              },
+              {
+                link: {
+                  href: RESEND_MARKETPLACE_URL,
+                  label: "Resend on the Vercel Marketplace",
+                },
+                text: "Connect Resend and check that RESEND_API_KEY is listed for Production.",
+              },
+              {
+                text: "Open Deployments, open the ••• menu on the latest Production deployment and choose Redeploy, then reload this page.",
+              },
+            ],
+            title: "Email cannot be sent with EMAIL_DRIVER=capture",
+          }
+        : {
+            lines: [
+              "EMAIL_DRIVER=capture drops every email and cannot be used in production, so this site refuses to send anything: no sign-up confirmations and no signing invitations.",
+            ],
+            ready: false,
+            steps: [
+              {
+                text: "Remove EMAIL_DRIVER=capture from the environment variables where this site runs (or set EMAIL_DRIVER=resend).",
+              },
+              {
+                link: {
+                  href: "https://resend.com/api-keys",
+                  label: "Resend API keys",
+                },
+                text: "Configure a delivery provider by setting RESEND_API_KEY if it is not set already.",
+              },
+              { text: "Restart the app, then reload this page." },
+            ],
+            title: "Email cannot be sent with EMAIL_DRIVER=capture",
+          };
     case "missing_key":
       return status.onVercel
         ? {

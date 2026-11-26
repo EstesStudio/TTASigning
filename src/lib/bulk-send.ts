@@ -40,6 +40,7 @@ import {
 import { readStoredSettings } from "./settings.ts";
 import {
   createDraftFromTemplate,
+  describeTemplateDropdownProblem,
   describeUnsendableTemplate,
   getTemplateForBulkSend,
   TemplateError,
@@ -754,16 +755,25 @@ export async function bulkSendFromTemplate(
   }: BulkSendOptions = {},
 ): Promise<BulkSendResult> {
   const parsedInput = bulkSendRequestSchema.parse(input);
-  const template = await getTemplateForBulkSend(userId, templateId, database);
+  const template = await getTemplateForBulkSend(userId, templateId, database, {
+    checkDropdownReadability: false,
+  });
 
   if (!template) {
     throw new TemplateError("Template not found.", 404);
   }
 
-  const unsendable = describeUnsendableTemplate(
-    template.roles,
-    template.fields,
-  );
+  const unsendable =
+    describeUnsendableTemplate(template.roles, template.fields) ??
+    (await describeTemplateDropdownProblem(
+      template.roles,
+      template.fields,
+      {
+        filename: template.sourcePdfFilename,
+        key: template.sourcePdfKey,
+      },
+      storageService,
+    ));
 
   if (unsendable) {
     throw new BulkSendError(unsendable, 400);

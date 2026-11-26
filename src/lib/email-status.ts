@@ -6,7 +6,10 @@ import {
   getAddressDomain,
   isResendTestSender,
 } from "./services/email-addresses.ts";
-import { resolveEmailDriver } from "./services/email.ts";
+import {
+  isCaptureEmailDriverAllowed,
+  resolveEmailDriver,
+} from "./services/email.ts";
 import {
   getSettings,
   markEmailReady,
@@ -36,8 +39,14 @@ export type EmailDnsRecord = {
 };
 
 export type EmailStatus =
-  /** Development: messages are written to disk, not sent. */
+  /** Development (or a local production build on localhost): messages are written to disk, not sent. */
   | { state: "capture" }
+  /**
+   * EMAIL_DRIVER=capture is configured in a deployed environment (production
+   * with a non-loopback URL, or Vercel), where the capture driver is refused
+   * because it drops every email.
+   */
+  | { state: "capture_refused"; onVercel: boolean }
   /**
    * No Resend API key, so nothing can be sent. On Vercel the steps to fix it
    * are Vercel's, which the page spells out.
@@ -385,7 +394,12 @@ async function inspectEmail({
       client: null,
       domainId: null,
       markReady: noop,
-      status: { state: "capture" },
+      status: isCaptureEmailDriverAllowed(env)
+        ? { state: "capture" }
+        : {
+            onVercel: readEnv(env, "VERCEL") === "1",
+            state: "capture_refused",
+          },
     };
   }
 
@@ -558,7 +572,7 @@ export function emailNeedsAttention(
 ): boolean {
   try {
     if (resolveEmailDriver(env) === "capture") {
-      return false;
+      return !isCaptureEmailDriverAllowed(env);
     }
   } catch {
     return true;
