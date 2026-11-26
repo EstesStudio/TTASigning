@@ -2,6 +2,8 @@ import { NextResponse } from "next/server";
 
 import { getAuthSessionFromHeaders } from "@/lib/auth/server";
 import { getDb } from "@/lib/db/connection";
+import { MAX_DRAWN_SIGNATURE_BYTES } from "@/lib/schemas/field";
+import { readLimitedBody } from "@/lib/utils/limited-body";
 import {
   SavedSignatureError,
   removeSignature,
@@ -15,9 +17,26 @@ export async function PUT(request: Request) {
     return NextResponse.json({ error: "Unauthorized." }, { status: 401 });
   }
 
-  const payload = (await request.json().catch(() => null)) as {
-    imageDataUrl?: unknown;
-  } | null;
+  // Base64 grows the image by a third; 4 KB covers the data URL prefix and JSON.
+  const body = await readLimitedBody(
+    request,
+    Math.ceil(MAX_DRAWN_SIGNATURE_BYTES / 3) * 4 + 4096,
+  );
+
+  if (!body) {
+    return NextResponse.json(
+      { error: "The signature image is too large." },
+      { status: 413 },
+    );
+  }
+
+  let payload: { imageDataUrl?: unknown } | null = null;
+
+  try {
+    payload = JSON.parse(new TextDecoder().decode(body));
+  } catch {
+    payload = null;
+  }
 
   try {
     await saveSignature(session.user.id, payload?.imageDataUrl, getDb());

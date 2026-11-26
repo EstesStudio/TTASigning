@@ -2144,6 +2144,9 @@ function SignatureModal({
   const [uploadError, setUploadError] = useState<string | null>(null);
   const [saveToAccount, setSaveToAccount] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
+  const [isConverting, setIsConverting] = useState(false);
+  // Only the latest file chosen may become the uploaded image.
+  const uploadRequestRef = useRef(0);
   const imageForMode =
     signatureMode === "drawn"
       ? drawnSignatureDataUrl
@@ -2177,6 +2180,7 @@ function SignatureModal({
   const normalizedTypedSignatureValue = typedSignatureValue.trim();
   const canApply =
     !isSaving &&
+    !isConverting &&
     (signatureMode === "typed"
       ? normalizedTypedSignatureValue.length > 0
       : Boolean(imageForMode));
@@ -2186,17 +2190,37 @@ function SignatureModal({
       return;
     }
 
+    const request = ++uploadRequestRef.current;
+
     setUploadError(null);
+    setUploadedSignatureDataUrl(null);
+    setIsConverting(true);
 
     try {
-      setUploadedSignatureDataUrl(await signatureImageFromFile(file));
+      const dataUrl = await signatureImageFromFile(file);
+
+      if (request === uploadRequestRef.current) {
+        setUploadedSignatureDataUrl(dataUrl);
+      }
     } catch (error) {
-      setUploadedSignatureDataUrl(null);
-      setUploadError(
-        error instanceof SignatureImageError
-          ? error.message
-          : "We couldn't read this image. Choose another file.",
-      );
+      if (request === uploadRequestRef.current) {
+        setUploadError(
+          error instanceof SignatureImageError
+            ? error.message
+            : "We couldn't read this image. Choose another file.",
+        );
+      }
+    } finally {
+      if (request === uploadRequestRef.current) {
+        setIsConverting(false);
+      }
+    }
+  }
+
+  // Dismissing mid-save would let the save's result fill a field the signer cancelled.
+  function handleClose() {
+    if (!isSaving) {
+      onClose();
     }
   }
 
@@ -2263,7 +2287,7 @@ function SignatureModal({
       title={
         fieldType === "initials" ? "Add your initials" : "Add your signature"
       }
-      onClose={onClose}
+      onClose={handleClose}
     >
       <Tabs
         className="gap-4"
@@ -2418,7 +2442,11 @@ function SignatureModal({
       ) : null}
 
       <div className="flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
-        <ShellButton onClick={onClose} variant="secondary">
+        <ShellButton
+          disabled={isSaving}
+          onClick={handleClose}
+          variant="secondary"
+        >
           Cancel
         </ShellButton>
         <ShellButton
