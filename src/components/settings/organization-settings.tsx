@@ -1001,6 +1001,14 @@ function describeMailgunStatus(
   status: Extract<EmailStatus, { state: "mailgun" }>,
 ): { lines: string[]; ready: boolean; title: string } {
   switch (status.problem) {
+    case "config":
+      return {
+        lines: [
+          `EMAIL_DRIVER is mailgun, but its settings are incomplete: ${status.message ?? ""}`.trim(),
+        ],
+        ready: false,
+        title: "Mailgun is not configured",
+      };
     case "no_sender":
       return {
         lines: [

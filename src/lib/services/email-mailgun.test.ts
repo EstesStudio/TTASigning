@@ -5,6 +5,7 @@ import { type ResolvedSettings } from "../settings.ts";
 import {
   createMailgunEmailService,
   describeMailgunEmail,
+  retryWaitMs,
 } from "./email-mailgun.ts";
 import { createEmailService, resolveEmailDriver } from "./email.ts";
 import { ServiceConfigurationError } from "./service-config.ts";
@@ -146,6 +147,34 @@ test("a send turned away for rate or by a fault is tried again", async () => {
   assert.deepEqual(waits, [2_000, 1_000]);
 });
 
+test("a send told to wait longer than a request can is not retried", async () => {
+  const { calls, mailgun, waits } = service([
+    () => json(429, { message: "Too many" }, { "retry-after": "60" }),
+  ]);
+
+  await assert.rejects(mailgun.send(MESSAGE), /Too many/);
+  assert.equal(calls.length, 1);
+  assert.deepEqual(waits, []);
+});
+
+test("Retry-After is read in seconds or as an HTTP date", () => {
+  const now = Date.parse("2026-01-01T00:00:00Z");
+  const after = (value: string) =>
+    retryWaitMs(new Response(null, { headers: { "retry-after": value } }), now);
+
+  assert.equal(after("3"), 3_000);
+  assert.equal(after("Thu, 01 Jan 2026 00:00:04 GMT"), 4_000);
+  assert.equal(retryWaitMs(new Response(null), now), 1_000);
+});
+
+test("each Mailgun request carries a timeout", async () => {
+  const { calls, mailgun } = service([() => json(200, { id: "<1@x>" })]);
+
+  await mailgun.send(MESSAGE);
+
+  assert.ok(calls[0].init.signal instanceof AbortSignal);
+});
+
 test("a refusal is reported in Mailgun's words and not retried", async () => {
   const { calls, mailgun } = service([
     () => json(400, { message: "to parameter is not a valid address" }),
@@ -249,4 +278,26 @@ test("an error from Mailgun leaves the ready mark as it is", async () => {
     "Invalid private key",
   );
   assert.deepEqual(marks, []);
+});
+
+test("Settings names the missing Mailgun settings instead of failing", async () => {
+  const marks: boolean[] = [];
+  const status = await describeMailgunEmail({
+    env: { MAILGUN_DOMAIN: "mg.example.test" },
+    fetch: (async () => {
+      throw new Error("not called");
+    }) as typeof fetch,
+    markReady: async (ready) => {
+      marks.push(ready);
+    },
+    settings: settingsWithSender("sign@mg.example.test"),
+  });
+
+  assert.equal(status.state, "mailgun");
+  assert.equal(status.state === "mailgun" && status.problem, "config");
+  assert.match(
+    (status.state === "mailgun" && status.message) || "",
+    /MAILGUN_API_KEY/,
+  );
+  assert.deepEqual(marks, [false]);
 });

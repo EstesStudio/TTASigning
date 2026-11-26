@@ -24,7 +24,9 @@ const API_BASE_URLS = {
 
 const RETRIES = 3;
 const DEFAULT_RETRY_WAIT_MS = 1_000;
+// Longer waits are not retried in-request: a signing request is waiting on the send.
 const MAX_RETRY_WAIT_MS = 5_000;
+const REQUEST_TIMEOUT_MS = 15_000;
 
 type MailgunConfig = {
   apiKey: string;
@@ -90,12 +92,22 @@ function buildForm(
   return form;
 }
 
-function retryWaitMs(response: Response): number {
-  const seconds = Number(response.headers.get("retry-after"));
+export function retryWaitMs(response: Response, now = Date.now()): number {
+  const value = response.headers.get("retry-after")?.trim();
 
-  return Number.isFinite(seconds) && seconds > 0
-    ? Math.min(seconds * 1000, MAX_RETRY_WAIT_MS)
-    : DEFAULT_RETRY_WAIT_MS;
+  if (!value) {
+    return DEFAULT_RETRY_WAIT_MS;
+  }
+
+  const seconds = Number(value);
+
+  if (Number.isFinite(seconds)) {
+    return Math.max(seconds * 1000, 0);
+  }
+
+  const date = Date.parse(value);
+
+  return Number.isNaN(date) ? DEFAULT_RETRY_WAIT_MS : Math.max(date - now, 0);
 }
 
 type CreateMailgunEmailServiceOptions = {
@@ -121,19 +133,23 @@ export function createMailgunEmailService({
 
     for (let attempt = 0; ; attempt += 1) {
       // A FormData body is read once, so each attempt builds its own.
+      // The signal also bounds reading the answer; a timed-out send is not retried, as it may have gone out.
       const response = await send(url, {
         body: buildForm(message, addresses),
         headers: { authorization: authorization(apiKey) },
         method: "POST",
+        signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
       });
+      const waitMs = retryWaitMs(response);
 
       // Mailgun drops (does not queue) a 429/5xx send.
       if (
         (response.status === 429 || response.status >= 500) &&
-        attempt < RETRIES
+        attempt < RETRIES &&
+        waitMs <= MAX_RETRY_WAIT_MS
       ) {
         await response.body?.cancel();
-        await wait(retryWaitMs(response));
+        await wait(waitMs);
         continue;
       }
 
@@ -171,7 +187,7 @@ export type MailgunEmailStatus =
   | {
       state: "mailgun";
       domain: string;
-      problem: "no_sender" | "wrong_domain" | "unverified" | "error";
+      problem: "config" | "no_sender" | "wrong_domain" | "unverified" | "error";
       message?: string;
       senderAddress: string | null;
     };
@@ -189,7 +205,22 @@ export async function describeMailgunEmail({
   markReady,
   settings,
 }: DescribeMailgunEmailOptions): Promise<MailgunEmailStatus> {
-  const { apiKey, baseUrl, domain } = readConfig(env);
+  let config: MailgunConfig;
+
+  try {
+    config = readConfig(env);
+  } catch (error) {
+    await markReady(false);
+    return {
+      domain: env.MAILGUN_DOMAIN?.trim().toLowerCase() ?? "",
+      message: error instanceof Error ? error.message : String(error),
+      problem: "config",
+      senderAddress: null,
+      state: "mailgun",
+    };
+  }
+
+  const { apiKey, baseUrl, domain } = config;
   const senderAddress = extractEmailAddress(
     buildEmailAddresses(settings).senderAddress,
   );
@@ -216,7 +247,10 @@ export async function describeMailgunEmail({
   try {
     const response = await send(
       `${baseUrl}/v4/domains/${encodeURIComponent(domain)}`,
-      { headers: { authorization: authorization(apiKey) } },
+      {
+        headers: { authorization: authorization(apiKey) },
+        signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
+      },
     );
     const answer = (await response.json().catch(() => null)) as {
       domain?: { state?: string };
