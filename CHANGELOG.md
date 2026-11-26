@@ -8,6 +8,15 @@ release says when it does.
 
 ## [Unreleased]
 
+### Signing
+
+- Signers can upload a photo or scan of their signature. The page turns the
+  paper transparent, crops to the ink, and applies it as a drawn signature.
+- An account can keep one saved signature (Settings, Signature, or "Save to
+  my account" when signing). It is offered only on a document sent to the
+  account's own confirmed address while signed in, never on an embedded
+  page, and is deleted with the account. Adds the `saved_signatures` table.
+
 ## [0.9.1] - 2026-11-25
 
 Seven high-priority bug fixes reported by @coygeek across privacy and
