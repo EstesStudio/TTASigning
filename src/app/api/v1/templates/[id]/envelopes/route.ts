@@ -8,6 +8,7 @@ import {
   getApiEnvelope,
   markEnvelopeAsApiMade,
   MAX_API_METADATA_BYTES,
+  refuseNulCharacters,
   sendEnvelopeForApi,
 } from "@/lib/api/envelopes";
 import {
@@ -22,29 +23,31 @@ import { signatureMeanings } from "@/lib/types/domain";
 
 type Context = { params: Promise<{ id: string }> };
 
-const bodySchema = z.object({
-  metadata: z
-    .record(z.string(), z.unknown())
-    .refine(
-      (value) =>
-        Buffer.byteLength(JSON.stringify(value), "utf8") <=
-        MAX_API_METADATA_BYTES,
-      { message: "Metadata must be at most 2048 bytes of JSON." },
-    )
-    .optional(),
-  send: apiSendOptionsSchema.optional(),
-  signers: z
-    .array(
-      z.object({
-        email: z.string(),
-        name: z.string(),
-        // Part 11 installs need one for each signer before sending.
-        signatureMeaning: z.enum(signatureMeanings).optional(),
-      }),
-    )
-    .min(1),
-  title: z.string(),
-});
+const bodySchema = z
+  .object({
+    metadata: z
+      .record(z.string(), z.unknown())
+      .refine(
+        (value) =>
+          Buffer.byteLength(JSON.stringify(value), "utf8") <=
+          MAX_API_METADATA_BYTES,
+        { message: "Metadata must be at most 2048 bytes of JSON." },
+      )
+      .optional(),
+    send: apiSendOptionsSchema.optional(),
+    signers: z
+      .array(
+        z.object({
+          email: z.string(),
+          name: z.string(),
+          // Part 11 installs need one for each signer before sending.
+          signatureMeaning: z.enum(signatureMeanings).optional(),
+        }),
+      )
+      .min(1),
+    title: z.string(),
+  })
+  .superRefine(refuseNulCharacters);
 
 // Starts an envelope from a saved template: one signer per role, in the
 // template's order. Sends it too when asked.

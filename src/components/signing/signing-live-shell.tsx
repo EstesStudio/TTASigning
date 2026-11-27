@@ -48,6 +48,7 @@ import {
   type SigningVisibleField,
 } from "@/lib/schemas/signing";
 import { type SigningSubmission } from "@/lib/schemas/field";
+import { MAX_DECLINE_REASON_LENGTH } from "@/lib/schemas/signer";
 import {
   countAnswerableFields,
   isNumberEntry,
@@ -249,6 +250,12 @@ function hasInvalidNumber(
   const value = (textValues[field.id] ?? "").trim();
 
   return field.type === "number" && value.length > 0 && !isNumberEntry(value);
+}
+
+// Typed answers are checked against their box on the document while the
+// signer types, the same way signing checks them when they finish.
+function isTypedAnswerField(field: SigningCurrentField): boolean {
+  return field.type === "text" || field.type === "number";
 }
 
 function getSummaryLabel(field: SigningCurrentField) {
@@ -654,7 +661,8 @@ export function SigningLiveShell({
     hasInvalidNumber(field, textValues),
   ).length;
   const tooLongFields = record.currentSignerFields.filter(
-    (field) => field.type === "text" && tooLongAnswers[field.id] !== undefined,
+    (field) =>
+      isTypedAnswerField(field) && tooLongAnswers[field.id] !== undefined,
   );
   const canFinish =
     remainingFields === 0 &&
@@ -662,7 +670,7 @@ export function SigningLiveShell({
     tooLongFields.length === 0;
   const isInvalidEntry = (field: SigningCurrentField) =>
     hasInvalidNumber(field, textValues) ||
-    (field.type === "text" && tooLongAnswers[field.id] !== undefined);
+    (isTypedAnswerField(field) && tooLongAnswers[field.id] !== undefined);
   const requiredFieldCount = countAnswerableFields(
     record.currentSignerFields,
     (field) => field.required,
@@ -680,7 +688,7 @@ export function SigningLiveShell({
 
     const changed = record.currentSignerFields.filter(
       (field) =>
-        field.type === "text" &&
+        isTypedAnswerField(field) &&
         (textValues[field.id] ?? "").trim() !==
           (checkedAnswersRef.current[field.id] ?? ""),
     );
@@ -1293,9 +1301,10 @@ export function SigningLiveShell({
                     key={field.id}
                     role="alert"
                   >
-                    A text box on page {field.page} is full: shorten your answer
-                    to {tooLongAnswers[field.id]} characters or fewer so all of
-                    it fits on the document.
+                    A {field.type === "number" ? "number" : "text"} box on page{" "}
+                    {field.page} is full: shorten your answer to{" "}
+                    {tooLongAnswers[field.id]} characters or fewer so all of it
+                    fits on the document.
                   </p>
                 ))}
                 <div
@@ -1625,6 +1634,7 @@ export function SigningLiveShell({
               autoFocus
               className="min-h-28"
               id="signing-decline-reason"
+              maxLength={MAX_DECLINE_REASON_LENGTH}
               name="signing-decline-reason"
               onChange={(event) => setDeclineReason(event.target.value)}
               placeholder="I'd like to discuss some terms first..."
@@ -1862,7 +1872,7 @@ function CurrentSignerField({
         }`}
         data-signing-field="true"
         style={frame}
-        title={isInvalid ? NUMBER_ENTRY_MESSAGE : undefined}
+        title={tooLongMessage ?? (isInvalid ? NUMBER_ENTRY_MESSAGE : undefined)}
       >
         <input
           aria-invalid={isInvalid ? true : undefined}

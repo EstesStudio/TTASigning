@@ -19,9 +19,9 @@ function emptyStringToUndefined(value: unknown): unknown {
   return trimmedValue.length > 0 ? trimmedValue : undefined;
 }
 
-export function optionalTrimmedString(maxLength: number) {
+export function optionalTrimmedString(maxLength: number, message?: string) {
   return z.preprocess(
     emptyStringToUndefined,
-    z.string().max(maxLength).optional(),
+    z.string().max(maxLength, message).optional(),
   );
 }

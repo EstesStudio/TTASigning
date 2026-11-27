@@ -26,7 +26,11 @@ import {
   replaceDraftEnvelopeSigners,
   sendDraftEnvelope,
 } from "./envelopes.ts";
-import { describePart11SignerProblem, findSignerAccounts } from "./part11.ts";
+import {
+  describePart11SignerProblem,
+  describePart11TemplateProblem,
+  findSignerAccounts,
+} from "./part11.ts";
 import {
   bulkSendRequestSchema,
   type BulkSendRequest,
@@ -763,8 +767,10 @@ export async function bulkSendFromTemplate(
     throw new TemplateError("Template not found.", 404);
   }
 
+  const part11 = (await readStoredSettings(database))?.part11Mode ?? false;
   const unsendable =
     describeUnsendableTemplate(template.roles, template.fields) ??
+    (part11 ? describePart11TemplateProblem(template.roles) : null) ??
     (await describeTemplateDropdownProblem(
       template.roles,
       template.fields,
@@ -811,7 +817,6 @@ export async function bulkSendFromTemplate(
     parsedCsv.rows,
     copyRecipientEmails,
   );
-  const part11 = (await readStoredSettings(database))?.part11Mode ?? false;
   const rows = part11
     ? await applyPart11Problems(
         validatedRows,

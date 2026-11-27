@@ -258,3 +258,18 @@ export function moveListedSigner<T extends ListedSigner>(
 
   return inSteps(moved, movedSteps);
 }
+
+/** "2 signers", or "2 signers · 1 approver" when someone only approves. */
+export function describeSigningOrderCount(
+  people: readonly { role?: string | null }[],
+): string {
+  const approverCount = people.filter(
+    (person) => person.role === "approver",
+  ).length;
+  const signerCount = people.length - approverCount;
+  const signers = `${String(signerCount)} ${signerCount === 1 ? "signer" : "signers"}`;
+
+  return approverCount > 0
+    ? `${signers} · ${String(approverCount)} ${approverCount === 1 ? "approver" : "approvers"}`
+    : signers;
+}

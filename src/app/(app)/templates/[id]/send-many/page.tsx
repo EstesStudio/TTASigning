@@ -4,6 +4,7 @@ import { BulkSendShell } from "@/components/templates/bulk-send-shell";
 import { getAuthSession } from "@/lib/auth/server";
 import { exampleCsvForRoles, MAX_BULK_SEND_ROWS } from "@/lib/bulk-send-csv";
 import { getDb } from "@/lib/db/connection";
+import { describePart11TemplateProblem } from "@/lib/part11";
 import { getSettings } from "@/lib/settings";
 import {
   describeUnsendableTemplate,
@@ -17,12 +18,20 @@ type BulkSendPageProps = {
   }>;
 };
 
+async function readPart11Mode(): Promise<boolean> {
+  try {
+    return (await getSettings()).part11Mode;
+  } catch {
+    return false;
+  }
+}
+
 export default async function BulkSendPage({ params }: BulkSendPageProps) {
   const { id } = await params;
   let template: Awaited<ReturnType<typeof getTemplateForBulkSend>> = null;
   let errorMessage: string | undefined;
   let failed = false;
-  let part11Mode = false;
+  const part11Mode = await readPart11Mode();
 
   try {
     const session = await getAuthSession();
@@ -30,7 +39,8 @@ export default async function BulkSendPage({ params }: BulkSendPageProps) {
       ? await getTemplateForBulkSend(session.user.id, id, getDb())
       : null;
     const unsendable = loaded
-      ? describeUnsendableTemplate(loaded.roles, loaded.fields)
+      ? (describeUnsendableTemplate(loaded.roles, loaded.fields) ??
+        (part11Mode ? describePart11TemplateProblem(loaded.roles) : null))
       : null;
 
     if (unsendable) {
@@ -42,12 +52,6 @@ export default async function BulkSendPage({ params }: BulkSendPageProps) {
   } catch (error) {
     failed = true;
     errorMessage = error instanceof TemplateError ? error.message : undefined;
-  }
-
-  try {
-    part11Mode = (await getSettings()).part11Mode;
-  } catch {
-    part11Mode = false;
   }
 
   if (!failed && !template) {

@@ -498,6 +498,7 @@ function PrepareLiveShellContent({
   const autosaveTimeoutRef = useRef<number | null>(null);
   // The saves already asked for; the next one waits for them.
   const saveChainRef = useRef<Promise<void>>(Promise.resolve());
+  const pendingSavesRef = useRef(0);
   const paperGridRef = useRef<HTMLDivElement | null>(null);
   const documentPanGestureRef = useRef<DocumentPanGesture | null>(null);
   const currentFieldsRef = useRef(fields);
@@ -728,10 +729,14 @@ function PrepareLiveShellContent({
   ): Promise<PersistFieldsResult> {
     const run = saveChainRef.current.then(() => sendFields(nextFields));
 
+    pendingSavesRef.current += 1;
     saveChainRef.current = run.then(
       () => undefined,
       () => undefined,
     );
+    void saveChainRef.current.then(() => {
+      pendingSavesRef.current -= 1;
+    });
 
     return run;
   }
@@ -773,6 +778,15 @@ function PrepareLiveShellContent({
     if (
       serializeFieldRequest(currentFieldsRef.current) !== requestedSignature
     ) {
+      // The sender changed the fields while this save was on its way, maybe
+      // back to the last saved list, which autosave skips. Save what's on
+      // screen now so the server doesn't keep this in-between list.
+      lastSavedSignatureRef.current = requestedSignature;
+
+      if (!autosaveTimeoutRef.current) {
+        void persistFields(currentFieldsRef.current);
+      }
+
       return {
         ok: false,
         redirectPath: payload.data?.redirectPath ?? null,
@@ -800,6 +814,11 @@ function PrepareLiveShellContent({
     const nextSignature = serializeFieldRequest(fields);
 
     if (nextSignature === lastSavedSignatureRef.current) {
+      // An edit undone before its autosave ran leaves nothing to save.
+      if (pendingSavesRef.current === 0) {
+        setSaveState((state) => (state === "saving" ? "saved" : state));
+      }
+
       return;
     }
 
