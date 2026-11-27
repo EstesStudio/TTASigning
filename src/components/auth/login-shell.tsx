@@ -143,7 +143,7 @@ function LiveLoginShell({
     resetError === "INVALID_TOKEN"
       ? "This reset link is invalid or has expired."
       : ssoError
-        ? describeSsoError(ssoError)
+        ? describeSsoError(ssoError, { passwordSignIn })
         : null,
   );
   // With password sign-in off, the form is only shown on request, for the

@@ -9,6 +9,7 @@ import { exportJWK, generateKeyPair, SignJWT, type JWK } from "jose";
 import type pg from "pg";
 
 import type { createAppAuth as CreateAppAuth } from "./server.ts";
+import { describeSsoError } from "./sso-errors.ts";
 import { replaceDbPoolForTests } from "../db/connection.ts";
 import { openTestDatabase } from "../db/test-database.ts";
 import { clearRateLimitStoreForTests } from "../security/rate-limit.ts";
@@ -381,6 +382,72 @@ test("someone with a password account is signed in to it, not given a second one
   );
 
   assert.equal(rows[0]?.count, "1");
+});
+
+test("someone with an unconfirmed password account stays signed out on SSO until they confirm their address (#244)", async () => {
+  const auth = await makeAuth();
+  const context = await auth.$context;
+  const id = randomUUID();
+
+  await database.query(
+    `insert into "user" (id, name, email, "emailVerified", role) values ($1, 'Pending Sender', 'pending@acme.com', false, 'user')`,
+    [id],
+  );
+  await database.query(
+    `insert into account (id, "accountId", "providerId", "userId", password) values ($1, $2, 'credential', $2, $3)`,
+    [randomUUID(), id, await context.password.hash(PASSWORD)],
+  );
+
+  const refused = await signInWithSso(auth, {
+    email: "pending@acme.com",
+    email_verified: true,
+    name: "Pending Sender",
+    sub: "okta-pending",
+  });
+
+  assert.equal(refused.location.pathname, "/login");
+
+  const errorCode = refused.location.searchParams.get("error") ?? "";
+
+  assert.equal(errorCode, "account_not_linked");
+  assert.equal(await sessionUser(auth, refused.cookies), null);
+  assert.match(describeSsoError(errorCode), /email address must be confirmed/i);
+  assert.notEqual(
+    describeSsoError(errorCode),
+    "Single sign-on did not finish. Please try again.",
+  );
+
+  const failed = (await listSystemAuditEvents({ limit: 100 }, database)).find(
+    (event) => event.event === "sign_in_failed",
+  );
+
+  assert.deepEqual(failed?.metadata, {
+    method: "sso",
+    provider: "sso",
+    reason: "account_not_linked",
+  });
+
+  const { rows: linkedBefore } = await database.query<{ count: string }>(
+    `select count(*)::text as count from account where "userId" = $1 and "providerId" = 'sso'`,
+    [id],
+  );
+
+  assert.equal(linkedBefore[0]?.count, "0");
+
+  await database.query(
+    `update "user" set "emailVerified" = true where id = $1`,
+    [id],
+  );
+
+  const allowed = await signInWithSso(auth, {
+    email: "pending@acme.com",
+    email_verified: true,
+    name: "Pending Sender",
+    sub: "okta-pending",
+  });
+
+  assert.equal(allowed.location.pathname, "/dashboard");
+  assert.equal((await sessionUser(auth, allowed.cookies))?.id, id);
 });
 
 test("the sign-up rule holds for single sign-on too", async () => {
