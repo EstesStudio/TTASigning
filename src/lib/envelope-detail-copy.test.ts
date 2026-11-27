@@ -5,6 +5,8 @@ import {
   canEditAutomaticReminders,
   describeAutomaticReminders,
   describeCopyRecipientDelivery,
+  describeDeadlineDialogNote,
+  describeEnvelopeDeadline,
 } from "./envelope-detail-copy.ts";
 
 test("copy recipient status copy distinguishes terminal outcomes from pending delivery (issue #238)", () => {
@@ -88,4 +90,74 @@ test("automatic reminder copy and editability reflect embedded vs email delivery
     false,
   );
   assert.equal(canEditAutomaticReminders({ isOwnEnvelope: true }), true);
+});
+
+test("deadline banner and dialog copy match embedded vs email link recovery (issue #247)", () => {
+  const label = "November 24, 2026 at 6:34 AM UTC";
+
+  const embeddedExpiredBanner = describeEnvelopeDeadline({
+    delivery: "embedded",
+    expired: true,
+    expiresAtLabel: label,
+  });
+
+  assert.equal(
+    embeddedExpiredBanner,
+    `Expired ${label}. Nobody can sign until you set a new deadline and your app requests a fresh signing link.`,
+  );
+  assert.equal(
+    describeEnvelopeDeadline({
+      delivery: "email",
+      expired: true,
+      expiresAtLabel: label,
+    }),
+    `Expired ${label}. Nobody can sign until you set a new deadline.`,
+  );
+  assert.equal(
+    describeEnvelopeDeadline({
+      delivery: "embedded",
+      expired: false,
+      expiresAtLabel: label,
+    }),
+    `Expires ${label}.`,
+  );
+  assert.equal(
+    describeEnvelopeDeadline({
+      delivery: "email",
+      expired: false,
+      expiresAtLabel: null,
+    }),
+    "No deadline. Each signing link lasts seven days.",
+  );
+
+  const embeddedExpiredNote = describeDeadlineDialogNote({
+    delivery: "embedded",
+    expired: true,
+  });
+
+  assert.doesNotMatch(embeddedExpiredNote, /will work again/i);
+  assert.match(embeddedExpiredNote, /stay expired/i);
+  assert.match(embeddedExpiredNote, /request a fresh signing link/i);
+
+  const embeddedActiveNote = describeDeadlineDialogNote({
+    delivery: "embedded",
+    expired: false,
+  });
+
+  assert.doesNotMatch(embeddedActiveNote, /already sent keeps working/i);
+  assert.match(embeddedActiveNote, /keep their own expiry/i);
+  assert.match(embeddedActiveNote, /request a fresh signing link/i);
+
+  assert.equal(
+    describeDeadlineDialogNote({ delivery: "email", expired: true }),
+    "The new deadline counts from now. The signing link that was already sent will work again.",
+  );
+  assert.equal(
+    describeDeadlineDialogNote({ delivery: "email", expired: false }),
+    "The new deadline counts from now. The signing link that was already sent keeps working until then.",
+  );
+  assert.equal(
+    describeDeadlineDialogNote({ expired: true }),
+    "The new deadline counts from now. The signing link that was already sent will work again.",
+  );
 });

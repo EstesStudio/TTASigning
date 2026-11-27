@@ -45,3 +45,42 @@ export function canEditAutomaticReminders(input: {
 }): boolean {
   return input.isOwnEnvelope && input.delivery !== "embedded";
 }
+
+/**
+ * Deadline banner text on the sender's envelope detail page while the
+ * envelope is out for signature.
+ */
+export function describeEnvelopeDeadline(input: {
+  delivery?: EnvelopeDelivery;
+  expired: boolean;
+  expiresAtLabel: string | null;
+}): string {
+  if (input.expired) {
+    return input.delivery === "embedded"
+      ? `Expired ${input.expiresAtLabel}. Nobody can sign until you set a new deadline and your app requests a fresh signing link.`
+      : `Expired ${input.expiresAtLabel}. Nobody can sign until you set a new deadline.`;
+  }
+
+  return input.expiresAtLabel
+    ? `Expires ${input.expiresAtLabel}.`
+    : "No deadline. Each signing link lasts seven days.";
+}
+
+/**
+ * Recovery explanation inside the Set/Change deadline dialog. Embedded links
+ * keep their own short lifetime and never revive after expiry.
+ */
+export function describeDeadlineDialogNote(input: {
+  delivery?: EnvelopeDelivery;
+  expired: boolean;
+}): string {
+  if (input.delivery === "embedded") {
+    return input.expired
+      ? "The new deadline counts from now. Previous embedded signing links stay expired, so your app will need to request a fresh signing link."
+      : "The new deadline counts from now. Existing embedded signing links keep their own expiry; your app can request a fresh signing link until the new deadline.";
+  }
+
+  return input.expired
+    ? "The new deadline counts from now. The signing link that was already sent will work again."
+    : "The new deadline counts from now. The signing link that was already sent keeps working until then.";
+}

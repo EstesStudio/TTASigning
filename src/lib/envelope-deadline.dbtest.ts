@@ -65,9 +65,11 @@ function unixNow() {
 
 /** An envelope out for signature, waiting on its one signer. */
 async function createSentEnvelope({
+  delivery = "email",
   expiresAt,
   status = "sent",
 }: {
+  delivery?: "email" | "embedded";
   expiresAt: number | null;
   status?: "draft" | "sent";
 }) {
@@ -88,14 +90,15 @@ async function createSentEnvelope({
   await database.query(
     `
       insert into envelopes (
-        id, user_id, title, status, source_pdf_key, source_pdf_filename,
+        id, user_id, title, status, delivery, source_pdf_key, source_pdf_filename,
         source_pdf_size_bytes, page_count, source_pdf_hash, sent_at, expires_at
-      ) values ($1, $2, 'Lease', $3, $4, 'lease.pdf', 10, 1, $5, $6, $7)
+      ) values ($1, $2, 'Lease', $3, $4, $5, 'lease.pdf', 10, 1, $6, $7, $8)
     `,
     [
       envelopeId,
       userId,
       status,
+      delivery,
       `test/${envelopeId}.pdf`,
       "a".repeat(64),
       status === "sent" ? sentAt : null,
@@ -345,6 +348,46 @@ test("the daily job tells the sender once that a deadline passed", async () => {
     "expired",
   ]);
   assert.equal((await verifyAuditChain(expired.envelopeId, database)).ok, true);
+});
+
+test("expiry notices for embedded envelopes explain requesting a fresh link instead of reusing an expired one (issue #247)", async () => {
+  const now = unixNow();
+  const embedded = await createSentEnvelope({
+    delivery: "embedded",
+    expiresAt: now - 60,
+  });
+  const emailed = await createSentEnvelope({
+    delivery: "email",
+    expiresAt: now - 60,
+  });
+  const { sent, service } = recordingEmailService();
+
+  const summary = await runEnvelopeSchedule({
+    database,
+    emailService: service,
+    now,
+  });
+
+  assert.equal(summary.expiryNoticeFailures.length, 0);
+
+  const embeddedNotice = sent.find((message) =>
+    message.to.startsWith(embedded.userId),
+  );
+  const emailedNotice = sent.find((message) =>
+    message.to.startsWith(emailed.userId),
+  );
+
+  assert.ok(embeddedNotice);
+  assert.ok(emailedNotice);
+  assert.doesNotMatch(
+    embeddedNotice.textBody,
+    /The signing link that was already sent will work again\./,
+  );
+  assert.match(embeddedNotice.textBody, /request a fresh signing link/);
+  assert.match(
+    emailedNotice.textBody,
+    /The signing link that was already sent will work again\./,
+  );
 });
 
 test("a notice whose email fails is tried again on the next run", async () => {
