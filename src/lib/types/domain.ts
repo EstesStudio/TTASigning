@@ -64,6 +64,17 @@ export const fieldTypes = [
   "radio",
 ] as const;
 
+/**
+ * Field types that cannot be marked optional (`required: false`): signatures
+ * and initials must be completed, and date and name fill themselves in.
+ */
+export const alwaysRequiredFieldTypes = [
+  "signature",
+  "initials",
+  "date",
+  "name",
+] as const satisfies readonly (typeof fieldTypes)[number][];
+
 export const fieldInputMethods = ["typed", "drawn", "auto"] as const;
 
 export const auditEventTypes = [

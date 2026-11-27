@@ -54,7 +54,8 @@ type ScheduleRun = {
   summary: EnvelopeScheduleSummary;
 };
 
-type ExpiredEnvelopeRow = {
+export type ExpiredEnvelopeRow = {
+  delivery: "email" | "embedded";
   expiresAt: number;
   id: string;
   ownerEmail: string;
@@ -74,6 +75,7 @@ async function listExpiredEnvelopesToNotify(
       SELECT
         e.id,
         e.title,
+        e.delivery,
         e.expires_at AS "expiresAt",
         u.email AS "ownerEmail",
         u.name AS "ownerName",
@@ -168,12 +170,16 @@ async function noteExpiryNoticeSent(
   }, database);
 }
 
-function buildExpiryNotice(envelope: ExpiredEnvelopeRow) {
+export function buildExpiryNotice(envelope: ExpiredEnvelopeRow) {
   const appUrl = resolveAppUrl();
   const link = appUrl ? `${appUrl}/envelopes/${envelope.id}` : null;
   const waitingOn = envelope.waitingOn
     ? ` It was still waiting on ${envelope.waitingOn}.`
     : "";
+  const recoveryLine =
+    envelope.delivery === "embedded"
+      ? "To give signers more time, open the envelope and set a new deadline. Previous embedded signing links stay expired, so your app will need to request a fresh signing link before signing can resume. If the document is no longer needed, void it."
+      : "To give signers more time, open the envelope and set a new deadline. The signing link that was already sent will work again. If the document is no longer needed, void it.";
 
   return {
     subject: `"${envelope.title}" expired before everyone signed`,
@@ -183,7 +189,7 @@ function buildExpiryNotice(envelope: ExpiredEnvelopeRow) {
       "",
       `The deadline for "${envelope.title}" passed on ${formatDeadline(envelope.expiresAt)}.${waitingOn} Nobody can sign it now.`,
       "",
-      "To give signers more time, open the envelope and set a new deadline. The signing link that was already sent will work again. If the document is no longer needed, void it.",
+      recoveryLine,
       ...(link ? ["", link] : []),
     ].join("\n"),
     to: envelope.ownerEmail,

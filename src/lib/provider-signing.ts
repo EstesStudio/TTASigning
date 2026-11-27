@@ -63,10 +63,14 @@ type SessionSecret = {
   token: string;
 };
 
+type EnvelopeStatus = "completed" | "declined" | "draft" | "sent" | "voided";
+
 type SessionRow = {
   baseSha256: string | null;
   contentDigest: string;
   envelopeId: string;
+  envelopeStatus: EnvelopeStatus;
+  envelopeTitle: string;
   expiresAt: number;
   id: string;
   level: SignatureLevel;
@@ -309,6 +313,30 @@ function alreadyClaimed(token: string): ProviderSigningError {
 }
 
 /**
+ * Where to send a signer who revisits or reloads a provider return URL for a
+ * session whose signature was already committed. Secrets were cleared on
+ * commit, so this uses the non-secret done route and reflects the envelope's
+ * current state if it was later voided or declined.
+ */
+export function completedProviderReturnRedirectPath(session: {
+  envelopeStatus: EnvelopeStatus;
+  envelopeTitle: string;
+}): string {
+  const searchParams = new URLSearchParams();
+
+  if (
+    session.envelopeStatus === "voided" ||
+    session.envelopeStatus === "declined"
+  ) {
+    searchParams.set("status", session.envelopeStatus);
+  } else {
+    searchParams.set("title", session.envelopeTitle);
+  }
+
+  return `/sign/completed/done?${searchParams.toString()}`;
+}
+
+/**
  * Ends a session that will not finish, if it is still in the state the
  * caller saw (`signing` only for the return that claimed it), and deletes
  * its revision and its secrets.
@@ -374,6 +402,8 @@ export async function resumeProviderSigning(
       SELECT
         sessions.id,
         sessions.envelope_id AS "envelopeId",
+        envelopes.status AS "envelopeStatus",
+        envelopes.title AS "envelopeTitle",
         sessions.provider,
         sessions.level,
         sessions.state,
@@ -386,13 +416,30 @@ export async function resumeProviderSigning(
         signers.name AS "signerName"
       FROM provider_signing_sessions AS sessions
       JOIN signers ON signers.id = sessions.signer_id
+      JOIN envelopes ON envelopes.id = sessions.envelope_id
       WHERE sessions.id = $1
     `,
     [sessionId],
   );
-  const secret = session ? openSecret(session.secretData, env) : null;
 
-  if (!session || !secret) {
+  if (!session) {
+    throw new ProviderSigningError(
+      "This signing session is not known here.",
+      "expired",
+      null,
+    );
+  }
+
+  // This trip's signature is already committed (and its secrets were cleared
+  // in the commit transaction). Revisiting or reloading the provider return
+  // URL leaves everything untouched and confirms the completed attempt.
+  if (session.state === "completed") {
+    return { redirectPath: completedProviderReturnRedirectPath(session) };
+  }
+
+  const secret = openSecret(session.secretData, env);
+
+  if (!secret) {
     throw new ProviderSigningError(
       "This signing session is not known here.",
       "expired",
@@ -403,7 +450,7 @@ export async function resumeProviderSigning(
   // Another return for this session (a reload, or the provider calling back
   // twice) is finishing it. Leave it to finish: failing the session here
   // would delete the revision it is saving.
-  if (session.state === "signing" || session.state === "completed") {
+  if (session.state === "signing") {
     throw alreadyClaimed(secret.token);
   }
 
@@ -433,6 +480,28 @@ export async function resumeProviderSigning(
   );
 
   if (claimed.rowCount !== 1) {
+    const latest = await queryOne<{
+      envelopeStatus: EnvelopeStatus;
+      envelopeTitle: string;
+      state: SessionRow["state"];
+    }>(
+      database,
+      `
+        SELECT
+          sessions.state,
+          envelopes.status AS "envelopeStatus",
+          envelopes.title AS "envelopeTitle"
+        FROM provider_signing_sessions AS sessions
+        JOIN envelopes ON envelopes.id = sessions.envelope_id
+        WHERE sessions.id = $1
+      `,
+      [session.id],
+    );
+
+    if (latest?.state === "completed") {
+      return { redirectPath: completedProviderReturnRedirectPath(latest) };
+    }
+
     throw alreadyClaimed(secret.token);
   }
 

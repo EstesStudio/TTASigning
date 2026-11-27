@@ -29,6 +29,14 @@ import type {
   EnvelopeDetailData,
   EnvelopeDetailTimelineItem,
 } from "@/lib/envelopes";
+import {
+  canEditAutomaticReminders,
+  describeAutomaticReminders,
+  describeCopyRecipientDelivery,
+  describeDeadlineDialogNote,
+  describeEnvelopeDeadline,
+} from "@/lib/envelope-detail-copy";
+import type { EnvelopeDelivery } from "@/lib/schemas/envelope";
 import { formatReminderInterval } from "@/lib/services/reminders";
 import {
   DEFAULT_ENVELOPE_DEADLINE_DAYS,
@@ -245,16 +253,23 @@ export function EnvelopeDetailShell({
       : null;
   const deadlineText = !deadline
     ? null
-    : isExpired
-      ? `Expired ${deadline.expiresAtLabel}. Nobody can sign until you set a new deadline.`
-      : deadline.expiresAtLabel
-        ? `Expires ${deadline.expiresAtLabel}.`
-        : "No deadline. Each signing link lasts seven days.";
-  const reminderIntervalDays = record.reminderIntervalDays ?? null;
-  const remindersText =
-    reminderIntervalDays === null
-      ? "Automatic reminders are off."
-      : `Automatic reminders: ${formatReminderInterval(reminderIntervalDays).toLowerCase()}.`;
+    : describeEnvelopeDeadline({
+        delivery: record.delivery,
+        expired: isExpired,
+        expiresAtLabel: deadline.expiresAtLabel,
+      });
+  const isEmbedded = record.delivery === "embedded";
+  const reminderIntervalDays = isEmbedded
+    ? null
+    : (record.reminderIntervalDays ?? null);
+  const canChangeReminders = canEditAutomaticReminders({
+    delivery: record.delivery,
+    isOwnEnvelope,
+  });
+  const remindersText = describeAutomaticReminders({
+    delivery: record.delivery,
+    reminderIntervalDays,
+  });
   // The document as it was sent, before anyone signed: while it is out for
   // signature, and once it was declined or voided. A completed envelope
   // has its signed PDF instead.
@@ -822,7 +837,7 @@ export function EnvelopeDetailShell({
             <p className="text-sm leading-6 text-(--secondary)">
               {remindersText}
             </p>
-            {isOwnEnvelope ? (
+            {canChangeReminders ? (
               <button
                 className="btn-quiet shrink-0"
                 onClick={() => {
@@ -991,9 +1006,7 @@ export function EnvelopeDetailShell({
                 Receives a copy
               </h3>
               <p className="mt-1 text-sm leading-6 text-(--secondary)">
-                {activeRecord.status === "completed"
-                  ? "Sent the finished document and its certificate."
-                  : "Gets the finished document once everyone has signed."}
+                {describeCopyRecipientDelivery(activeRecord.status)}
               </p>
               <ul className="mt-3 space-y-2">
                 {record.copyRecipients.map((recipient) => (
@@ -1046,6 +1059,7 @@ export function EnvelopeDetailShell({
 
       {activeModal === "change-deadline" ? (
         <DeadlineDialog
+          delivery={record.delivery}
           errorMessage={actionError}
           expired={isExpired}
           onCancel={() => setActiveModal(null)}
@@ -1054,7 +1068,7 @@ export function EnvelopeDetailShell({
         />
       ) : null}
 
-      {activeModal === "change-reminders" ? (
+      {activeModal === "change-reminders" && canChangeReminders ? (
         <RemindersDialog
           errorMessage={actionError}
           initialIntervalDays={reminderIntervalDays}
@@ -1280,6 +1294,7 @@ function CopyDraftDialog({
 }
 
 type DeadlineDialogProps = {
+  delivery?: EnvelopeDelivery;
   errorMessage?: string | null;
   expired: boolean;
   onCancel: () => void;
@@ -1288,6 +1303,7 @@ type DeadlineDialogProps = {
 };
 
 function DeadlineDialog({
+  delivery,
   errorMessage,
   expired,
   onCancel,
@@ -1313,12 +1329,7 @@ function DeadlineDialog({
             </DialogTitle>
             <DialogDescription asChild>
               <div className="space-y-2 text-sm leading-6 text-(--secondary)">
-                <p>
-                  The new deadline counts from now.{" "}
-                  {expired
-                    ? "The signing link that was already sent will work again."
-                    : "The signing link that was already sent keeps working until then."}
-                </p>
+                <p>{describeDeadlineDialogNote({ delivery, expired })}</p>
               </div>
             </DialogDescription>
           </DialogHeader>

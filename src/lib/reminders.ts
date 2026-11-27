@@ -309,6 +309,10 @@ function getAutomaticReminderObstacle(
   signer: ReminderSignerRow,
   now: number,
 ): string | null {
+  if (envelope.delivery === "embedded") {
+    return "This envelope is signed in another app, so SignuDoc does not send automatic reminders for it.";
+  }
+
   if (envelope.reminderIntervalDays === null) {
     return "Automatic reminders are off for this envelope.";
   }
@@ -443,12 +447,14 @@ async function persistReminder(
       );
 
       if (nextAvailableAt > dispatchedAt) {
+        const nextAvailableAtLabel = formatReminderAvailableAt(nextAvailableAt);
+
         throw new ReminderMutationError(
-          `You can send another reminder after ${formatReminderAvailableAt(nextAvailableAt)}.`,
+          `You can send another reminder after ${nextAvailableAtLabel}.`,
           429,
           {
             nextAvailableAt,
-            nextAvailableAtLabel: formatReminderAvailableAt(nextAvailableAt),
+            nextAvailableAtLabel,
           },
         );
       }

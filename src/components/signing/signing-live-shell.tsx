@@ -39,8 +39,12 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Checkbox } from "@/components/ui/checkbox";
-import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
+import {
+  SignatureModeTabs,
+  type SignatureModeTabsPrimitives,
+} from "@/components/signing/signature-mode-tabs";
 import { SigningStateScreen } from "@/components/signing/signing-state-screen";
 import {
   type SigningCurrentField,
@@ -2079,6 +2083,13 @@ function VisibleFieldStamp({ field }: { field: SigningVisibleField }) {
   );
 }
 
+const signatureModeTabsPrimitives: SignatureModeTabsPrimitives = {
+  Content: TabsContent,
+  List: TabsList,
+  Root: Tabs,
+  Trigger: TabsTrigger,
+};
+
 function SignatureModal({
   existingEntry,
   drawnSignatureVersion,
@@ -2147,87 +2158,72 @@ function SignatureModal({
       }
       onClose={onClose}
     >
-      <Tabs
-        className="gap-4"
-        onValueChange={(value) => onModeChange(value as "typed" | "drawn")}
-        value={signatureMode}
-      >
-        <TabsList className="segmented flex h-auto w-full p-1 group-data-horizontal/tabs:h-auto">
-          <TabsTrigger
-            className="segmented-item h-auto min-h-10 flex-1 data-active:bg-white data-active:text-(--fg) data-active:shadow-[0_1px_3px_rgba(28,29,43,0.12)] after:hidden"
-            value="typed"
-          >
-            Type
-          </TabsTrigger>
-          <TabsTrigger
-            className="segmented-item h-auto min-h-10 flex-1 data-active:bg-white data-active:text-(--fg) data-active:shadow-[0_1px_3px_rgba(28,29,43,0.12)] after:hidden"
-            value="drawn"
-          >
-            Draw
-          </TabsTrigger>
-        </TabsList>
-      </Tabs>
-
-      {signatureMode === "typed" ? (
-        <div className="space-y-4">
-          <label className="grid gap-1.5">
-            <span className="text-[0.8125rem] font-semibold text-(--secondary)">
-              {fieldType === "initials" ? "Type initials" : "Type signature"}
-            </span>
-            <input
-              autoFocus
-              className="field-input"
-              id={`signature-modal-${fieldType}`}
-              maxLength={fieldType === "initials" ? 4 : 80}
-              name={`signature-modal-${fieldType}`}
-              onChange={(event) =>
-                handleTypedSignatureValueChange(event.target.value)
-              }
-              placeholder={typedPlaceholder}
-              value={typedSignatureValue}
+      <SignatureModeTabs
+        drawnPanel={
+          <>
+            <SignatureDrawCanvas
+              emptyMessage={drawPreviewMessage}
+              // The canvas unmounts while the Type tab is shown, so it is seeded
+              // from the drawing that Apply would use, never a stale one.
+              initialDataUrl={drawnSignatureDataUrl}
+              key={drawnSignatureVersion}
+              onChange={setDrawnSignatureDataUrl}
             />
-          </label>
+            <div className="mt-2 flex justify-end">
+              <ShellButton
+                className="min-h-10 px-4 text-sm"
+                onClick={() => {
+                  setDrawnSignatureDataUrl(null);
+                  onClearDrawnSignature();
+                }}
+                variant="ghost"
+              >
+                Clear
+              </ShellButton>
+            </div>
+          </>
+        }
+        mode={signatureMode}
+        onModeChange={onModeChange}
+        primitives={signatureModeTabsPrimitives}
+        typedPanel={
+          <>
+            <label className="grid gap-1.5">
+              <span className="text-[0.8125rem] font-semibold text-(--secondary)">
+                {fieldType === "initials" ? "Type initials" : "Type signature"}
+              </span>
+              <input
+                autoFocus
+                className="field-input"
+                id={`signature-modal-${fieldType}`}
+                maxLength={fieldType === "initials" ? 4 : 80}
+                name={`signature-modal-${fieldType}`}
+                onChange={(event) =>
+                  handleTypedSignatureValueChange(event.target.value)
+                }
+                placeholder={typedPlaceholder}
+                value={typedSignatureValue}
+              />
+            </label>
 
-          <div className="well px-6 py-8 text-center">
-            <p
-              className={`text-[40px] leading-none sm:text-[52px] ${
-                normalizedTypedSignatureValue
-                  ? "text-(--fg)"
-                  : "text-(--placeholder)"
-              }`}
-              style={{ fontFamily: typedSignatureFont }}
-            >
-              {normalizedTypedSignatureValue || typedPlaceholder}
-            </p>
-            <p className="mt-4 text-xs font-medium text-(--tertiary)">
-              Rendered in signature style
-            </p>
-          </div>
-        </div>
-      ) : (
-        <div className="well p-3">
-          <SignatureDrawCanvas
-            emptyMessage={drawPreviewMessage}
-            // The canvas unmounts while the Type tab is shown, so it is seeded
-            // from the drawing that Apply would use, never a stale one.
-            initialDataUrl={drawnSignatureDataUrl}
-            key={drawnSignatureVersion}
-            onChange={setDrawnSignatureDataUrl}
-          />
-          <div className="mt-2 flex justify-end">
-            <ShellButton
-              className="min-h-10 px-4 text-sm"
-              onClick={() => {
-                setDrawnSignatureDataUrl(null);
-                onClearDrawnSignature();
-              }}
-              variant="ghost"
-            >
-              Clear
-            </ShellButton>
-          </div>
-        </div>
-      )}
+            <div className="well px-6 py-8 text-center">
+              <p
+                className={`text-[40px] leading-none sm:text-[52px] ${
+                  normalizedTypedSignatureValue
+                    ? "text-(--fg)"
+                    : "text-(--placeholder)"
+                }`}
+                style={{ fontFamily: typedSignatureFont }}
+              >
+                {normalizedTypedSignatureValue || typedPlaceholder}
+              </p>
+              <p className="mt-4 text-xs font-medium text-(--tertiary)">
+                Rendered in signature style
+              </p>
+            </div>
+          </>
+        }
+      />
 
       <div className="flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
         <ShellButton onClick={onClose} variant="secondary">

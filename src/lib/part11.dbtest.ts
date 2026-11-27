@@ -328,6 +328,13 @@ test("a confirmation stops counting once the account's name or address changes",
   }
 });
 
+const NAME_MISMATCH = {
+  attemptsLeft: MAX_SIGNING_PASSWORD_ATTEMPTS,
+  locked: false,
+  ok: false,
+  signerNameMismatch: true,
+};
+
 test("a signature is refused in a name other than the confirmed person's", async () => {
   const user = await createUser();
   const { rows } = await database.query<{ name: string }>(
@@ -345,7 +352,7 @@ test("a signature is refused in a name other than the confirmed person's", async
       },
       { database, verifyPassword },
     ),
-    NOT_CONFIRMED,
+    NAME_MISMATCH,
   );
   assert.deepEqual(
     await checkSigningCredentials(
@@ -361,9 +368,14 @@ test("a signature is refused in a name other than the confirmed person's", async
   );
 });
 
-test("confirming someone again after a name change lets them sign in the new name", async () => {
+test("confirming someone again after a name change lets them sign in the new name and flags an old-name link as a mismatch", async () => {
   const admin = await createUser("admin");
   const user = await createUser();
+  const { rows: beforeRename } = await database.query<{ name: string }>(
+    `select name from "user" where id = $1`,
+    [user.id],
+  );
+  const oldName = beforeRename[0]!.name;
 
   await database.query(
     `update "user" set name = 'Alice Married Name' where id = $1`,
@@ -385,6 +397,18 @@ test("confirming someone again after a name change lets them sign in the new nam
   );
 
   assert.deepEqual(rows[0], { email: user.email, name: "Alice Married Name" });
+  assert.deepEqual(
+    await checkSigningCredentials(
+      {
+        email: user.email,
+        password: "right",
+        signerName: oldName,
+        userId: user.id,
+      },
+      { database, verifyPassword },
+    ),
+    NAME_MISMATCH,
+  );
   assert.deepEqual(
     await checkSigningCredentials(
       {

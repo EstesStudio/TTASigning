@@ -5,6 +5,7 @@
 
 import { getMaxSignersPerEnvelope } from "../signer-limit.ts";
 import {
+  alwaysRequiredFieldTypes,
   fieldTypes,
   MAX_SIGNERS_CEILING,
   signatureMeanings,
@@ -249,6 +250,12 @@ export function buildOpenApiDocument(
         Field: {
           description:
             "Position and size are fractions of the page (0 to 1), measured from its top left corner.",
+          if: {
+            properties: {
+              type: { enum: [...alwaysRequiredFieldTypes], type: "string" },
+            },
+            required: ["type"],
+          },
           properties: {
             groupId: {
               description: "Radio buttons in one group.",
@@ -265,7 +272,12 @@ export function buildOpenApiDocument(
               type: "array",
             },
             page: { minimum: 1, type: "integer" },
-            required: { default: true, type: "boolean" },
+            required: {
+              default: true,
+              description:
+                "Whether the signer must complete this field. Always required for signature, initials, date and name fields (false is refused with 400); text, checkbox, number, dropdown and radio fields may set false.",
+              type: "boolean",
+            },
             signer: { description: "The signer's ref.", type: "string" },
             type: { enum: [...fieldTypes], type: "string" },
             width: { exclusiveMinimum: 0, maximum: 1, type: "number" },
@@ -273,6 +285,11 @@ export function buildOpenApiDocument(
             y: { maximum: 1, minimum: 0, type: "number" },
           },
           required: ["signer", "type", "page", "x", "y", "width", "height"],
+          then: {
+            properties: {
+              required: { const: true, type: "boolean" },
+            },
+          },
           type: "object",
         },
         SendOptions: {

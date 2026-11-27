@@ -3,8 +3,13 @@ import { readdir } from "node:fs/promises";
 import path from "node:path";
 import { test } from "node:test";
 
-import { fieldTypeSchema } from "../schemas/field.ts";
-import { signatureMeanings } from "../types/domain.ts";
+import { fieldPlacementSchema, fieldTypeSchema } from "../schemas/field.ts";
+import {
+  alwaysRequiredFieldTypes,
+  fieldTypes,
+  signatureMeanings,
+  type FieldType,
+} from "../types/domain.ts";
 import { buildOpenApiDocument } from "./openapi.ts";
 
 // Every route file under src/app/api/v1 has a path in the OpenAPI
@@ -69,11 +74,81 @@ test("the OpenAPI description allows the values the API accepts", () => {
     ].schema.properties.signers.items.properties;
 
   assert.deepEqual(Field.properties.type.enum, fieldTypeSchema.options);
+  assert.deepEqual(Field.if.properties.type.enum, [
+    ...alwaysRequiredFieldTypes,
+  ]);
+  assert.deepEqual(Field.if.required, ["type"]);
+  assert.equal(Field.then.properties.required.const, true);
+  assert.equal(Field.properties.required.default, true);
+  assert.equal(Field.properties.required.type, "boolean");
+
+  for (const type of alwaysRequiredFieldTypes) {
+    assert.match(
+      Field.properties.required.description,
+      new RegExp(`\\b${type}\\b`),
+      `Field.properties.required.description should mention ${type}`,
+    );
+  }
+
   assert.deepEqual(
     CreateEnvelope.properties.signers.items.properties.signatureMeaning.enum,
     [...signatureMeanings],
   );
   assert.deepEqual(fromTemplate.signatureMeaning.enum, [...signatureMeanings]);
+});
+
+test("the OpenAPI Field schema matches server validation for required by field type", () => {
+  const document = buildOpenApiDocument("https://sign.example.com/api/v1");
+  const { Field } = document.components.schemas;
+  const alwaysRequired = new Set<string>(Field.if.properties.type.enum);
+
+  function openApiAllowsRequired(
+    type: FieldType,
+    required: boolean | undefined,
+  ): boolean {
+    if (required === undefined) {
+      return true;
+    }
+
+    if (alwaysRequired.has(type)) {
+      return required === Field.then.properties.required.const;
+    }
+
+    return typeof required === "boolean";
+  }
+
+  const basePlacement = {
+    height: 0.05,
+    page: 1,
+    signerId: "signer-1",
+    width: 0.25,
+    x: 0.1,
+    y: 0.5,
+  };
+
+  for (const type of fieldTypes) {
+    const extra =
+      type === "dropdown"
+        ? { options: ["Yes", "No"] }
+        : type === "radio"
+          ? { groupId: "choice" }
+          : {};
+
+    for (const required of [undefined, true, false] as const) {
+      const candidate =
+        required === undefined
+          ? { ...basePlacement, ...extra, type }
+          : { ...basePlacement, ...extra, required, type };
+      const serverAllowed = fieldPlacementSchema.safeParse(candidate).success;
+      const schemaAllowed = openApiAllowsRequired(type, required);
+
+      assert.equal(
+        schemaAllowed,
+        serverAllowed,
+        `mismatch for type=${type}, required=${String(required)}`,
+      );
+    }
+  }
 });
 
 test("the OpenAPI description gives this install's signer limit", () => {

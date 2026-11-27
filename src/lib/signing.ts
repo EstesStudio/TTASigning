@@ -53,7 +53,7 @@ import {
 } from "./settings.ts";
 import {
   checkSigningCredentials,
-  MAX_SIGNING_PASSWORD_ATTEMPTS,
+  describeSigningCredentialFailure,
   type PasswordVerifier,
   SIGNATURE_MEANING_DETAILS,
 } from "./part11.ts";
@@ -1594,22 +1594,6 @@ export async function sendSignerEmailCode(
  * Checks an access code or emailed code. Returns every check this browser
  * has now passed, for the caller to store in the link's cookie.
  */
-function describeCredentialFailure(result: {
-  attemptsLeft: number;
-  identityNotConfirmed?: true;
-  locked: boolean;
-}): string {
-  if (result.identityNotConfirmed) {
-    return "Your account cannot sign this document right now: an administrator has to confirm your identity, and your email address must be confirmed. Ask the sender or an administrator.";
-  }
-
-  if (result.locked) {
-    return `This account is locked for signing after ${MAX_SIGNING_PASSWORD_ATTEMPTS} wrong passwords. Ask an administrator to unlock it.`;
-  }
-
-  return `That email address or password is not right. ${result.attemptsLeft} ${result.attemptsLeft === 1 ? "try is" : "tries are"} left before the account is locked for signing.`;
-}
-
 export async function verifySignerCheck(
   token: string,
   input: unknown,
@@ -1664,7 +1648,10 @@ export async function verifySignerCheck(
         database,
       );
 
-      throw new SigningMutationError(describeCredentialFailure(result), 400);
+      throw new SigningMutationError(
+        describeSigningCredentialFailure(result),
+        400,
+      );
     }
   } else if (parsed.method === "access_code") {
     // An access code can be short, so wrong ones are counted per signer and
@@ -2284,7 +2271,10 @@ async function reauthenticatePart11Signer(
       database,
     );
 
-    throw new SigningMutationError(describeCredentialFailure(result), 400);
+    throw new SigningMutationError(
+      describeSigningCredentialFailure(result),
+      400,
+    );
   }
 
   return {

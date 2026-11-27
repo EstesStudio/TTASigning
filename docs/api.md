@@ -157,8 +157,11 @@ Things to know:
   its top left corner: `"x": 0.1, "y": 0.8` is 10% in from the left and 80%
   down. Types: `signature`, `initials`, `date`, `name` (filled in with the
   signer's name when they sign), `text`, `checkbox`, `number`, `dropdown`
-  (with `options`), `radio` (buttons with one `groupId` are one question). `required` is true unless set to false. Every signer needs at
-  least one `signature` field.
+  (with `options`), `radio` (buttons with one `groupId` are one question).
+  `required` defaults to `true`. `signature`, `initials`, `date` and `name`
+  fields are always required (`"required": false` is refused with 400); only
+  `text`, `checkbox`, `number`, `dropdown` and `radio` fields may be set to
+  `"required": false`. Every signer needs at least one `signature` field.
 - **Sending** needs `"permittedUseConfirmed": true`: your app confirms, as the
   web app's send button asks a person to, that the envelope is an ordinary
   business agreement and not one of the kinds of document that the law does

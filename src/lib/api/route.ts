@@ -1,6 +1,6 @@
 import { ZodError } from "zod";
 
-import type { ApiKeyScope } from "../api-keys.ts";
+import type { ApiKeyPrincipal, ApiKeyScope } from "../api-keys.ts";
 import {
   requireApiKey,
   withRateLimitHeaders,
@@ -41,6 +41,7 @@ import {
 
 export type ApiContext = {
   actor: ApiActor;
+  apiKey: ApiKeyPrincipal["apiKey"];
   rateLimit: RateLimitState;
   request: Request;
 };
@@ -147,6 +148,7 @@ export async function handleApi(
       userAgent: getRequestUserAgent(request.headers),
       userId: principal.user.id,
     },
+    apiKey: principal.apiKey,
     rateLimit: principal.rateLimit,
     request,
   };

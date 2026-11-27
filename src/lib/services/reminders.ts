@@ -20,6 +20,7 @@ const reminderAvailabilityFormatter = new Intl.DateTimeFormat("en-US", {
   hour: "numeric",
   minute: "2-digit",
   month: "long",
+  timeZone: "UTC",
 });
 
 const SECONDS_PER_DAY = 24 * 60 * 60;
@@ -87,6 +88,9 @@ export function isAutomaticReminderDue(
   );
 }
 
+/** "November 23 at 6:34 AM UTC" */
 export function formatReminderAvailableAt(unixTimestamp: number): string {
-  return reminderAvailabilityFormatter.format(new Date(unixTimestamp * 1000));
+  return `${reminderAvailabilityFormatter
+    .format(new Date(unixTimestamp * 1000))
+    .replace(/[\u202f\u00a0]/g, " ")} UTC`;
 }

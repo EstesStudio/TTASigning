@@ -3,13 +3,14 @@ import { redirect } from "next/navigation";
 import { connection } from "next/server";
 
 import { PublicDocumentShell } from "@/components/layout/public-document-shell";
+import { STALE_DRAFT_RETENTION_DAYS } from "@/lib/retention";
 import { ServiceConfigurationError } from "@/lib/services/service-config";
 import {
   getSettings,
   resolveSettings,
   type ResolvedSettings,
 } from "@/lib/settings";
-import { STALE_DRAFT_RETENTION_DAYS } from "@/lib/retention";
+import { resolveSignerPrivacyPage } from "@/lib/signer-privacy";
 import { isHostedMode } from "@/lib/utils/env";
 
 export const metadata: Metadata = {
@@ -40,25 +41,17 @@ export default async function SignerPrivacyPage() {
   }
 
   const settings = await loadSignerPrivacySettings();
+  const resolved = resolveSignerPrivacyPage(settings);
 
-  if (settings.hosted) {
-    redirect("/privacy");
+  if (resolved.kind === "redirect") {
+    redirect(resolved.destination);
   }
 
-  if (settings.privacyUrl) {
-    redirect(settings.privacyUrl);
-  }
-
-  const organization =
-    settings.organizationName?.trim() || "The organization that runs this site";
-  const contact = settings.supportAddress;
-  const retention = settings.retentionDays
-    ? `Finished documents and their audit trails are deleted ${String(settings.retentionDays)} days after they are finished.`
-    : "Finished documents and their audit trails are kept until the organization deletes them, because they are evidence of an agreement and many must be kept for years by law.";
+  const { notice } = resolved;
 
   return (
     <PublicDocumentShell
-      description={`${organization} uses this site to send documents for electronic signature. This notice says what is collected about you when you sign, why, and what you can do about it.`}
+      description={notice.description}
       lastUpdated="2026-11-13"
       title="Privacy notice for signers"
     >
@@ -67,13 +60,13 @@ export default async function SignerPrivacyPage() {
           Who is responsible
         </h2>
         <p>
-          {organization} is responsible for your information (the
+          {notice.organizationSubject} is responsible for your information (the
           &ldquo;controller&rdquo;).{" "}
-          {contact ? (
+          {notice.contact ? (
             <>
               Contact them at{" "}
-              <a className="underline" href={`mailto:${contact}`}>
-                {contact}
+              <a className="underline" href={notice.contact.href}>
+                {notice.contact.address}
               </a>
               .
             </>
@@ -120,15 +113,7 @@ export default async function SignerPrivacyPage() {
         <h2 className="text-xl font-extrabold tracking-[-0.02em] text-(--fg)">
           Who else handles it
         </h2>
-        <p>
-          The other parties to the document see your name, email and signature.
-          The services that run this site process it for {organization}: the
-          hosting provider (Vercel), the database provider (such as Neon), file
-          storage (Vercel Blob) and the email provider (Resend). Some are based
-          in the United States; where information leaves the European Economic
-          Area, it is protected by the EU-US Data Privacy Framework or by
-          standard contractual clauses.
-        </p>
+        <p>{notice.processors}</p>
       </section>
 
       <section className="space-y-3">
@@ -136,7 +121,7 @@ export default async function SignerPrivacyPage() {
           How long it is kept
         </h2>
         <p>
-          {retention} Unsent drafts are deleted after{" "}
+          {notice.retention} Unsent drafts are deleted after{" "}
           {String(STALE_DRAFT_RETENTION_DAYS)} days without changes.
         </p>
       </section>
@@ -145,13 +130,7 @@ export default async function SignerPrivacyPage() {
         <h2 className="text-xl font-extrabold tracking-[-0.02em] text-(--fg)">
           Your rights
         </h2>
-        <p>
-          You can ask {organization} for a copy of your information, to correct
-          it, to restrict or object to its use, or to erase it. A signed record
-          may be kept despite a request to erase it while it is needed as
-          evidence or by law (GDPR Article 17(3)). You can also complain to the
-          data protection authority where you live or work.
-        </p>
+        <p>{notice.rights}</p>
       </section>
     </PublicDocumentShell>
   );
