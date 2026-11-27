@@ -5,12 +5,63 @@ import { Dialog as DialogPrimitive } from "radix-ui";
 
 import { cn } from "@/lib/cn";
 import { Button } from "@/components/ui/button";
+import {
+  captureDialogReturnFocusTarget,
+  restoreDialogReturnFocus,
+  shouldRestoreDialogReturnFocus,
+  type FocusableElement,
+} from "@/lib/dialog-focus";
 import { XIcon } from "lucide-react";
 
+type DialogReturnFocusContextValue = {
+  isOpen: boolean;
+  returnFocusTarget: FocusableElement | null;
+};
+
+const DialogReturnFocusContext =
+  React.createContext<DialogReturnFocusContextValue | null>(null);
+
+function captureCurrentFocusTarget(): FocusableElement | null {
+  return captureDialogReturnFocusTarget(
+    typeof document === "undefined" ? null : document,
+  );
+}
+
 function Dialog({
+  open,
   ...props
 }: React.ComponentProps<typeof DialogPrimitive.Root>) {
-  return <DialogPrimitive.Root data-slot="dialog" {...props} />;
+  // Most dialogs open from React state without a Radix DialogTrigger, so
+  // Radix's default close handler calls triggerRef.current?.focus() (a no-op)
+  // and focus falls to document.body. Remember what had focus when the dialog
+  // opened so DialogContent restores it on close.
+  const isControlledOpen = open === true;
+  const [prevOpen, setPrevOpen] = React.useState(isControlledOpen);
+  const [returnFocusTarget, setReturnFocusTarget] =
+    React.useState<FocusableElement | null>(() =>
+      isControlledOpen ? captureCurrentFocusTarget() : null,
+    );
+
+  if (isControlledOpen !== prevOpen) {
+    setPrevOpen(isControlledOpen);
+    if (isControlledOpen) {
+      setReturnFocusTarget(captureCurrentFocusTarget());
+    }
+  }
+
+  const focusContextValue = React.useMemo(
+    () => ({
+      isOpen: isControlledOpen,
+      returnFocusTarget,
+    }),
+    [isControlledOpen, returnFocusTarget],
+  );
+
+  return (
+    <DialogReturnFocusContext.Provider value={focusContextValue}>
+      <DialogPrimitive.Root data-slot="dialog" open={open} {...props} />
+    </DialogReturnFocusContext.Provider>
+  );
 }
 
 function DialogTrigger({
@@ -50,11 +101,27 @@ function DialogOverlay({
 function DialogContent({
   className,
   children,
+  onCloseAutoFocus,
   showCloseButton = true,
   ...props
 }: React.ComponentProps<typeof DialogPrimitive.Content> & {
   showCloseButton?: boolean;
 }) {
+  const returnFocus = React.useContext(DialogReturnFocusContext);
+  const isMountedRef = React.useRef(false);
+  const isOpenRef = React.useRef(returnFocus?.isOpen ?? false);
+
+  React.useEffect(() => {
+    isOpenRef.current = returnFocus?.isOpen ?? false;
+  }, [returnFocus?.isOpen]);
+
+  React.useEffect(() => {
+    isMountedRef.current = true;
+    return () => {
+      isMountedRef.current = false;
+    };
+  }, []);
+
   return (
     <DialogPortal>
       <DialogOverlay />
@@ -64,6 +131,24 @@ function DialogContent({
           "fixed top-1/2 left-1/2 z-50 grid w-full max-w-[calc(100%-2rem)] grid-cols-[minmax(0,1fr)] wrap-break-word -translate-x-1/2 -translate-y-1/2 gap-5 rounded-3xl bg-[var(--paper-raised)] p-6 text-sm shadow-[0_32px_80px_rgba(28,29,43,0.22)] duration-100 outline-none sm:max-w-md sm:p-8 data-open:animate-in data-open:fade-in-0 data-open:zoom-in-95 data-closed:animate-out data-closed:fade-out-0 data-closed:zoom-out-95",
           className,
         )}
+        onCloseAutoFocus={(event) => {
+          onCloseAutoFocus?.(event);
+
+          if (
+            !shouldRestoreDialogReturnFocus({
+              isMounted: isMountedRef.current,
+              isOpen: isOpenRef.current,
+            })
+          ) {
+            return;
+          }
+
+          restoreDialogReturnFocus(
+            returnFocus?.returnFocusTarget ?? null,
+            event,
+            typeof document === "undefined" ? null : document,
+          );
+        }}
         {...props}
       >
         {children}
