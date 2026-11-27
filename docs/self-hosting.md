@@ -324,6 +324,17 @@ To close the route, set a secret. A caller then has to send `Authorization: Bear
 - `CRON_SECRET` is the one to use on Vercel, because Vercel sends it on its own cron calls.
 - `RETENTION_JOB_SECRET` does the same for a scheduler of your own. On Vercel, a deployment that sets only this one turns Vercel's cron call away, so store the secret as `CRON_SECRET` there instead.
 
+## Strict mode
+
+By default a new install needs nothing typed in: the site's secret comes from the database password, and the `/api/internal/*` routes look after themselves when no `CRON_SECRET` is set. That suits a quick start. For a production install that holds real documents, turn on strict mode with `STRICT_SECRETS=1`:
+
+- The app refuses to run in production without `BETTER_AUTH_SECRET`, at least 32 characters (`openssl rand -hex 32`). A database dump plus the database password can then no longer unlock the two-step keys, the webhook secrets and the seal key.
+- The `/api/internal/*` routes (cleanup, backup, webhooks) refuse any call without `CRON_SECRET`, so set `CRON_SECRET` too. Vercel then sends it by itself on its cron calls.
+
+Set both values before you turn the switch on. On an install that already runs, `BETTER_AUTH_SECRET` replaces the secret derived until now, so plan the change in one step: clear everyone's two-step setup in the same step (see Two-step sign-in), expect a new seal key (PDFs sealed before still verify, under the old certificate), and add the webhook endpoints again.
+
+Behind your own reverse proxies, away from Vercel, also set `TRUSTED_PROXY_COUNT` to the number of proxies that each add an entry to `X-Forwarded-For` (usually `1`). The visitor's address is then read from the entry that many places from the end, and no other header counts. Without it, a visitor can forge the address that the rate limits and the audit trail record.
+
 ## Rate limits
 
 Sign-in, sign-up, password reset, the signing pages, uploads and sending are rate limited per visitor. The counts are kept in the `rate_limits` table in Postgres, so they hold across every instance of the app. On Vercel the visitor's address is read from the header Vercel sets itself, which a visitor cannot forge. If the database cannot be reached, each instance falls back to counting in its own memory.

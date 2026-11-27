@@ -44,6 +44,11 @@ export function isProduction(env: EnvSource): boolean {
   return env.NODE_ENV === "production";
 }
 
+/** STRICT_SECRETS=1 turns on the secret checks that need a person to set values. */
+export function isStrictSecrets(env: EnvSource): boolean {
+  return isProduction(env) && readEnv(env, "STRICT_SECRETS") === "1";
+}
+
 function isOnVercel(env: EnvSource): boolean {
   return readEnv(env, "VERCEL") === "1";
 }
@@ -228,6 +233,19 @@ export function resolveAuthSecret(
   const configuredSecret = readEnv(env, "BETTER_AUTH_SECRET");
 
   if (!configuredSecret) {
+    // With STRICT_SECRETS=1 the secret must be set on purpose in
+    // production. Deriving it from the database password would let a
+    // database dump plus that password unlock the 2FA secrets, the session
+    // cookies and the sealing key. It is opt-in so installs made with the
+    // Deploy button, which type in nothing, keep working.
+    if (isStrictSecrets(env)) {
+      throw new Error(
+        "BETTER_AUTH_SECRET must be set in production (at least " +
+          String(MINIMUM_SECRET_LENGTH) +
+          " characters).",
+      );
+    }
+
     return deriveAuthSecret(env);
   }
 

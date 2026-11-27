@@ -146,3 +146,25 @@ test("Supabase's POSTGRES_URL is used when DATABASE_URL is not set", () => {
     NEON_URL.replace("sslmode=require", "sslmode=verify-full"),
   );
 });
+
+test("STRICT_SECRETS makes production refuse a derived secret", () => {
+  const strict = { NODE_ENV: "production", STRICT_SECRETS: "1" };
+
+  assert.throws(
+    () => resolveAuthSecret({ ...strict, DATABASE_URL: NEON_URL }),
+    /BETTER_AUTH_SECRET must be set in production/,
+  );
+  assert.equal(
+    resolveAuthSecret({
+      ...strict,
+      BETTER_AUTH_SECRET: "s".repeat(40),
+      DATABASE_URL: NEON_URL,
+    }),
+    "s".repeat(40),
+  );
+  // Without the switch, an install that types in nothing keeps working.
+  assert.match(
+    resolveAuthSecret({ DATABASE_URL: NEON_URL, NODE_ENV: "production" }) ?? "",
+    /^[0-9a-f]{64}$/,
+  );
+});
