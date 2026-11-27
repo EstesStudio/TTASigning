@@ -12,7 +12,7 @@ import { pathToFileURL } from "node:url";
 import type { Pool, QueryResult } from "pg";
 
 import type * as MeRouteModule from "../../app/api/v1/me/route.ts";
-import { generateApiKey, hashApiKey, type ApiKeyScope } from "../api-keys.ts";
+import { hashApiKey, type ApiKeyScope } from "../api-keys.ts";
 import { replaceDbPoolForTests } from "../db/connection.ts";
 import { sealWebhookSecret } from "../webhooks/endpoints.ts";
 import { generateWebhookSecret, verifyWebhook } from "../webhooks/signing.ts";
@@ -486,12 +486,16 @@ test("every authenticated /api/v1 route runs through handleApi", async () => {
   }
 });
 
+const READ_FIXTURE_1 = `sdk_${"a".repeat(43)}`;
+const READ_FIXTURE_2 = `sdk_${"b".repeat(43)}`;
+const READ_FIXTURE_3 = `sdk_${"c".repeat(43)}`;
+const READ_FIXTURE_4 = `sdk_${"d".repeat(43)}`;
+
 test("authenticated GET /api/v1/me triggers delivery of a due webhook retry (issue #216)", async () => {
   received.length = 0;
   receiverStatus = 204;
 
   const secret = generateWebhookSecret();
-  const readKey = generateApiKey();
   const now = Math.floor(Date.now() / 1000);
   const delivery = makePendingRetry({
     id: "msg_due_me_retry",
@@ -502,7 +506,7 @@ test("authenticated GET /api/v1/me triggers delivery of a due webhook retry (iss
     deliveries: [delivery],
     key: {
       id: "key-read-1",
-      keyHash: hashApiKey(readKey),
+      keyHash: hashApiKey(READ_FIXTURE_1),
       name: "Read monitor",
       scope: "read",
       userEmail: "ops@example.test",
@@ -515,7 +519,7 @@ test("authenticated GET /api/v1/me triggers delivery of a due webhook retry (iss
 
   const response = await meRoute.GET(
     new Request("http://localhost:3000/api/v1/me", {
-      headers: { authorization: `Bearer ${readKey}` },
+      headers: { authorization: `Bearer ${READ_FIXTURE_1}` },
     }),
   );
 
@@ -549,7 +553,6 @@ test("authenticated GET /api/v1/me leaves a future webhook retry pending (issue 
   receiverStatus = 204;
 
   const secret = generateWebhookSecret();
-  const readKey = generateApiKey();
   const futureDueAt = Math.floor(Date.now() / 1000) + 300;
   const delivery = makePendingRetry({
     id: "msg_future_me_retry",
@@ -560,7 +563,7 @@ test("authenticated GET /api/v1/me leaves a future webhook retry pending (issue 
     deliveries: [delivery],
     key: {
       id: "key-read-2",
-      keyHash: hashApiKey(readKey),
+      keyHash: hashApiKey(READ_FIXTURE_2),
       name: "Read monitor",
       scope: "read",
       userEmail: "ops@example.test",
@@ -573,7 +576,7 @@ test("authenticated GET /api/v1/me leaves a future webhook retry pending (issue 
 
   const response = await meRoute.GET(
     new Request("http://localhost:3000/api/v1/me", {
-      headers: { authorization: `Bearer ${readKey}` },
+      headers: { authorization: `Bearer ${READ_FIXTURE_2}` },
     }),
   );
 
@@ -593,7 +596,6 @@ test("unauthenticated GET /api/v1/me returns 401 and does not trigger due webhoo
   receiverStatus = 204;
 
   const secret = generateWebhookSecret();
-  const readKey = generateApiKey();
   const dueAt = Math.floor(Date.now() / 1000) - 5;
   const delivery = makePendingRetry({
     id: "msg_unauth_me_retry",
@@ -604,7 +606,7 @@ test("unauthenticated GET /api/v1/me returns 401 and does not trigger due webhoo
     deliveries: [delivery],
     key: {
       id: "key-read-3",
-      keyHash: hashApiKey(readKey),
+      keyHash: hashApiKey(READ_FIXTURE_3),
       name: "Read monitor",
       scope: "read",
       userEmail: "ops@example.test",
@@ -637,13 +639,12 @@ test("unauthenticated GET /api/v1/me returns 401 and does not trigger due webhoo
 
 test("GET /api/v1/me still answers in the API error shape when the database fails", async (t) => {
   const logged = t.mock.method(console, "error", () => undefined);
-  const readKey = generateApiKey();
   const fakeDb = createFakeDb({
     deliveries: [],
     failKeyLookup: true,
     key: {
       id: "key-read-4",
-      keyHash: hashApiKey(readKey),
+      keyHash: hashApiKey(READ_FIXTURE_4),
       name: "Read monitor",
       scope: "read",
       userEmail: "ops@example.test",
@@ -656,7 +657,7 @@ test("GET /api/v1/me still answers in the API error shape when the database fail
 
   const response = await meRoute.GET(
     new Request("http://localhost:3000/api/v1/me", {
-      headers: { authorization: `Bearer ${readKey}` },
+      headers: { authorization: `Bearer ${READ_FIXTURE_4}` },
     }),
   );
 
