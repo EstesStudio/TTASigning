@@ -11,6 +11,7 @@ import { namesMatch } from "./name-match.ts";
 import { createEmailService, type EmailService } from "./services/email.ts";
 import { recordSystemAuditEvent } from "./services/system-audit.ts";
 import { getBranding, getSettings } from "./settings.ts";
+import { hasSharedSigningStep } from "./signing-steps.ts";
 import { type SignatureMeaning } from "./types/domain.ts";
 
 // Part 11 mode: the controls 21 CFR Part 11 asks of a system that keeps
@@ -33,6 +34,38 @@ import { type SignatureMeaning } from "./types/domain.ts";
 // This is the software's part only.
 
 export const MAX_SIGNING_PASSWORD_ATTEMPTS = 5;
+
+/**
+ * Approvers are not offered in Part 11 mode. An approval there would be an
+ * electronic signature under 21 CFR 11 (11.50 lists approval as a meaning),
+ * with the account, password and manifestation that go with one, and the
+ * Part 11 validation (docs/part11) covers signers only.
+ */
+export const PART11_APPROVER_MESSAGE =
+  "Part 11 mode has no approvers. Make each approver a signer with the meaning Approval, so they sign with their account and password.";
+
+export const PART11_SHARED_STEP_MESSAGE =
+  "Part 11 mode signs one signer after another. Give each signer their own step in the signing order.";
+
+/**
+ * Why a template's roles can't go out in Part 11 mode, or null. A template
+ * saved before Part 11 mode was turned on can have approvers or signers who
+ * sign at the same time, and sending would refuse every envelope made from it.
+ */
+export function describePart11TemplateProblem(
+  roles: readonly { kind?: string; step?: number }[],
+): string | null {
+  if (roles.some((role) => role.kind === "approver")) {
+    return PART11_APPROVER_MESSAGE;
+  }
+
+  const signers = roles.map((role, index) => ({
+    signOrder: index + 1,
+    signingStep: role.step ?? null,
+  }));
+
+  return hasSharedSigningStep(signers) ? PART11_SHARED_STEP_MESSAGE : null;
+}
 
 export {
   parseSignatureMeaning,

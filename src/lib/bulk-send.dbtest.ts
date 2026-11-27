@@ -949,6 +949,61 @@ test("a template with no signature field is refused before any row is ready", as
   assert.equal(await countEnvelopes(userId), 1);
 });
 
+test("in Part 11 mode a template whose signers share a step is refused before any row is ready", async () => {
+  const userId = await createUser();
+  const template = await createTwoRoleTemplate(userId, { sameStep: true });
+  const before = await countEnvelopes(userId);
+  const csv = twoRoleCsv([
+    [
+      "Ada",
+      `ada-${randomUUID()}@example.test`,
+      "Ben",
+      `ben-${randomUUID()}@example.test`,
+      "Lease",
+    ],
+  ]);
+  const previous = await database.query<{ part11_mode: boolean }>(
+    `select part11_mode from app_settings where id`,
+  );
+
+  await database.query(
+    `
+      insert into app_settings (id, signup_mode, created_at, updated_at, part11_mode)
+      values (true, 'open', 1, 1, true)
+      on conflict (id) do update set part11_mode = true
+    `,
+  );
+
+  try {
+    for (const body of [
+      { csv },
+      confirmBody(csv, { signatureMeaning: "approval" }),
+    ]) {
+      await assert.rejects(
+        bulkSendFromTemplate(userId, template.id, body, {
+          ...options(),
+          sender: senderFor(userId),
+        }),
+        (error: unknown) =>
+          error instanceof BulkSendError &&
+          error.statusCode === 400 &&
+          /one signer after another/.test(error.message),
+      );
+    }
+
+    assert.equal(await countEnvelopes(userId), before);
+  } finally {
+    if (previous.rowCount) {
+      await database.query(
+        `update app_settings set part11_mode = $1 where id`,
+        [previous.rows[0]!.part11_mode],
+      );
+    } else {
+      await database.query(`delete from app_settings where id`);
+    }
+  }
+});
+
 async function createDropdownTemplate(
   userId: string,
   dropdown: { height: number; width: number },

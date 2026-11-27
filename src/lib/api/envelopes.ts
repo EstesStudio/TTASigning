@@ -105,6 +105,51 @@ const apiFieldSchema = z.object({
   y: z.number().finite().min(0).max(1),
 });
 
+// Postgres can't store a NUL character in text or JSON, so a request that
+// carries one is refused here rather than failing as a server error.
+function findNulCharacter(
+  value: unknown,
+  path: (string | number)[] = [],
+): (string | number)[] | null {
+  if (typeof value === "string") {
+    return value.includes("\u0000") ? path : null;
+  }
+
+  if (Array.isArray(value)) {
+    for (const [index, item] of value.entries()) {
+      const found = findNulCharacter(item, [...path, index]);
+
+      if (found) {
+        return found;
+      }
+    }
+  } else if (typeof value === "object" && value !== null) {
+    for (const [key, item] of Object.entries(value)) {
+      const found = key.includes("\u0000")
+        ? [...path, key]
+        : findNulCharacter(item, [...path, key]);
+
+      if (found) {
+        return found;
+      }
+    }
+  }
+
+  return null;
+}
+
+export function refuseNulCharacters(value: unknown, ctx: z.RefinementCtx) {
+  const path = findNulCharacter(value);
+
+  if (path) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      message: "Text can't contain a NUL character (\\u0000).",
+      path,
+    });
+  }
+}
+
 export const apiCreateEnvelopeSchema = z
   .object({
     copyRecipients: z
@@ -120,6 +165,8 @@ export const apiCreateEnvelopeSchema = z
     title: envelopeTitleSchema,
   })
   .superRefine((value, ctx) => {
+    refuseNulCharacters(value, ctx);
+
     const refs = new Set<string>();
 
     for (const [index, signer] of value.signers.entries()) {

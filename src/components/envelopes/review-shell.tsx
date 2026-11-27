@@ -18,6 +18,7 @@ import {
 import type { ReviewEnvelopeData } from "@/lib/envelopes";
 import { PERMITTED_USE_PATH } from "@/lib/permitted-uses";
 import { formatReminderInterval } from "@/lib/services/reminders";
+import { describeSigningOrderCount } from "@/lib/signing-steps";
 import {
   DEFAULT_ENVELOPE_DEADLINE_DAYS,
   DEFAULT_ENVELOPE_REMINDER_DAYS,
@@ -306,8 +307,7 @@ export function ReviewShell({
                 Signing order
               </h2>
               <span className="pill pill-neutral">
-                {activeRecord.signers.length}{" "}
-                {activeRecord.signers.length === 1 ? "signer" : "signers"}
+                {describeSigningOrderCount(activeRecord.signers)}
               </span>
             </div>
 

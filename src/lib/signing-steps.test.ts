@@ -3,6 +3,7 @@ import { test } from "node:test";
 
 import { getMaxSignersPerEnvelope } from "./signer-limit.ts";
 import {
+  describeSigningOrderCount,
   firstStepSigners,
   hasSharedSigningStep,
   isEarlierStep,
@@ -220,4 +221,17 @@ test("moving a signer leaves everyone else in their step", () => {
 
   assert.equal(moveListedSigner(list, 0, "earlier"), list);
   assert.equal(moveListedSigner(list, 1, "later"), list);
+});
+
+test("a signing order counts approvers apart from signers", () => {
+  assert.equal(describeSigningOrderCount([{ role: "signer" }]), "1 signer");
+  assert.equal(describeSigningOrderCount([{}, {}]), "2 signers");
+  assert.equal(
+    describeSigningOrderCount([
+      { role: "approver" },
+      { role: "signer" },
+      { role: "signer" },
+    ]),
+    "2 signers · 1 approver",
+  );
 });

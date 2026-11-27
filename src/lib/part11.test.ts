@@ -2,7 +2,10 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 
 import { toCsv } from "./audit-export.ts";
-import { describePart11SignerProblem } from "./part11.ts";
+import {
+  describePart11SignerProblem,
+  describePart11TemplateProblem,
+} from "./part11.ts";
 import { computeSystemAuditRowHash } from "./services/system-audit.ts";
 import {
   buildSignatureManifestation,
@@ -151,4 +154,18 @@ test("the install audit hash changes when any field or the previous hash does", 
     }),
     hash,
   );
+});
+
+test("a template saved before Part 11 mode can't go out with approvers or a shared step", () => {
+  assert.match(
+    describePart11TemplateProblem([{ kind: "approver" }, { kind: "signer" }]) ??
+      "",
+    /no approvers/,
+  );
+  assert.match(
+    describePart11TemplateProblem([{ step: 1 }, { step: 1 }]) ?? "",
+    /one signer after another/,
+  );
+  assert.equal(describePart11TemplateProblem([{ step: 1 }, { step: 2 }]), null);
+  assert.equal(describePart11TemplateProblem([{}, {}]), null);
 });

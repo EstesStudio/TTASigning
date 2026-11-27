@@ -67,6 +67,8 @@ import {
 import {
   describePart11SignerProblem,
   findSignerAccounts,
+  PART11_APPROVER_MESSAGE,
+  PART11_SHARED_STEP_MESSAGE,
   parseSignatureMeaning,
   signatureMeaningLabel,
 } from "./part11.ts";
@@ -134,6 +136,7 @@ import {
   getMaxSignersPerEnvelope,
 } from "./signer-limit.ts";
 import {
+  describeSigningOrderCount,
   firstStepSigners,
   hasSharedSigningStep,
   joinNames,
@@ -1538,7 +1541,7 @@ function buildDashboardContextLine(
     return `Voided on ${formatShortDate(envelope.voidedAt ?? envelope.updatedAt)}`;
   }
 
-  return `${pluralize(signers.length, "signer")} · ${pluralize(fields.length, "field")} placed`;
+  return `${describeSigningOrderCount(signers)} · ${pluralize(fields.length, "field")} placed`;
 }
 
 const dashboardStatusLabels: Record<EnvelopeRecord["status"], string> = {
@@ -1679,15 +1682,6 @@ function getMissingSignatureSigner(
       ),
   );
 }
-
-/**
- * Approvers are not offered in Part 11 mode. An approval there would be an
- * electronic signature under 21 CFR 11 (11.50 lists approval as a meaning),
- * with the account, password and manifestation that go with one, and the
- * Part 11 validation (docs/part11) covers signers only.
- */
-const PART11_APPROVER_MESSAGE =
-  "Part 11 mode has no approvers. Make each approver a signer with the meaning Approval, so they sign with their account and password.";
 
 /**
  * What stops the signing order from going out, about signers and
@@ -1843,19 +1837,27 @@ function buildTimelineDescription(event: AuditEventRecord): string {
       return "Envelope created";
     case "sent": {
       // A first step of several signers names them all.
-      const stepSigners = Array.isArray(event.metadata?.stepSigners)
-        ? event.metadata.stepSigners.flatMap((entry: unknown) =>
-            typeof entry === "object" &&
-            entry !== null &&
-            "signerName" in entry &&
-            typeof entry.signerName === "string"
-              ? [entry.signerName]
-              : [],
-          )
+      const stepEntries: unknown[] = Array.isArray(event.metadata?.stepSigners)
+        ? event.metadata.stepSigners
         : [];
+      const stepSigners = stepEntries.flatMap((entry) =>
+        typeof entry === "object" &&
+        entry !== null &&
+        "signerName" in entry &&
+        typeof entry.signerName === "string"
+          ? [entry.signerName]
+          : [],
+      );
+      const stepHasApprover = stepEntries.some(
+        (entry) =>
+          typeof entry === "object" &&
+          entry !== null &&
+          "role" in entry &&
+          entry.role === "approver",
+      );
 
       return stepSigners.length > 1
-        ? `Sent to ${joinNames(stepSigners)} to sign at the same time`
+        ? `Sent to ${joinNames(stepSigners)} ${stepHasApprover ? "at the same time" : "to sign at the same time"}`
         : `Sent to ${targetLabel}`;
     }
     case "viewed":
@@ -2886,10 +2888,7 @@ export async function sendDraftEnvelope(
   //   been through the provider.
   if (hasSharedSigningStep(signers)) {
     if (part11) {
-      throw new EnvelopeMutationError(
-        "Part 11 mode signs one signer after another. Give each signer their own step in the signing order.",
-        400,
-      );
+      throw new EnvelopeMutationError(PART11_SHARED_STEP_MESSAGE, 400);
     }
 
     if (signatureLevel !== "simple") {
@@ -3240,6 +3239,7 @@ export async function sendDraftEnvelope(
             ...(firstSigners.length > 1
               ? {
                   stepSigners: firstSigners.map((signer) => ({
+                    role: signer.role,
                     signerEmail: signer.email,
                     signerId: signer.id,
                     signerName: signer.name,

@@ -161,8 +161,13 @@ export const signerRecordSchema = draftSignerSchema.extend({
   updatedAt: unixTimestampSchema,
 });
 
+export const MAX_DECLINE_REASON_LENGTH = 1000;
+
 export const declineEnvelopeSchema = z.object({
-  reason: optionalTrimmedString(1000),
+  reason: optionalTrimmedString(
+    MAX_DECLINE_REASON_LENGTH,
+    "Keep the reason to 1,000 characters or fewer.",
+  ),
 });
 
 export const missingCorrectedSignerFieldsMessage =
