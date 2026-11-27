@@ -443,12 +443,14 @@ async function persistReminder(
       );
 
       if (nextAvailableAt > dispatchedAt) {
+        const nextAvailableAtLabel = formatReminderAvailableAt(nextAvailableAt);
+
         throw new ReminderMutationError(
-          `You can send another reminder after ${formatReminderAvailableAt(nextAvailableAt)}.`,
+          `You can send another reminder after ${nextAvailableAtLabel}.`,
           429,
           {
             nextAvailableAt,
-            nextAvailableAtLabel: formatReminderAvailableAt(nextAvailableAt),
+            nextAvailableAtLabel,
           },
         );
       }
