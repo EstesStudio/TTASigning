@@ -29,6 +29,7 @@ import type {
   EnvelopeDetailData,
   EnvelopeDetailTimelineItem,
 } from "@/lib/envelopes";
+import { describeCopyRecipientDelivery } from "@/lib/envelope-detail-copy";
 import { formatReminderInterval } from "@/lib/services/reminders";
 import {
   DEFAULT_ENVELOPE_DEADLINE_DAYS,
@@ -991,9 +992,7 @@ export function EnvelopeDetailShell({
                 Receives a copy
               </h3>
               <p className="mt-1 text-sm leading-6 text-(--secondary)">
-                {activeRecord.status === "completed"
-                  ? "Sent the finished document and its certificate."
-                  : "Gets the finished document once everyone has signed."}
+                {describeCopyRecipientDelivery(activeRecord.status)}
               </p>
               <ul className="mt-3 space-y-2">
                 {record.copyRecipients.map((recipient) => (
