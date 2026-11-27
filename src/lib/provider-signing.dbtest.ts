@@ -20,6 +20,7 @@ import {
   replaceDraftEnvelopeFields,
   replaceDraftEnvelopeSigners,
   sendDraftEnvelope,
+  voidSentEnvelope,
 } from "./envelopes.ts";
 import {
   ProviderSigningError,
@@ -467,16 +468,43 @@ test("two signers sign with qualified signatures, each in a revision of their ow
   );
   assert.equal(findSignatures(firstRevision).length, 1);
 
-  // A second return for the same session does not sign again.
-  await assert.rejects(
-    resumeProviderSigning(riley.query.get("state") ?? "", riley.query, {
+  // A second return for the same completed session confirms completion
+  // without signing again or adding duplicate audit events.
+  const rileyRepeat = await resumeProviderSigning(
+    riley.query.get("state") ?? "",
+    riley.query,
+    {
       database,
       storageService,
       verifiedMethodsFor: () => [],
-    }),
-    (error: unknown) =>
-      error instanceof ProviderSigningError && error.problem === "expired",
+    },
   );
+
+  assert.deepEqual(rileyRepeat, {
+    redirectPath: "/sign/completed/done?title=Supply+agreement",
+  });
+
+  const afterRileyRepeat = await database.query<{
+    revision_key: string;
+    revision_sha256: string;
+    status: string;
+  }>(
+    `select revision_key, revision_sha256, status from envelopes where id = $1`,
+    [draft.envelopeId],
+  );
+
+  assert.deepEqual(afterRileyRepeat.rows[0], afterRiley.rows[0]);
+  assert.deepEqual(
+    Buffer.from((await storageService.getObject(firstRevisionKey)).body),
+    Buffer.from(firstRevision),
+  );
+
+  const signedAfterRileyRepeat = await database.query<{ count: string }>(
+    `select count(*)::text as count from audit_events where envelope_id = $1 and event = 'signed'`,
+    [draft.envelopeId],
+  );
+
+  assert.equal(signedAfterRileyRepeat.rows[0]?.count, "1");
 
   // Casey signs on top of Riley's revision, and that finishes the envelope.
   const casey = await signAtProvider(
@@ -500,6 +528,18 @@ test("two signers sign with qualified signatures, each in a revision of their ow
     "completed",
     "completed",
   ]);
+  // Revisiting either completed return after the envelope is finished still
+  // confirms completion and leaves sealed files and audit history untouched.
+  for (const repeatQuery of [riley.query, casey.query]) {
+    assert.deepEqual(
+      await resumeProviderSigning(repeatQuery.get("state") ?? "", repeatQuery, {
+        database,
+        storageService,
+        verifiedMethodsFor: () => [],
+      }),
+      { redirectPath: "/sign/completed/done?title=Supply+agreement" },
+    );
+  }
   // Riley's revision is inside Casey's, so it is not kept on its own.
   assert.equal(await stored(firstRevisionKey), false);
 
@@ -1014,4 +1054,53 @@ test("a certificate in someone else's name does not sign for the invited signer"
     "completed",
     "failed",
   ]);
+});
+
+test("revisiting a completed provider return reflects a voided envelope and rejects unknown states", async () => {
+  const draft = await createDraft();
+
+  await send(draft, "qualified");
+
+  const riley = await signAtProvider(
+    await linkFor(draft.riley.id),
+    draft.riley,
+  );
+
+  await riley.finish();
+  await voidSentEnvelope(
+    draft.userId,
+    draft.envelopeId,
+    { senderEmail: "sam@example.test", senderName: "Sam Sender" },
+    { database },
+  );
+
+  const repeatAfterVoid = await resumeProviderSigning(
+    riley.query.get("state") ?? "",
+    riley.query,
+    {
+      database,
+      storageService,
+      verifiedMethodsFor: () => [],
+    },
+  );
+
+  assert.deepEqual(repeatAfterVoid, {
+    redirectPath: "/sign/completed/done?status=voided",
+  });
+
+  await assert.rejects(
+    resumeProviderSigning(
+      "unknown-session",
+      new URLSearchParams("state=unknown-session"),
+      {
+        database,
+        storageService,
+        verifiedMethodsFor: () => [],
+      },
+    ),
+    (error: unknown) =>
+      error instanceof ProviderSigningError &&
+      error.problem === "expired" &&
+      error.token === null,
+  );
 });
