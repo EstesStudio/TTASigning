@@ -334,18 +334,46 @@ async function defaultPasswordVerifier(input: {
   return context.password.verify(input);
 }
 
-export type SigningPasswordResult =
-  | { ok: true }
-  | {
-      attemptsLeft: number;
-      /**
-       * An administrator took back the identity confirmation, or the email
-       * address is no longer confirmed, since the envelope was sent.
-       */
-      identityNotConfirmed?: true;
-      locked: boolean;
-      ok: false;
-    };
+export type SigningPasswordFailure = {
+  attemptsLeft: number;
+  /**
+   * An administrator took back the identity confirmation, or the email
+   * address is no longer confirmed, since the envelope was sent.
+   */
+  identityNotConfirmed?: true;
+  locked: boolean;
+  ok: false;
+  /**
+   * The account's identity is confirmed, but under a different name than the
+   * one this envelope was sent to (for example, after a name change and
+   * re-confirmation).
+   */
+  signerNameMismatch?: true;
+};
+
+export type SigningPasswordResult = { ok: true } | SigningPasswordFailure;
+
+/**
+ * Plain-English explanation shown on the signing page when a Part 11 account
+ * check or signature re-authentication is refused.
+ */
+export function describeSigningCredentialFailure(
+  result: Omit<SigningPasswordFailure, "ok">,
+): string {
+  if (result.identityNotConfirmed) {
+    return "Your account cannot sign this document right now: an administrator has to confirm your identity, and your email address must be confirmed. Ask the sender or an administrator.";
+  }
+
+  if (result.signerNameMismatch) {
+    return "This signing link was sent under a different name than your account's confirmed name. Part 11 signatures are made in the confirmed name, so this invitation cannot be signed. Ask the sender to void this envelope with a reason and send a new one in your confirmed name.";
+  }
+
+  if (result.locked) {
+    return `This account is locked for signing after ${MAX_SIGNING_PASSWORD_ATTEMPTS} wrong passwords. Ask an administrator to unlock it.`;
+  }
+
+  return `That email address or password is not right. ${result.attemptsLeft} ${result.attemptsLeft === 1 ? "try is" : "tries are"} left before the account is locked for signing.`;
+}
 
 /**
  * The two parts of a Part 11 signature: the account's email address (its
@@ -418,12 +446,7 @@ export async function checkSigningCredentials(
 
     // Checked again at every signature: what was true at send may not be
     // now. Not a wrong password, so it does not count towards the lock.
-    if (
-      !account.emailVerified ||
-      account.identityVerifiedAt === null ||
-      (input.signerName !== undefined &&
-        !namesMatch(input.signerName, account.name))
-    ) {
+    if (!account.emailVerified || account.identityVerifiedAt === null) {
       return {
         attemptsLeft: Math.max(
           0,
@@ -432,6 +455,21 @@ export async function checkSigningCredentials(
         identityNotConfirmed: true as const,
         locked: false,
         ok: false as const,
+      };
+    }
+
+    if (
+      input.signerName !== undefined &&
+      !namesMatch(input.signerName, account.name)
+    ) {
+      return {
+        attemptsLeft: Math.max(
+          0,
+          MAX_SIGNING_PASSWORD_ATTEMPTS - account.failedAttempts,
+        ),
+        locked: false,
+        ok: false as const,
+        signerNameMismatch: true as const,
       };
     }
 
@@ -510,6 +548,9 @@ export async function checkSigningCredentials(
       : {}),
     locked: outcome.locked,
     ok: false,
+    ...("signerNameMismatch" in outcome && outcome.signerNameMismatch
+      ? { signerNameMismatch: true as const }
+      : {}),
   };
 }
 
