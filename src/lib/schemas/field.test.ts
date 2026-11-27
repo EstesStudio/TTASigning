@@ -27,20 +27,41 @@ test("fields that fill themselves in or are the signature are always required", 
     assert.equal(
       fieldPlacementSchema.safeParse({ ...placement, type }).success,
       true,
-      `a ${type} field was refused`,
+      `a ${type} field with omitted required was refused`,
+    );
+    assert.equal(
+      fieldPlacementSchema.safeParse({ ...placement, required: true, type })
+        .success,
+      true,
+      `a ${type} field with required: true was refused`,
     );
   }
 });
 
-test("a text field may be optional", () => {
-  assert.equal(
-    fieldPlacementSchema.safeParse({
+test("interactive non-signature fields may be optional", () => {
+  for (const candidate of [
+    { ...placement, required: false, type: "text" as const },
+    { ...placement, required: false, type: "checkbox" as const },
+    { ...placement, required: false, type: "number" as const },
+    {
       ...placement,
+      options: ["Yes", "No"],
       required: false,
-      type: "text",
-    }).success,
-    true,
-  );
+      type: "dropdown" as const,
+    },
+    {
+      ...placement,
+      groupId: "choice",
+      required: false,
+      type: "radio" as const,
+    },
+  ]) {
+    assert.equal(
+      fieldPlacementSchema.safeParse(candidate).success,
+      true,
+      `an optional ${candidate.type} field was refused`,
+    );
+  }
 });
 
 test("dropdown choices accept 80-code-point emoji strings and refuse lone surrogates", () => {

@@ -6,7 +6,12 @@ import {
   MAX_NUMBER_ENTRY_LENGTH,
   MAX_RADIO_GROUP_BUTTONS,
 } from "../field-choices.ts";
-import { fieldInputMethods, fieldTypes } from "../types/domain.ts";
+import {
+  alwaysRequiredFieldTypes,
+  fieldInputMethods,
+  fieldTypes,
+  type FieldType,
+} from "../types/domain.ts";
 import { toWellFormedText } from "../whole-characters.ts";
 import {
   idSchema,
@@ -15,6 +20,10 @@ import {
   optionalTrimmedString,
   unixTimestampSchema,
 } from "./common.ts";
+
+const alwaysRequiredFieldTypeSet: ReadonlySet<FieldType> = new Set(
+  alwaysRequiredFieldTypes,
+);
 
 export const fieldTypeSchema = z.enum(fieldTypes);
 export const fieldInputMethodSchema = z.enum(fieldInputMethods);
@@ -111,13 +120,7 @@ export const fieldPlacementSchema = z
       });
     }
 
-    if (
-      (field.type === "signature" ||
-        field.type === "initials" ||
-        field.type === "date" ||
-        field.type === "name") &&
-      !field.required
-    ) {
+    if (alwaysRequiredFieldTypeSet.has(field.type) && !field.required) {
       ctx.addIssue({
         code: z.ZodIssueCode.custom,
         message: `${field.type} fields are always required`,
