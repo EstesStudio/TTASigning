@@ -136,11 +136,17 @@ export const signatureLevelSchema = z.enum(["simple", "advanced", "qualified"]);
 
 export type EnvelopeSignatureLevel = z.infer<typeof signatureLevelSchema>;
 
+/** How signers receive signing links. See embedding.ts. */
+export const envelopeDeliverySchema = z.enum(["email", "embedded"]);
+
+export type EnvelopeDelivery = z.infer<typeof envelopeDeliverySchema>;
+
 export const envelopeRecordSchema = z.object({
   id: idSchema,
   userId: idSchema,
   title: envelopeTitleSchema,
   status: envelopeStatusSchema,
+  delivery: envelopeDeliverySchema.optional(),
   sourcePdfKey: z.string().trim().min(1),
   sourcePdfFilename: z.string().trim().min(1).max(255),
   sourcePdfSizeBytes: z.number().int().positive(),

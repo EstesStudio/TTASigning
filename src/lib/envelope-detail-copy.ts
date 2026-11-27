@@ -1,3 +1,5 @@
+import type { EnvelopeDelivery } from "./schemas/envelope.ts";
+import { formatReminderInterval } from "./services/reminders.ts";
 import type { EnvelopeStatus } from "./types/domain.ts";
 
 /**
@@ -17,4 +19,29 @@ export function describeCopyRecipientDelivery(status: EnvelopeStatus): string {
     case "sent":
       return "Gets the finished document once everyone has signed.";
   }
+}
+
+/**
+ * Automatic reminder status line on the sender's envelope detail page.
+ * Embedded envelopes never receive reminders from SignuDoc.
+ */
+export function describeAutomaticReminders(input: {
+  delivery?: EnvelopeDelivery;
+  reminderIntervalDays: number | null;
+}): string {
+  if (input.delivery === "embedded") {
+    return "SignuDoc does not send automatic reminders for embedded envelopes.";
+  }
+
+  return input.reminderIntervalDays === null
+    ? "Automatic reminders are off."
+    : `Automatic reminders: ${formatReminderInterval(input.reminderIntervalDays).toLowerCase()}.`;
+}
+
+/** Whether the sender can open and save an automatic reminder schedule. */
+export function canEditAutomaticReminders(input: {
+  delivery?: EnvelopeDelivery;
+  isOwnEnvelope: boolean;
+}): boolean {
+  return input.isOwnEnvelope && input.delivery !== "embedded";
 }

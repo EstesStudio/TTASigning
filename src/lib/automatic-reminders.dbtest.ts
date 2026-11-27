@@ -52,10 +52,12 @@ after(async () => {
 
 /** An envelope sent at SENT_AT and waiting on its one signer. */
 async function createSentEnvelope({
+  delivery = "email",
   expiresAt = SENT_AT + 30 * DAY,
   reminderIntervalDays,
   signerStatus = "notified",
 }: {
+  delivery?: "email" | "embedded";
   expiresAt?: number | null;
   reminderIntervalDays: number | null;
   signerStatus?: "notified" | "signed";
@@ -76,14 +78,15 @@ async function createSentEnvelope({
   await database.query(
     `
       insert into envelopes (
-        id, user_id, title, status, source_pdf_key, source_pdf_filename,
+        id, user_id, title, status, delivery, source_pdf_key, source_pdf_filename,
         source_pdf_size_bytes, page_count, source_pdf_hash, sent_at,
         expires_at, reminder_interval_days
-      ) values ($1, $2, 'Lease', 'sent', $3, 'lease.pdf', 10, 1, $4, $5, $6, $7)
+      ) values ($1, $2, 'Lease', 'sent', $3, $4, 'lease.pdf', 10, 1, $5, $6, $7, $8)
     `,
     [
       envelopeId,
       userId,
+      delivery,
       `test/${envelopeId}.pdf`,
       "a".repeat(64),
       SENT_AT,
@@ -379,5 +382,34 @@ test("only the owner changes reminders, and only while the envelope is out", asy
     changeEnvelopeReminders(mine.userId, mine.envelopeId, null, { database }),
     (error: unknown) =>
       error instanceof EnvelopeMutationError && error.statusCode === 409,
+  );
+});
+
+test("embedded envelopes refuse reminder schedule changes and are skipped by the daily job (issue #246)", async () => {
+  const embedded = await createSentEnvelope({
+    delivery: "embedded",
+    reminderIntervalDays: null,
+  });
+
+  await assert.rejects(
+    changeEnvelopeReminders(embedded.userId, embedded.envelopeId, 1, {
+      database,
+    }),
+    (error: unknown) =>
+      error instanceof EnvelopeMutationError && error.statusCode === 409,
+  );
+
+  // Even a pre-existing row with an interval saved is skipped by the daily job.
+  await database.query(
+    `update envelopes set reminder_interval_days = 1 where id = $1`,
+    [embedded.envelopeId],
+  );
+
+  const { sent, service } = recordingEmailService();
+
+  await run(SENT_AT + 2 * DAY, service);
+  assert.equal(
+    sent.some((message) => message.to.startsWith(embedded.signerId)),
+    false,
   );
 });

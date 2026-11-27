@@ -29,7 +29,11 @@ import type {
   EnvelopeDetailData,
   EnvelopeDetailTimelineItem,
 } from "@/lib/envelopes";
-import { describeCopyRecipientDelivery } from "@/lib/envelope-detail-copy";
+import {
+  canEditAutomaticReminders,
+  describeAutomaticReminders,
+  describeCopyRecipientDelivery,
+} from "@/lib/envelope-detail-copy";
 import { formatReminderInterval } from "@/lib/services/reminders";
 import {
   DEFAULT_ENVELOPE_DEADLINE_DAYS,
@@ -251,11 +255,18 @@ export function EnvelopeDetailShell({
       : deadline.expiresAtLabel
         ? `Expires ${deadline.expiresAtLabel}.`
         : "No deadline. Each signing link lasts seven days.";
-  const reminderIntervalDays = record.reminderIntervalDays ?? null;
-  const remindersText =
-    reminderIntervalDays === null
-      ? "Automatic reminders are off."
-      : `Automatic reminders: ${formatReminderInterval(reminderIntervalDays).toLowerCase()}.`;
+  const isEmbedded = record.delivery === "embedded";
+  const reminderIntervalDays = isEmbedded
+    ? null
+    : (record.reminderIntervalDays ?? null);
+  const canChangeReminders = canEditAutomaticReminders({
+    delivery: record.delivery,
+    isOwnEnvelope,
+  });
+  const remindersText = describeAutomaticReminders({
+    delivery: record.delivery,
+    reminderIntervalDays,
+  });
   // The document as it was sent, before anyone signed: while it is out for
   // signature, and once it was declined or voided. A completed envelope
   // has its signed PDF instead.
@@ -823,7 +834,7 @@ export function EnvelopeDetailShell({
             <p className="text-sm leading-6 text-(--secondary)">
               {remindersText}
             </p>
-            {isOwnEnvelope ? (
+            {canChangeReminders ? (
               <button
                 className="btn-quiet shrink-0"
                 onClick={() => {
@@ -1053,7 +1064,7 @@ export function EnvelopeDetailShell({
         />
       ) : null}
 
-      {activeModal === "change-reminders" ? (
+      {activeModal === "change-reminders" && canChangeReminders ? (
         <RemindersDialog
           errorMessage={actionError}
           initialIntervalDays={reminderIntervalDays}

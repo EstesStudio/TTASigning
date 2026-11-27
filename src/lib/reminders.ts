@@ -309,6 +309,10 @@ function getAutomaticReminderObstacle(
   signer: ReminderSignerRow,
   now: number,
 ): string | null {
+  if (envelope.delivery === "embedded") {
+    return "This envelope is signed in another app, so SignuDoc does not send automatic reminders for it.";
+  }
+
   if (envelope.reminderIntervalDays === null) {
     return "Automatic reminders are off for this envelope.";
   }

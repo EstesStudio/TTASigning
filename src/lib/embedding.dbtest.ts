@@ -27,6 +27,7 @@ import {
 } from "./embedding.ts";
 import {
   changeEnvelopeDeadline,
+  changeEnvelopeReminders,
   correctSentEnvelopeSigner,
   EnvelopeMutationError,
 } from "./envelopes.ts";
@@ -141,7 +142,13 @@ async function createAdmin(): Promise<ApiActor> {
   };
 }
 
-function request(options: { accessCode?: string; delivery?: string } = {}) {
+function request(
+  options: {
+    accessCode?: string;
+    delivery?: string;
+    reminderIntervalDays?: number | null;
+  } = {},
+) {
   const tag = randomUUID().slice(0, 8);
 
   return apiCreateEnvelopeSchema.parse({
@@ -168,6 +175,9 @@ function request(options: { accessCode?: string; delivery?: string } = {}) {
     send: {
       delivery: options.delivery ?? "embedded",
       permittedUseConfirmed: true,
+      ...(options.reminderIntervalDays !== undefined
+        ? { reminderIntervalDays: options.reminderIntervalDays }
+        : {}),
     },
     signers: [
       {
@@ -275,6 +285,13 @@ test("an embedded send is refused while no site is allowed, or with signer check
     (error: unknown) =>
       error instanceof EnvelopeMutationError &&
       /access codes/.test(error.message),
+  );
+  await assert.rejects(
+    create(admin, { reminderIntervalDays: 5 }),
+    (error: unknown) =>
+      error instanceof EnvelopeMutationError &&
+      error.statusCode === 400 &&
+      /automatic reminders/.test(error.message),
   );
 });
 
@@ -567,6 +584,11 @@ test("an emailed envelope gets no embed links, and an embedded one no reminders 
     sendManualEnvelopeNudge(admin.userId, embedded.id, sender, { database }),
     (error: unknown) =>
       error instanceof ReminderMutationError && error.statusCode === 409,
+  );
+  await assert.rejects(
+    changeEnvelopeReminders(admin.userId, embedded.id, 1, { database }),
+    (error: unknown) =>
+      error instanceof EnvelopeMutationError && error.statusCode === 409,
   );
   await assert.rejects(
     correctSentEnvelopeSigner(

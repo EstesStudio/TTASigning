@@ -233,6 +233,7 @@ type EnvelopeRow = {
   completedAt: number | null;
   createdAt: number;
   declinedAt: number | null;
+  delivery?: "email" | "embedded";
   evidenceKey: string | null;
   expiresAt: number | null;
   id: string;
@@ -483,6 +484,8 @@ export type EnvelopeDetailData = {
   createdAtLabel: string;
   /** Set while the envelope is out for signature. */
   deadline: EnvelopeDetailDeadline | null;
+  /** "email", or "embedded" when signers sign inside another app. */
+  delivery?: "email" | "embedded";
   /** Days between automatic reminders while it is out. Null when off. */
   reminderIntervalDays: number | null;
   envelopeId: string;
@@ -1226,6 +1229,7 @@ async function getEnvelopeByIdForUser(
         user_id AS "userId",
         title,
         status,
+        delivery,
         source_pdf_key AS "sourcePdfKey",
         source_pdf_filename AS "sourcePdfFilename",
         source_pdf_size_bytes AS "sourcePdfSizeBytes",
@@ -2126,6 +2130,7 @@ async function listEnvelopes(
         user_id AS "userId",
         title,
         status,
+        delivery,
         source_pdf_key AS "sourcePdfKey",
         source_pdf_filename AS "sourcePdfFilename",
         source_pdf_size_bytes AS "sourcePdfSizeBytes",
@@ -2354,9 +2359,10 @@ export async function getEnvelopeDetailDataForUser(
                 : null,
           }
         : null,
+    delivery: envelope.delivery ?? "email",
     envelopeId,
     reminderIntervalDays:
-      envelope.status === "sent"
+      envelope.status === "sent" && envelope.delivery !== "embedded"
         ? (envelope.reminderIntervalDays ?? null)
         : null,
     manualReminder,
@@ -2936,6 +2942,13 @@ export async function sendDraftEnvelope(
       );
     }
 
+    if (input.reminderIntervalDays != null) {
+      throw new EnvelopeMutationError(
+        "Embedded envelopes do not send automatic reminders, so leave out reminderIntervalDays or set it to null.",
+        400,
+      );
+    }
+
     if (!(await hasEmbedOrigins(database))) {
       throw new EnvelopeMutationError(
         "Embedded signing is off: no site is allowed to show signing pages. An administrator can add one under Settings, Organization, Embedded signing.",
@@ -3026,6 +3039,8 @@ export async function sendDraftEnvelope(
 
   const sentAt = Math.floor(Date.now() / 1000);
   const expiresAt = deadlineFromDays(sentAt, input.expiresInDays);
+  const reminderIntervalDays =
+    delivery === "embedded" ? null : (input.reminderIntervalDays ?? null);
   const issuedLinks = new Map<string, IssuedSigningLink>();
 
   for (const signer of firstSigners) {
@@ -3054,14 +3069,7 @@ export async function sendDraftEnvelope(
             AND user_id = $4
             AND status = 'draft'
         `,
-        [
-          sentAt,
-          sentAt,
-          envelopeId,
-          userId,
-          expiresAt,
-          input.reminderIntervalDays ?? null,
-        ],
+        [sentAt, sentAt, envelopeId, userId, expiresAt, reminderIntervalDays],
       );
 
       if (updatedEnvelope.rowCount !== 1) {
@@ -3223,7 +3231,7 @@ export async function sendDraftEnvelope(
             ...(delivery === "embedded" ? { delivery } : {}),
             // The send route refuses a send without this confirmation.
             expiresAt,
-            reminderIntervalDays: input.reminderIntervalDays ?? null,
+            reminderIntervalDays,
             permittedUseConfirmed: true,
             permittedUseVersion: PERMITTED_USE_VERSION,
             ...(part11 ? { part11: true } : {}),
@@ -3944,7 +3952,7 @@ export async function changeEnvelopeReminders(
     `
       UPDATE envelopes
       SET reminder_interval_days = $1, updated_at = $2
-      WHERE id = $3 AND user_id = $4 AND status = 'sent'
+      WHERE id = $3 AND user_id = $4 AND status = 'sent' AND delivery = 'email'
     `,
     [reminderIntervalDays, nowUnixTimestamp, envelopeId, userId],
   );
@@ -3952,12 +3960,21 @@ export async function changeEnvelopeReminders(
   if (updated.rowCount !== 1) {
     const envelope = await getEnvelopeByIdForUser(userId, envelopeId, database);
 
-    throw envelope
-      ? new EnvelopeMutationError(
-          "Reminders can only be changed while an envelope is out for signature.",
-          409,
-        )
-      : new EnvelopeMutationError("Envelope not found.", 404);
+    if (!envelope) {
+      throw new EnvelopeMutationError("Envelope not found.", 404);
+    }
+
+    if (envelope.status === "sent" && envelope.delivery === "embedded") {
+      throw new EnvelopeMutationError(
+        "This envelope is signed in another app, so SignuDoc does not send automatic reminders for it.",
+        409,
+      );
+    }
+
+    throw new EnvelopeMutationError(
+      "Reminders can only be changed while an envelope is out for signature.",
+      409,
+    );
   }
 
   return changeRemindersResponseSchema.parse({
