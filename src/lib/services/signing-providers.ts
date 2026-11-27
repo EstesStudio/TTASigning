@@ -221,7 +221,6 @@ export function createEidEasyProvider({
         `${base}/api/signatures/prepare-files-for-signing`,
         {
           body: {
-            baseline: "T",
             client_id: clientId,
             container_type: "cades",
             files: [
